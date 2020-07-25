@@ -12,22 +12,19 @@
 #include "sensor_msgs/BatteryState.h"
 #include "serial/serial.h"
 
-#include "dodobot_serial_bridge/DodobotEncoder.h"
-#include "dodobot_serial_bridge/DodobotFSR.h"
-#include "dodobot_serial_bridge/DodobotSafety.h"
-#include "dodobot_serial_bridge/DodobotTOF.h"
-#include "dodobot_serial_bridge/DodobotMotors.h"
-#include "dodobot_serial_bridge/DodobotServos.h"
-#include "dodobot_serial_bridge/DodobotServoPos.h"
+#include "dodobot_serial_bridge/DodobotDrive.h"
+#include "dodobot_serial_bridge/DodobotBumper.h"
+#include "dodobot_serial_bridge/DodobotGripper.h"
+#include "dodobot_serial_bridge/DodobotFSRs.h"
+#include "dodobot_serial_bridge/DodobotLinear.h"
+#include "dodobot_serial_bridge/DodobotTilter.h"
 
 #include "dodobot_serial_bridge/DodobotPidSrv.h"
-#include "dodobot_serial_bridge/DodobotSafetySrv.h"
-#include "dodobot_serial_bridge/DodobotMenuSrv.h"
 
 
 using namespace std;
 
-#define CHECK_SEGMENT  if (!getNextSegment()) {  ROS_ERROR_STREAM("Not enough segments supplied for #" << getSegmentNum() << ". Buffer: " << _serialBuffer);  return;  }
+#define CHECK_SEGMENT  if (!getNextSegment()) {  ROS_ERROR_STREAM("Not enough segments supplied for #" << getSegmentNum() + 1 << ". Buffer: " << _serialBuffer);  return;  }
 
 char PACKET_START_0 = '\x12';
 char PACKET_START_1 = '\x34';
@@ -41,7 +38,6 @@ struct StructReadyState {
 
 struct StructRobotState {
     uint32_t time_ms;
-    bool is_active;
     bool battery_ok;
     bool motors_active;
     double loop_rate;
@@ -72,40 +68,41 @@ private:
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
     dodobot_serial_bridge::DodobotGripper gripper_msg;
-    void parseFSR();
     void parseGripper();
     void gripperCallback(const dodobot_serial_bridge::DodobotGripper::ConstPtr& msg);
     void writeGripper(uint8_t command, uint8_t force_threshold);
+
+    ros::Publisher fsr_pub;
+    dodobot_serial_bridge::DodobotFSRs fsr_msg;
+    void parseFSR();
 
     ros::Publisher tilter_pub;
     ros::Subscriber tilter_sub;
     dodobot_serial_bridge::DodobotTilter tilter_msg;
     void parseTilter();
-    void tilterCallback(const dodobot_serial_bridge::DodobotTilterCmd::ConstPtr& msg);
-    void writeTilter(uint8_t command);
+    void tilterCallback(const dodobot_serial_bridge::DodobotTilter::ConstPtr& msg);
+    void writeTilter(uint8_t command, int position);
 
     ros::Publisher linear_pub;
     ros::Subscriber linear_sub;
     dodobot_serial_bridge::DodobotLinear linear_msg;
     void parseLinear();
-    void linearCallback(const dodobot_serial_bridge::DodobotLinearCmd::ConstPtr& msg);
-    void writeLinear(uint8_t command);
+    void linearCallback(const dodobot_serial_bridge::DodobotLinear::ConstPtr& msg);
 
     ros::Publisher battery_pub;
     sensor_msgs::BatteryState battery_msg;
     void parseBattery();
 
-    string _encFrameID;
-    double _wheelRadiusCm, _ticksPerRotation, _maxRPM, _cmPerTick, _cpsToCmd;
     string _driveTopicName;
     ros::Publisher drive_pub;
     ros::Subscriber drive_sub;
     dodobot_serial_bridge::DodobotDrive drive_msg;
     void parseDrive();
     void driveCallback(const dodobot_serial_bridge::DodobotDrive::ConstPtr& msg);
-    void writeDriveChassis(const dodobot_serial_bridge::DodobotDrive::ConstPtr& msg);
+    void writeDriveChassis(float speedA, float speedB);
 
     ros::Publisher bumper_pub;
+    dodobot_serial_bridge::DodobotBumper bumper_msg;
     void parseBumper();
 
     bool motorsReady();

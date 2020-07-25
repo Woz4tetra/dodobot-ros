@@ -15,6 +15,7 @@ DodobotSerialBridge::DodobotSerialBridge(ros::NodeHandle* nodehandle):nh(*nodeha
     tilter_msg.header.frame_id = "tilter";
     bumper_msg.header.frame_id = "bumper";
     linear_msg.header.frame_id = "linear";
+    fsr_msg.header.frame_id = "fsrs";
 
     battery_msg.header.frame_id = "battery";
     battery_msg.power_supply_technology = sensor_msgs::BatteryState::POWER_SUPPLY_TECHNOLOGY_LION;
@@ -34,7 +35,6 @@ DodobotSerialBridge::DodobotSerialBridge(ros::NodeHandle* nodehandle):nh(*nodeha
     readyState->time_ms = 0;
 
     robotState = new StructRobotState;
-    robotState->is_active = false;
     robotState->battery_ok = false;
     robotState->motors_active = false;
     robotState->loop_rate = 0.0;
@@ -47,7 +47,8 @@ DodobotSerialBridge::DodobotSerialBridge(ros::NodeHandle* nodehandle):nh(*nodeha
     linear_pub = nh.advertise<dodobot_serial_bridge::DodobotLinear>("linear", 50);
     battery_pub = nh.advertise<sensor_msgs::BatteryState>("battery", 50);
     drive_pub = nh.advertise<dodobot_serial_bridge::DodobotDrive>("drive", 50);
-    bumper_pub = nh.advertise<dodobot_serial_bridge::DodobotDrive>("bumper", 50);
+    bumper_pub = nh.advertise<dodobot_serial_bridge::DodobotBumper>("bumper", 50);
+    fsr_pub = nh.advertise<dodobot_serial_bridge::DodobotFSRs>("fsrs", 50);
 
     gripper_sub = nh.subscribe<dodobot_serial_bridge::DodobotGripper>("gripper_cmd", 50, &DodobotSerialBridge::gripperCallback, this);
     tilter_sub = nh.subscribe<dodobot_serial_bridge::DodobotTilter>("tilter_cmd", 50, &DodobotSerialBridge::tilterCallback, this);
@@ -221,13 +222,13 @@ bool DodobotSerialBridge::readSerial()
 
     // get packet num segment
     if (!getNextSegment()) {
-        ROS_ERROR("Failed to find packet number segment! %s", _serialBuffer);
+        ROS_ERROR_STREAM("Failed to find packet number segment! " << _serialBuffer);
         _readPacketNum++;
         return false;
     }
-    uint32_t recv_packet_num = (uint32_t)stoi(_currentBufferSegment);
+    unsigned long long  recv_packet_num = (unsigned long long )stoi(_currentBufferSegment);
     if (recv_packet_num != _readPacketNum) {
-        ROS_ERROR("Received packet num doesn't match local count. recv %d != local %d", recv_packet_num, _readPacketNum);
+        ROS_ERROR("Received packet num doesn't match local count. recv %llu != local %llu", recv_packet_num, _readPacketNum);
         ROS_ERROR_STREAM("Buffer: " << _serialBuffer);
         _readPacketNum = recv_packet_num;
     }
@@ -295,10 +296,10 @@ void DodobotSerialBridge::processSerialPacket(string category)
     else if (category.compare("state") == 0)
     {
         CHECK_SEGMENT; robotState->time_ms = (uint32_t)stoi(_currentBufferSegment);
-        CHECK_SEGMENT; robotState->is_active = (bool)stoi(_currentBufferSegment);
         CHECK_SEGMENT; robotState->battery_ok = (bool)stoi(_currentBufferSegment);
         CHECK_SEGMENT; robotState->motors_active = (bool)stoi(_currentBufferSegment);
         CHECK_SEGMENT; robotState->loop_rate = (double)stof(_currentBufferSegment);
+
     }
     else if (category.compare("enc") == 0) {
         parseDrive();
@@ -421,6 +422,8 @@ void DodobotSerialBridge::loop()
 void DodobotSerialBridge::stop()
 {
     // setActive(false);
+
+    // leave reporting for other modules
     // setReporting(false);
     _serialRef.close();
 }
@@ -454,7 +457,7 @@ int DodobotSerialBridge::run()
 }
 
 bool DodobotSerialBridge::motorsReady() {
-    return readyState->is_ready && robotState->is_active && robotState->motors_active;
+    return readyState->is_ready && robotState->motors_active;
 }
 
 bool DodobotSerialBridge::robotReady() {
@@ -473,14 +476,18 @@ void DodobotSerialBridge::driveCallback(const dodobot_serial_bridge::DodobotDriv
 }
 
 void DodobotSerialBridge::linearCallback(const dodobot_serial_bridge::DodobotLinear::ConstPtr& msg) {
-    writeSerial("linear", "dd", linear_msg.command_type, linear_msg.command_value);
+    if (!motorsReady()) {
+        ROS_WARN("Motors aren't ready! Skipping writeTilter");
+        return;
+    }
+    writeSerial("linear", "dd", msg->command_type, msg->command_value);
 }
 
 void DodobotSerialBridge::tilterCallback(const dodobot_serial_bridge::DodobotTilter::ConstPtr& msg) {
-    writeTilter(msg.command, msg.position);
+    writeTilter(msg->command, msg->position);
 }
 
-void DodobotSerialBridge::writeTilter(uint8_t command, uint8_t position) {
+void DodobotSerialBridge::writeTilter(uint8_t command, int position) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeTilter");
         return;
@@ -496,7 +503,7 @@ void DodobotSerialBridge::writeTilter(uint8_t command, uint8_t position) {
 }
 
 void DodobotSerialBridge::gripperCallback(const dodobot_serial_bridge::DodobotGripper::ConstPtr& msg) {
-    writeGripper(msg.command, msg.force_threshold);
+    writeGripper(msg->command, msg->force_threshold);
 }
 
 void DodobotSerialBridge::writeGripper(uint8_t command, uint8_t force_threshold) {
@@ -519,7 +526,7 @@ bool DodobotSerialBridge::set_pid(dodobot_serial_bridge::DodobotPidSrv::Request 
 {
     if (!robotReady()) {
         ROS_WARN("Robot isn't ready! Skipping set_pid");
-        return;
+        return false;
     }
     writeK(req.kp_A, req.ki_A, req.kd_A, req.kp_B, req.ki_B, req.kd_B, req.speed_kA, req.speed_kB);
     ROS_INFO("Setting pid: kp_A=%f, ki_A=%f, kd_A=%f, kp_B=%f, ki_B=%f, kd_B=%f, speed_kA=%f, speed_kB=%f",
@@ -578,16 +585,16 @@ void DodobotSerialBridge::writeK(float kp_A, float ki_A, float kd_A, float kp_B,
 
 void DodobotSerialBridge::logPacketErrorCode(int error_code, unsigned long long packet_num)
 {
-    ROS_WARN("Packet %d returned an error!", packet_num);
+    ROS_WARN("Packet %llu returned an error!", packet_num);
     switch (error_code) {
-        case 1: ROS_WARN("c1 != \\x12", packet_num); break;
-        case 2: ROS_WARN("c2 != \\x34", packet_num); break;
-        case 3: ROS_WARN("packet is too short", packet_num); break;
-        case 4: ROS_WARN("checksums don't match", packet_num); break;
-        case 5: ROS_WARN("packet count segment not found", packet_num); break;
-        case 6: ROS_WARN("packet counts not synchronized", packet_num); break;
-        case 7: ROS_WARN("failed to find category segment", packet_num); break;
-        case 8: ROS_WARN("invalid format", packet_num); break;
+        case 1: ROS_WARN("c1 != \\x12: #%llu", packet_num); break;
+        case 2: ROS_WARN("c2 != \\x34: #%llu", packet_num); break;
+        case 3: ROS_WARN("packet is too short: #%llu", packet_num); break;
+        case 4: ROS_WARN("checksums don't match: #%llu", packet_num); break;
+        case 5: ROS_WARN("packet count segment not found: #%llu", packet_num); break;
+        case 6: ROS_WARN("packet counts not synchronized: #%llu", packet_num); break;
+        case 7: ROS_WARN("failed to find category segment: #%llu", packet_num); break;
+        case 8: ROS_WARN("invalid format: #%llu", packet_num); break;
     }
 }
 
@@ -595,21 +602,21 @@ void DodobotSerialBridge::logPacketErrorCode(int error_code, unsigned long long 
 void DodobotSerialBridge::parseDrive()
 {
     CHECK_SEGMENT; drive_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
-    CHECK_SEGMENT; drive_msg.left_ticks = stol(_currentBufferSegment);
-    CHECK_SEGMENT; drive_msg.right_ticks = stol(_currentBufferSegment);
-    CHECK_SEGMENT; drive_msg.left_speed_ticks_per_s = stof(_currentBufferSegment);
-    CHECK_SEGMENT; drive_msg.right_speed_ticks_per_s = stof(_currentBufferSegment);
+    CHECK_SEGMENT; drive_msg.left_enc_pos = stol(_currentBufferSegment);
+    CHECK_SEGMENT; drive_msg.right_enc_pos = stol(_currentBufferSegment);
+    CHECK_SEGMENT; drive_msg.left_enc_speed = stof(_currentBufferSegment);
+    CHECK_SEGMENT; drive_msg.right_enc_speed = stof(_currentBufferSegment);
 
     drive_pub.publish(drive_msg);
 }
 
 void DodobotSerialBridge::parseBumper()
 {
-    CHECK_SEGMENT; drive_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
-    CHECK_SEGMENT; drive_msg.bump1 = stol(_currentBufferSegment);
-    CHECK_SEGMENT; drive_msg.bump2 = stol(_currentBufferSegment);
+    CHECK_SEGMENT; bumper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT; bumper_msg.left = stol(_currentBufferSegment);
+    CHECK_SEGMENT; bumper_msg.right = stol(_currentBufferSegment);
 
-    bumper_pub.publish(drive_msg);
+    bumper_pub.publish(bumper_msg);
 }
 
 void DodobotSerialBridge::parseFSR()

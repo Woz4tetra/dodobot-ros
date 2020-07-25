@@ -54,21 +54,18 @@ roslaunch_add_file_check(launch)
 ## Generate messages in the 'msg' folder
 add_message_files(
     FILES
-    DodobotEncoder.msg
-    DodobotFSR.msg
-    DodobotSafety.msg
-    DodobotTOF.msg
-    DodobotMotors.msg
-    DodobotServos.msg
-    DodobotServoPos.msg
+    DodobotDrive.msg
+    DodobotGripper.msg
+    DodobotLinear.msg
+    DodobotTilter.msg
+    DodobotBumper.msg
+    DodobotFSRs.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
     FILES
     DodobotPidSrv.srv
-    DodobotSafetySrv.srv
-    DodobotMenuSrv.srv
 )
 
 ## Generate actions in the 'action' folder
