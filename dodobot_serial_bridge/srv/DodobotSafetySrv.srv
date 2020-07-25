@@ -1,0 +1,8 @@
+uint16 front_obstacle_threshold
+uint16 front_ledge_threshold
+int16 front_servo_command
+uint16 back_obstacle_threshold
+uint16 back_ledge_threshold
+int16 back_servo_command
+---
+bool resp

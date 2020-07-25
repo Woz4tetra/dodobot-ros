@@ -1,0 +1,14 @@
+<launch>
+    <group ns="dodobot" >
+        <arg name="drive_topic" default="drive_throttle"/>
+        <!-- <arg name="drive_topic" default="drive"/> -->
+
+        <node type="throttle" name="motor_topic_throttle" pkg="topic_tools" required="true" output="screen"
+            args="messages drive 15.0 $(arg drive_topic)"/>
+
+        <param name="serial_port" type="string" value="/dev/ttyTHS1"/>
+        <param name="serial_baud" type="int" value="115200"/>
+        <param name="drive_topic" type="string" value="$(arg drive_topic)"/>
+        <node type="dodobot_serial_bridge_node" name="dodobot_serial_bridge_node" pkg="dodobot_serial_bridge" required="true" output="screen"/>
+    </group>
+</launch>
