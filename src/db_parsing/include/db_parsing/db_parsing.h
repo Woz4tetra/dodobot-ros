@@ -1,4 +1,4 @@
-#ifndef _ROVER6_SERIAL_BRIDGE_H_
+#ifndef _DODOBOT_PARSING_H_
 
 #include <exception>
 #include <iostream>
@@ -12,14 +12,14 @@
 #include "sensor_msgs/BatteryState.h"
 #include "serial/serial.h"
 
-#include "dodobot_serial_bridge/DodobotDrive.h"
-#include "dodobot_serial_bridge/DodobotBumper.h"
-#include "dodobot_serial_bridge/DodobotGripper.h"
-#include "dodobot_serial_bridge/DodobotFSRs.h"
-#include "dodobot_serial_bridge/DodobotLinear.h"
-#include "dodobot_serial_bridge/DodobotTilter.h"
+#include "db_parsing/DodobotDrive.h"
+#include "db_parsing/DodobotBumper.h"
+#include "db_parsing/DodobotGripper.h"
+#include "db_parsing/DodobotFSRs.h"
+#include "db_parsing/DodobotLinear.h"
+#include "db_parsing/DodobotTilter.h"
 
-#include "dodobot_serial_bridge/DodobotPidSrv.h"
+#include "db_parsing/DodobotPidSrv.h"
 
 
 using namespace std;
@@ -47,7 +47,7 @@ class ReadyTimeoutExceptionClass : public exception {
     virtual const char* what() const throw() { return "Timeout reached. Never got ready signal from serial device"; }
 } ReadyTimeoutException;
 
-class DodobotSerialBridge {
+class DodobotParsing {
 private:
     ros::NodeHandle nh;  // ROS node handle
 
@@ -67,27 +67,27 @@ private:
 
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
-    dodobot_serial_bridge::DodobotGripper gripper_msg;
+    db_parsing::DodobotGripper gripper_msg;
     void parseGripper();
-    void gripperCallback(const dodobot_serial_bridge::DodobotGripper::ConstPtr& msg);
+    void gripperCallback(const db_parsing::DodobotGripper::ConstPtr& msg);
     void writeGripper(uint8_t command, uint8_t force_threshold);
 
     ros::Publisher fsr_pub;
-    dodobot_serial_bridge::DodobotFSRs fsr_msg;
+    db_parsing::DodobotFSRs fsr_msg;
     void parseFSR();
 
     ros::Publisher tilter_pub;
     ros::Subscriber tilter_sub;
-    dodobot_serial_bridge::DodobotTilter tilter_msg;
+    db_parsing::DodobotTilter tilter_msg;
     void parseTilter();
-    void tilterCallback(const dodobot_serial_bridge::DodobotTilter::ConstPtr& msg);
+    void tilterCallback(const db_parsing::DodobotTilter::ConstPtr& msg);
     void writeTilter(uint8_t command, int position);
 
     ros::Publisher linear_pub;
     ros::Subscriber linear_sub;
-    dodobot_serial_bridge::DodobotLinear linear_msg;
+    db_parsing::DodobotLinear linear_msg;
     void parseLinear();
-    void linearCallback(const dodobot_serial_bridge::DodobotLinear::ConstPtr& msg);
+    void linearCallback(const db_parsing::DodobotLinear::ConstPtr& msg);
 
     ros::Publisher battery_pub;
     sensor_msgs::BatteryState battery_msg;
@@ -96,13 +96,13 @@ private:
     string _driveTopicName;
     ros::Publisher drive_pub;
     ros::Subscriber drive_sub;
-    dodobot_serial_bridge::DodobotDrive drive_msg;
+    db_parsing::DodobotDrive drive_msg;
     void parseDrive();
-    void driveCallback(const dodobot_serial_bridge::DodobotDrive::ConstPtr& msg);
+    void driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg);
     void writeDriveChassis(float speedA, float speedB);
 
     ros::Publisher bumper_pub;
-    dodobot_serial_bridge::DodobotBumper bumper_msg;
+    db_parsing::DodobotBumper bumper_msg;
     void parseBumper();
 
     bool motorsReady();
@@ -129,7 +129,7 @@ private:
     void loop();
     void stop();
 
-    bool set_pid(dodobot_serial_bridge::DodobotPidSrv::Request &req, dodobot_serial_bridge::DodobotPidSrv::Response &res);
+    bool set_pid(db_parsing::DodobotPidSrv::Request &req, db_parsing::DodobotPidSrv::Response &res);
 
     void setActive(bool state);
     void softRestart();
@@ -146,8 +146,8 @@ private:
     void parseINA();
     void parseIR();
 public:
-    DodobotSerialBridge(ros::NodeHandle* nodehandle);
+    DodobotParsing(ros::NodeHandle* nodehandle);
     int run();
 };
 
-#endif  // _ROVER6_SERIAL_BRIDGE_H_
+#endif  // _DODOBOT_PARSING_H_

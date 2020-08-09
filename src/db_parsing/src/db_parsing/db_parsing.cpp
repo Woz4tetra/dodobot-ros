@@ -1,7 +1,7 @@
-#include <dodobot_serial_bridge/dodobot_serial_bridge.h>
+#include <db_parsing/db_parsing.h>
 
 
-DodobotSerialBridge::DodobotSerialBridge(ros::NodeHandle* nodehandle):nh(*nodehandle)
+DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
 {
     string drive_cmd_topic_name = "";
 
@@ -42,26 +42,26 @@ DodobotSerialBridge::DodobotSerialBridge(ros::NodeHandle* nodehandle):nh(*nodeha
     deviceStartTime = ros::Time::now();
     offsetTimeMs = 0;
 
-    gripper_pub = nh.advertise<dodobot_serial_bridge::DodobotGripper>("gripper", 50);
-    tilter_pub = nh.advertise<dodobot_serial_bridge::DodobotTilter>("tilter", 50);
-    linear_pub = nh.advertise<dodobot_serial_bridge::DodobotLinear>("linear", 50);
+    gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper", 50);
+    tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter", 50);
+    linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear", 50);
     battery_pub = nh.advertise<sensor_msgs::BatteryState>("battery", 50);
-    drive_pub = nh.advertise<dodobot_serial_bridge::DodobotDrive>("drive", 50);
-    bumper_pub = nh.advertise<dodobot_serial_bridge::DodobotBumper>("bumper", 50);
-    fsr_pub = nh.advertise<dodobot_serial_bridge::DodobotFSRs>("fsrs", 50);
+    drive_pub = nh.advertise<db_parsing::DodobotDrive>("drive", 50);
+    bumper_pub = nh.advertise<db_parsing::DodobotBumper>("bumper", 50);
+    fsr_pub = nh.advertise<db_parsing::DodobotFSRs>("fsrs", 50);
 
-    gripper_sub = nh.subscribe<dodobot_serial_bridge::DodobotGripper>("gripper_cmd", 50, &DodobotSerialBridge::gripperCallback, this);
-    tilter_sub = nh.subscribe<dodobot_serial_bridge::DodobotTilter>("tilter_cmd", 50, &DodobotSerialBridge::tilterCallback, this);
-    linear_sub = nh.subscribe<dodobot_serial_bridge::DodobotLinear>("linear_cmd", 50, &DodobotSerialBridge::linearCallback, this);
-    drive_sub = nh.subscribe<dodobot_serial_bridge::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotSerialBridge::driveCallback, this);
+    gripper_sub = nh.subscribe<db_parsing::DodobotGripper>("gripper_cmd", 50, &DodobotParsing::gripperCallback, this);
+    tilter_sub = nh.subscribe<db_parsing::DodobotTilter>("tilter_cmd", 50, &DodobotParsing::tilterCallback, this);
+    linear_sub = nh.subscribe<db_parsing::DodobotLinear>("linear_cmd", 50, &DodobotParsing::linearCallback, this);
+    drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
 
-    pid_service = nh.advertiseService("dodobot_pid", &DodobotSerialBridge::set_pid, this);
+    pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
 
     ROS_INFO("Dodobot serial bridge init done");
 }
 
 
-void DodobotSerialBridge::configure()
+void DodobotParsing::configure()
 {
     ROS_INFO("Configuring serial device.");
     // attempt to open the serial port
@@ -85,16 +85,16 @@ void DodobotSerialBridge::configure()
     }
 }
 
-void DodobotSerialBridge::setStartTime(uint32_t time_ms) {
+void DodobotParsing::setStartTime(uint32_t time_ms) {
     deviceStartTime = ros::Time::now();
     offsetTimeMs = time_ms;
 }
 
-ros::Time DodobotSerialBridge::getDeviceTime(uint32_t time_ms) {
+ros::Time DodobotParsing::getDeviceTime(uint32_t time_ms) {
     return deviceStartTime + ros::Duration((double)(time_ms - offsetTimeMs) / 1000.0);
 }
 
-void DodobotSerialBridge::checkReady()
+void DodobotParsing::checkReady()
 {
     ROS_INFO("Checking if the serial device is ready.");
 
@@ -132,7 +132,7 @@ void DodobotSerialBridge::checkReady()
     }
 }
 
-bool DodobotSerialBridge::waitForPacketStart()
+bool DodobotParsing::waitForPacketStart()
 {
     stringstream msg_buffer;
     char c1, c2;
@@ -164,7 +164,7 @@ bool DodobotSerialBridge::waitForPacketStart()
     }
 }
 
-bool DodobotSerialBridge::readSerial()
+bool DodobotParsing::readSerial()
 {
     if (!waitForPacketStart()) {
         return false;
@@ -258,7 +258,7 @@ bool DodobotSerialBridge::readSerial()
     return true;
 }
 
-bool DodobotSerialBridge::getNextSegment()
+bool DodobotParsing::getNextSegment()
 {
     if (_serialBufferIndex >= _serialBuffer.length()) {
         _currentSegmentNum = -1;
@@ -278,11 +278,11 @@ bool DodobotSerialBridge::getNextSegment()
     }
 }
 
-int DodobotSerialBridge::getSegmentNum() {
+int DodobotParsing::getSegmentNum() {
     return _currentSegmentNum;
 }
 
-void DodobotSerialBridge::processSerialPacket(string category)
+void DodobotParsing::processSerialPacket(string category)
 {
     if (category.compare("txrx") == 0) {
         CHECK_SEGMENT; unsigned long long packet_num = (unsigned long long)stol(_currentBufferSegment);
@@ -334,7 +334,7 @@ void DodobotSerialBridge::processSerialPacket(string category)
 }
 
 
-void DodobotSerialBridge::writeSerial(string name, const char *formats, ...)
+void DodobotParsing::writeSerial(string name, const char *formats, ...)
 {
     va_list args;
     va_start(args, formats);
@@ -394,7 +394,7 @@ void DodobotSerialBridge::writeSerial(string name, const char *formats, ...)
     ros::Duration(0.0005).sleep();
 }
 
-void DodobotSerialBridge::setup()
+void DodobotParsing::setup()
 {
     configure();
 
@@ -407,7 +407,7 @@ void DodobotSerialBridge::setup()
 }
 
 
-void DodobotSerialBridge::loop()
+void DodobotParsing::loop()
 {
     // if the serial buffer has data, parse it
     if (_serialRef.available() > 2) {
@@ -419,7 +419,7 @@ void DodobotSerialBridge::loop()
     ROS_INFO_THROTTLE(15, "Read packet num: %llu", _readPacketNum);
 }
 
-void DodobotSerialBridge::stop()
+void DodobotParsing::stop()
 {
     // setActive(false);
 
@@ -429,7 +429,7 @@ void DodobotSerialBridge::stop()
 }
 
 
-int DodobotSerialBridge::run()
+int DodobotParsing::run()
 {
     setup();
 
@@ -456,15 +456,15 @@ int DodobotSerialBridge::run()
     return exit_code;
 }
 
-bool DodobotSerialBridge::motorsReady() {
+bool DodobotParsing::motorsReady() {
     return readyState->is_ready && robotState->motors_active;
 }
 
-bool DodobotSerialBridge::robotReady() {
+bool DodobotParsing::robotReady() {
     return readyState->is_ready;
 }
 
-void DodobotSerialBridge::driveCallback(const dodobot_serial_bridge::DodobotDrive::ConstPtr& msg)
+void DodobotParsing::driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg)
 {
     // motor commands in ticks per second
     // ROS_DEBUG("left motor: %f, right motor: %f", msg->left_setpoint, msg->right_setpoint);
@@ -475,7 +475,7 @@ void DodobotSerialBridge::driveCallback(const dodobot_serial_bridge::DodobotDriv
     // }
 }
 
-void DodobotSerialBridge::linearCallback(const dodobot_serial_bridge::DodobotLinear::ConstPtr& msg) {
+void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& msg) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeTilter");
         return;
@@ -483,11 +483,11 @@ void DodobotSerialBridge::linearCallback(const dodobot_serial_bridge::DodobotLin
     writeSerial("linear", "dd", msg->command_type, msg->command_value);
 }
 
-void DodobotSerialBridge::tilterCallback(const dodobot_serial_bridge::DodobotTilter::ConstPtr& msg) {
+void DodobotParsing::tilterCallback(const db_parsing::DodobotTilter::ConstPtr& msg) {
     writeTilter(msg->command, msg->position);
 }
 
-void DodobotSerialBridge::writeTilter(uint8_t command, int position) {
+void DodobotParsing::writeTilter(uint8_t command, int position) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeTilter");
         return;
@@ -502,11 +502,11 @@ void DodobotSerialBridge::writeTilter(uint8_t command, int position) {
     }
 }
 
-void DodobotSerialBridge::gripperCallback(const dodobot_serial_bridge::DodobotGripper::ConstPtr& msg) {
+void DodobotParsing::gripperCallback(const db_parsing::DodobotGripper::ConstPtr& msg) {
     writeGripper(msg->command, msg->force_threshold);
 }
 
-void DodobotSerialBridge::writeGripper(uint8_t command, uint8_t force_threshold) {
+void DodobotParsing::writeGripper(uint8_t command, uint8_t force_threshold) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeGripper");
         return;
@@ -521,8 +521,8 @@ void DodobotSerialBridge::writeGripper(uint8_t command, uint8_t force_threshold)
     }
 }
 
-bool DodobotSerialBridge::set_pid(dodobot_serial_bridge::DodobotPidSrv::Request  &req,
-         dodobot_serial_bridge::DodobotPidSrv::Response &res)
+bool DodobotParsing::set_pid(db_parsing::DodobotPidSrv::Request  &req,
+         db_parsing::DodobotPidSrv::Response &res)
 {
     if (!robotReady()) {
         ROS_WARN("Robot isn't ready! Skipping set_pid");
@@ -536,7 +536,7 @@ bool DodobotSerialBridge::set_pid(dodobot_serial_bridge::DodobotPidSrv::Request 
     return true;
 }
 
-void DodobotSerialBridge::setActive(bool state)
+void DodobotParsing::setActive(bool state)
 {
     if (state) {
         writeSerial("<>", "d", 1);
@@ -546,11 +546,11 @@ void DodobotSerialBridge::setActive(bool state)
     }
 }
 
-void DodobotSerialBridge::softRestart() {
+void DodobotParsing::softRestart() {
     writeSerial("<>", "d", 2);
 }
 
-void DodobotSerialBridge::setReporting(bool state)
+void DodobotParsing::setReporting(bool state)
 {
     if (state) {
         writeSerial("[]", "d", 1);
@@ -560,7 +560,7 @@ void DodobotSerialBridge::setReporting(bool state)
     }
 }
 
-void DodobotSerialBridge::writeDriveChassis(float speedA, float speedB) {
+void DodobotParsing::writeDriveChassis(float speedA, float speedB) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeDriveChassis");
         return;
@@ -568,7 +568,7 @@ void DodobotSerialBridge::writeDriveChassis(float speedA, float speedB) {
     writeSerial("drive", "ff", speedA, speedB);
 }
 
-void DodobotSerialBridge::writeK(float kp_A, float ki_A, float kd_A, float kp_B, float ki_B, float kd_B, float speed_kA, float speed_kB) {
+void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, float ki_B, float kd_B, float speed_kA, float speed_kB) {
     if (!robotReady()) {
         ROS_WARN("Robot isn't ready! Skipping writeK");
         return;
@@ -583,7 +583,7 @@ void DodobotSerialBridge::writeK(float kp_A, float ki_A, float kd_A, float kp_B,
     writeSerial("ks", "df", 7, speed_kB);
 }
 
-void DodobotSerialBridge::logPacketErrorCode(int error_code, unsigned long long packet_num)
+void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)
 {
     ROS_WARN("Packet %llu returned an error!", packet_num);
     switch (error_code) {
@@ -599,7 +599,7 @@ void DodobotSerialBridge::logPacketErrorCode(int error_code, unsigned long long 
 }
 
 
-void DodobotSerialBridge::parseDrive()
+void DodobotParsing::parseDrive()
 {
     CHECK_SEGMENT; drive_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; drive_msg.left_enc_pos = stol(_currentBufferSegment);
@@ -610,7 +610,7 @@ void DodobotSerialBridge::parseDrive()
     drive_pub.publish(drive_msg);
 }
 
-void DodobotSerialBridge::parseBumper()
+void DodobotParsing::parseBumper()
 {
     CHECK_SEGMENT; bumper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; bumper_msg.left = stol(_currentBufferSegment);
@@ -619,7 +619,7 @@ void DodobotSerialBridge::parseBumper()
     bumper_pub.publish(bumper_msg);
 }
 
-void DodobotSerialBridge::parseFSR()
+void DodobotParsing::parseFSR()
 {
     CHECK_SEGMENT; fsr_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; fsr_msg.left = (uint16_t)stoi(_currentBufferSegment);
@@ -628,7 +628,7 @@ void DodobotSerialBridge::parseFSR()
     fsr_pub.publish(fsr_msg);
 }
 
-void DodobotSerialBridge::parseGripper()
+void DodobotParsing::parseGripper()
 {
     CHECK_SEGMENT; gripper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; gripper_msg.position = (int)stoi(_currentBufferSegment);
@@ -636,7 +636,7 @@ void DodobotSerialBridge::parseGripper()
     gripper_pub.publish(gripper_msg);
 }
 
-void DodobotSerialBridge::parseLinear()
+void DodobotParsing::parseLinear()
 {
     CHECK_SEGMENT; linear_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; linear_msg.position = (uint16_t)stoi(_currentBufferSegment);
@@ -647,7 +647,7 @@ void DodobotSerialBridge::parseLinear()
     linear_pub.publish(linear_msg);
 }
 
-void DodobotSerialBridge::parseBattery()
+void DodobotParsing::parseBattery()
 {
     CHECK_SEGMENT; battery_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; battery_msg.current = stof(_currentBufferSegment);
@@ -658,14 +658,14 @@ void DodobotSerialBridge::parseBattery()
     battery_pub.publish(battery_msg);
 }
 
-void DodobotSerialBridge::parseIR()
+void DodobotParsing::parseIR()
 {
     // CHECK_SEGMENT;  // time ms
     // CHECK_SEGMENT;  // remote type
     // CHECK_SEGMENT;  // received value
 }
 
-void DodobotSerialBridge::parseTilter()
+void DodobotParsing::parseTilter()
 {
     CHECK_SEGMENT; tilter_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; tilter_msg.position = (int)stoi(_currentBufferSegment);
