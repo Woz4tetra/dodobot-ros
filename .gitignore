@@ -136,3 +136,6 @@ xcuserdata/
 .pio
 .clang_complete
 .gcc-flags.json
+
+# ros dev files
+devel

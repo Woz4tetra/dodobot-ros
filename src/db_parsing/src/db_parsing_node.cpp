@@ -6,7 +6,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "db_parsing");
     ros::NodeHandle nh;
 
-    DodobotSerialBridge broadcaster(&nh);
+    DodobotParsing broadcaster(&nh);
     int err = broadcaster.run();
 
     return err;
