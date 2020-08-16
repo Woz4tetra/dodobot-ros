@@ -1,6 +1,8 @@
 # dodobot-ros
 
 ## ROS Package Dependencies 
+serial - sudo apt install ros-melodic-serial
+
 joy - sudo apt install ros-melodic-joy
 
 twist_mux - sudo apt install ros-melodic-twist-mux
