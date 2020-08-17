@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <include file="$(find rover6_config)/launch/rtabmap.launch">
+    <include file="$(find dodobot_config)/launch/rtabmap.launch">
         <!-- <arg name="args" value="delete_db_on_start"/> -->
-        <arg name="args" value="$(find rover6_config)/config/rtabmap.ini"/>
+        <arg name="args" value="$(find dodobot_config)/config/rtabmap.ini"/>
         <arg name="compressed" value="true"/>
         <arg name="subscribe_rgbd" value="true"/>
         <arg name="rgbd_topic" value="/camera/rgbd_image"/>
