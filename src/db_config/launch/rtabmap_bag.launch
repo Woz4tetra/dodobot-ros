@@ -2,11 +2,11 @@
 <launch>
     <param name="/use_sim_time" value="true"/>
 
-    <include file="$(find rover6_config)/launch/static_transforms.launch"/>
+    <include file="$(find db_config)/launch/static_transforms.launch"/>
 
-    <include file="$(find rover6_chassis)/launch/rover6_chassis.launch">
-        <arg name="rover6_chassis_services_enabled" value="false"/>
-        <arg name="rover6_chassis_use_sensor_msg_time" value="false"/>
+    <include file="$(find db_chassis)/launch/db_chassis.launch">
+        <arg name="db_chassis_services_enabled" value="false"/>
+        <arg name="db_chassis_use_sensor_msg_time" value="false"/>
     </include>
 
     <node pkg="tf" type="static_transform_publisher" name="camera_base_to_depth" args="0.0 0.0 0.0 0 0 0 1 camera_link camera_depth_frame 30" />
