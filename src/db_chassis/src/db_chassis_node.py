@@ -172,7 +172,7 @@ class DodobotChassis:
         clock_rate = rospy.Rate(30)
 
         while not rospy.is_shutdown():
-            try:
+            try:                
                 # wait for encoders to be initialized
                 if self.prev_left_ticks == None or self.prev_right_ticks == None:
                     continue
@@ -238,13 +238,19 @@ class DodobotChassis:
         return meters * self.m_to_tick_factor
 
     def compute_odometry(self):
-        delta_left = self.ticks_to_m(self.drive_sub_msg.left_enc_pos - self.prev_left_ticks)
-        delta_right = self.ticks_to_m(self.drive_sub_msg.right_enc_pos - self.prev_right_ticks)
+        # cache values from atomic drive_sub_msg to avoid potential clashes
+        cur_left_ticks = self.drive_sub_msg.left_enc_pos
+        cur_right_ticks = self.drive_sub_msg.right_enc_pos
+        left_enc_speed = self.drive_sub_msg.left_enc_speed
+        right_enc_speed = self.drive_sub_msg.right_enc_speed
+
+        delta_left = self.ticks_to_m(cur_left_ticks - self.prev_left_ticks)
+        delta_right = self.ticks_to_m(cur_right_ticks - self.prev_right_ticks)
         delta_dist = (delta_right + delta_left) / 2
 
         if abs(delta_dist) > 0.0001:
-            left_speed = self.ticks_to_m(self.drive_sub_msg.left_enc_speed)
-            right_speed = self.ticks_to_m(self.drive_sub_msg.right_enc_speed)
+            left_speed = self.ticks_to_m(left_enc_speed)
+            right_speed = self.ticks_to_m(right_enc_speed)
         else:
             left_speed = 0.0
             right_speed = 0.0
@@ -266,8 +272,8 @@ class DodobotChassis:
 
         # print self.odom_x, self.odom_y, math.degrees(self.odom_t)
 
-        self.prev_left_ticks = self.drive_sub_msg.left_enc_pos
-        self.prev_right_ticks = self.drive_sub_msg.right_enc_pos
+        self.prev_left_ticks = cur_left_ticks
+        self.prev_right_ticks = cur_right_ticks
 
 
 if __name__ == "__main__":
@@ -276,4 +282,5 @@ if __name__ == "__main__":
         node.run()
     except rospy.ROSInterruptException:
         pass
-    rospy.loginfo("Exiting db_chassis node")
+    finally:
+        rospy.loginfo("Exiting db_chassis node")
