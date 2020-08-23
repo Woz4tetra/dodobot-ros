@@ -4,7 +4,7 @@
 
     <group ns="camera">
         <!-- Construct and voxelize the point cloud (for fast visualization in rviz) -->
-        <node pkg="nodelet" type="nodelet" name="points_xyzrgb" args="standalone rtabmap_ros/point_cloud_xyzrgb">
+        <!-- <node pkg="nodelet" type="nodelet" name="points_xyzrgb" args="standalone rtabmap_ros/point_cloud_xyzrgb">
             <remap from="rgbd_image"      to="rgbd_image/compressed"/>
             <remap from="cloud"           to="voxel_cloud" />
 
@@ -16,10 +16,10 @@
             <remap from="rgbd_image" to="rgbd_image/compressed"/>
             <remap from="rgbd_image/compressed_relay" to="rgbd_image_relay"/>
             <param name="uncompress" value="true"/>
-        </node>
+        </node> -->
 
-        <!-- <node name="republish_rgb" type="republish" pkg="image_transport" args="compressed in:=color/image_rect_color raw out:=color/image_rect_color_relay" /> -->
-        <!-- <node name="republish_depth" type="republish" pkg="image_transport" args="compressedDepth in:=depth/image_rect_raw raw out:=depth/image_rect_raw_relay" /> -->
+        <node name="republish_rgb" type="republish" pkg="image_transport" args="compressed in:=color/image_rect_color raw out:=color/image_rect_color_relay" />
+        <node name="republish_depth" type="republish" pkg="image_transport" args="compressedDepth in:=depth/image_rect_raw raw out:=depth/image_rect_raw_relay" />
     </group>
 
     <group ns="rtabmap">
@@ -36,7 +36,7 @@
           <remap from="rgb/camera_info" to="color/camera_info_relay"/>
 
           <remap from="rgbd_image"      to="/camera/rgbd_image_relay"/>
-          <remap from="odom"                   to="/rover6/odom"/>
+          <remap from="odom"                   to="/dodobot/odom"/>
         </node>
     </group>
 </launch>
