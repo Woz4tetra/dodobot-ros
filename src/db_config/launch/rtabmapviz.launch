@@ -18,7 +18,7 @@
             <param name="uncompress" value="true"/>
         </node> -->
 
-        <node name="republish_rgb" type="republish" pkg="image_transport" args="compressed in:=color/image_rect_color raw out:=color/image_rect_color_relay" />
+        <node name="republish_rgb" type="republish" pkg="image_transport" args="compressed in:=color/image_raw raw out:=color/image_raw_relay" />
         <node name="republish_depth" type="republish" pkg="image_transport" args="compressedDepth in:=depth/image_rect_raw raw out:=depth/image_rect_raw_relay" />
     </group>
 
@@ -33,9 +33,9 @@
             <param name="queue_size"           type="int"    value="50"/>
             <param name="approx_sync"          type="bool"   value="true"/>
 
-            <remap from="rgb/image"       to="/camera/color/image_rect_color_relay"/>
+            <remap from="rgb/image"       to="/camera/color/image_raw_relay"/>
             <remap from="depth/image"     to="/camera/depth/image_rect_raw_relay"/>
-            <remap from="rgb/camera_info" to="/camera/color/camera_info_relay"/>
+            <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
 
             <remap from="rgbd_image"      to="/camera/rgbd_image_relay"/>
             <remap from="odom"                   to="/dodobot/odom"/>
