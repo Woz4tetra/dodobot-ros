@@ -34,7 +34,7 @@
             <!-- <arg name="color_optical_frame_id"    default="camera_color_optical_frame"/> -->
         </include>
 
-        <include file="$(find rgbd_launch)/launch/includes/rgb.launch.xml">
+        <!-- <include file="$(find rgbd_launch)/launch/includes/rgb.launch.xml">
             <arg name="manager"                       value="realsense2_camera_manager" />
             <arg name="respawn"                       value="false" />
             <arg name="rgb"                           value="color" />
@@ -49,6 +49,6 @@
             <remap from="rgb/image"       to="color/image_raw"/>
             <remap from="depth/image"     to="aligned_depth_to_color/image_raw"/>
             <remap from="rgb/camera_info" to="color/camera_info"/>
-        </node>
+        </node> -->
     </group>
 </launch>
