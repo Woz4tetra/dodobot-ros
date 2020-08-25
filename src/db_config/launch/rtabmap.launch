@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
+    <arg name="delete_rtabmap_db" value="false"/>
+    
     <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
-        <arg name="rtabmap_args" value="--delete_db_on_start"/>
+        <arg name="rtabmap_args" value="--delete_db_on_start" if="$(arg delete_rtabmap_db)"/>
         <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
         <arg name="rgb_topic" value="/camera/color/image_raw"/>
         <arg name="camera_info_topic" value="/camera/color/camera_info"/>
