@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <include file="$(find db_chassis)/launch/db_chassis.launch"> </include>
+    <!-- <include file="$(find db_joystick)/launch/parsing_joystick.launch"> </include> -->
+
+    <include file="$(find db_parsing)/launch/db_parsing.launch"/>
+    <include file="$(find db_config)/launch/static_transforms.launch"/>
+    <include file="$(find db_config)/launch/cmd_vel_mux.launch"/>
+</launch>

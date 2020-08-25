@@ -2,17 +2,17 @@
 <launch>
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
         <remap from="/cmd_vel" to="/cmd_vel_move_base"/>
-        <remap from="/odom" to="/rover6/odom"/>
-        <rosparam file="$(find rover6_config)/config/move_base/move_base_global_params.yaml" command="load"/>
+        <remap from="/odom" to="/dodobot/odom"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/move_base_global_params.yaml" command="load"/>
 
-        <rosparam file="$(find rover6_config)/config/move_base/dwaplanner_params.yaml" command="load" ns="DWAPlannerROS"/>
-        <!-- <rosparam file="$(find rover6_config)/config/move_base/trajectory_planner_params.yaml" command="load" ns="TrajectoryPlannerROS"/> -->
-        <rosparam file="$(find rover6_config)/config/move_base/global_planner_params.yaml" command="load" ns="GlobalPlanner"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/dwaplanner_params.yaml" command="load" ns="DWAPlannerROS"/>
+        <!-- <rosparam file="$(find dodobot_config)/config/move_base/trajectory_planner_params.yaml" command="load" ns="TrajectoryPlannerROS"/> -->
+        <rosparam file="$(find dodobot_config)/config/move_base/global_planner_params.yaml" command="load" ns="GlobalPlanner"/>
 
-        <rosparam file="$(find rover6_config)/config/move_base/costmap_common_params.yaml" command="load" ns="local_costmap"/>
-        <rosparam file="$(find rover6_config)/config/move_base/costmap_local_params.yaml" command="load" ns="local_costmap"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/costmap_local_params.yaml" command="load" ns="local_costmap"/>
 
-        <rosparam file="$(find rover6_config)/config/move_base/costmap_common_params.yaml" command="load" ns="global_costmap"/>
-        <rosparam file="$(find rover6_config)/config/move_base/costmap_global_params.yaml" command="load" ns="global_costmap"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+        <rosparam file="$(find dodobot_config)/config/move_base/costmap_global_params.yaml" command="load" ns="global_costmap"/>
     </node>
 </launch>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <arg name="config_locks"  default="$(find rover6_config)/config/twist_mux/twist_mux_locks.yaml"/>
-    <arg name="config_topics" default="$(find rover6_config)/config/twist_mux/twist_mux_topics.yaml"/>
+    <arg name="config_locks"  default="$(find db_config)/config/twist_mux/twist_mux_locks.yaml"/>
+    <arg name="config_topics" default="$(find db_config)/config/twist_mux/twist_mux_topics.yaml"/>
 
     <node pkg="twist_mux" type="twist_mux" name="twist_mux" output="screen">
-        <remap from="cmd_vel_out" to="/rover6/cmd_vel"/>
+        <remap from="cmd_vel_out" to="/dodobot/cmd_vel"/>
 
         <rosparam file="$(arg config_locks)"  command="load"/>
         <rosparam file="$(arg config_topics)" command="load"/>

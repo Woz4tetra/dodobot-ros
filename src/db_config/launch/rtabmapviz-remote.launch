@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="rviz" type="rviz" name="rviz"/>
+
+    <group ns="camera">
+        <!-- Construct and voxelize the point cloud (for fast visualization in rviz) -->
+        <node pkg="nodelet" type="nodelet" name="points_xyzrgb" args="standalone rtabmap_ros/point_cloud_xyzrgb">
+            <remap from="rgbd_image"      to="rgbd_image/compressed"/>
+            <remap from="cloud"           to="voxel_cloud" />
+
+            <param name="queue_size" type="int" value="10"/>
+            <param name="voxel_size" type="double" value="0.01"/>
+        </node>
+
+        <node name="republish_rgbd_image"  type="rgbd_relay" pkg="rtabmap_ros">
+            <remap from="rgbd_image" to="rgbd_image/compressed"/>
+            <remap from="rgbd_image/compressed_relay" to="rgbd_image_relay"/>
+            <param name="uncompress" value="true"/>
+        </node>
+
+        <!-- <node name="republish_rgb" type="republish" pkg="image_transport" args="compressed in:=color/image_raw raw out:=color/image_raw_relay" /> -->
+        <!-- <node name="republish_depth" type="republish" pkg="image_transport" args="compressedDepth in:=depth/image_rect_raw raw out:=depth/image_rect_raw_relay" /> -->
+    </group>
+
+    <group ns="rtabmap">
+        <node pkg="rtabmap_ros" type="rtabmapviz" name="rtabmapviz" args="-d ~/.ros/rtabmap_gui.ini" output="screen">
+            <param name="subscribe_rgbd"       type="bool"   value="true"/>
+            <!-- <param name="subscribe_rgb"       type="bool"   value="true"/> -->
+            <!-- <param name="subscribe_depth"       type="bool"   value="true"/> -->
+            <param name="frame_id"             type="string" value="base_link"/>
+            <param name="odom_frame_id"        type="string" value="odom"/>
+            <param name="wait_for_transform_duration" type="double"   value="0.2"/>
+            <param name="queue_size"           type="int"    value="50"/>
+            <param name="approx_sync"          type="bool"   value="true"/>
+
+            <remap from="rgb/image"       to="/camera/color/image_raw_relay"/>
+            <remap from="depth/image"     to="/camera/depth/image_rect_raw_relay"/>
+            <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
+
+            <remap from="rgbd_image"      to="/camera/rgbd_image_relay"/>
+            <remap from="odom"                   to="/dodobot/odom"/>
+        </node>
+    </group>
+</launch>

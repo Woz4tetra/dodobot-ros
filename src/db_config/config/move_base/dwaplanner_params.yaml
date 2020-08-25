@@ -1,0 +1,124 @@
+### DWAPlanner parameters ###
+# Used if "dwa_local_planner/DWAPlannerROS" is selected in
+# base_local_planner in move_base global params.
+# load with the namespace "DWAPlannerROS" in the launch file
+
+
+## Robot Configuration Parameters ##
+
+# The x acceleration limit of the robot in meters/sec^2
+acc_lim_x: 2.5
+
+# The y acceleration limit of the robot in meters/sec^2
+acc_lim_y: 0.0
+
+# The rotational acceleration limit of the robot in radians/sec^2
+acc_lim_th: 3.2
+
+# The absolute value of the maximum translational velocity for the robot in m/s
+max_vel_trans: 0.12
+
+# The absolute value of the minimum translational velocity for the robot in m/s
+min_vel_trans: 0.04
+
+# The maximum x velocity for the robot in m/s.
+max_vel_x: 0.12  # 0.36
+
+# The minimum x velocity for the robot in m/s, negative for backwards motion.
+min_vel_x: 0.0  # -0.36
+# min_vel_x: -0.2  # -0.36
+
+# The maximum y velocity for the robot in m/s
+max_vel_y: 0.0
+
+# The minimum y velocity for the robot in m/s
+min_vel_y: 0.0
+
+# The absolute value of the maximum rotational velocity for the robot in rad/s
+max_vel_theta: 1.0  # 3.0
+
+# The absolute value of the minimum rotational velocity for the robot in rad/s
+min_vel_theta: 0.7
+
+
+## Goal Tolerance Parameters ##
+
+# The tolerance in radians for the controller in yaw/rotation when achieving its goal
+yaw_goal_tolerance: 0.05
+
+# The tolerance in meters for the controller in the x & y distance when achieving a goal
+xy_goal_tolerance: 0.1
+
+# If goal tolerance is latched, if the robot ever reaches the goal xy location
+# it will simply rotate in place, even if it ends up outside the goal
+# tolerance while it is doing so.
+latch_xy_goal_tolerance: false
+
+
+## Forward Simulation Parameters ##
+
+# The amount of time to forward-simulate trajectories in seconds
+sim_time: 4.0  # 1.7
+
+# The step size, in meters, to take between points on a given trajectory
+sim_granularity: 0.04  # 0.025
+
+# The number of samples to use when exploring the x velocity space
+vx_samples: 5  # 3
+
+# The number of samples to use when exploring the y velocity space
+vy_samples: 0  # 10
+
+# The number of samples to use when exploring the theta velocity space
+vth_samples: 20  # 20
+
+# The frequency at which this controller will be called in Hz.
+# Overrides move_base's global controller_frequency parameter if set
+controller_frequency: 5.0
+
+
+## Trajectory Scoring Parameters ##
+
+# cost =
+#   path_distance_bias * (distance to path from the endpoint of the trajectory in meters)
+#   + goal_distance_bias * (distance to local goal from the endpoint of the trajectory in meters)
+#   + occdist_scale * (maximum obstacle cost along the trajectory in obstacle cost (0-254))
+
+# The weighting for how much the controller should stay close to the path
+# it was given
+path_distance_bias: 32.0
+
+# The weighting for how much the controller should attempt to reach its local
+# goal, also controls speed
+goal_distance_bias: 20.0  # 24.0
+
+# The weighting for how much the controller should attempt to avoid obstacles
+occdist_scale: 0.02  # 0.01
+
+# The distance from the center point of the robot to place an additional scoring point, in meters
+forward_point_distance: 0.325
+
+# The amount of time that the robot must stop before a collision in order for a
+# trajectory to be considered valid in seconds
+stop_time_buffer: 0.2
+
+# The absolute value of the velocity at which to start scaling the robot's footprint, in m/s
+scaling_speed: 0.25
+
+# The maximum factor to scale the robot's footprint by
+max_scaling_factor: 0.2
+
+# Whether or not to publish the cost grid that the planner will use when planning.
+publish_cost_grid: false
+
+
+## Oscillation Prevention Parameters ##
+
+# How far the robot must travel in meters before oscillation flags are reset
+oscillation_reset_dist: 0.05
+
+## Global Plan Parameters ##
+
+# Defines whether or not to eat up the plan as the robot moves along the path.
+# If set to true, points will fall off the end of the plan once the robot moves 1 meter past them.
+prune_plan: false
