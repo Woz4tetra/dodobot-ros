@@ -5,8 +5,8 @@ robot_radius: 0.17
 observation_sources: point_cloud_sensor
 point_cloud_sensor:
     sensor_frame: camera_link
-    data_type: PointCloud
-    topic: /camera/depth_registered/points
+    data_type: PointCloud2
+    topic: /camera/depth/color/points
     marking: true
     clearing: true
 
