@@ -3,6 +3,6 @@
     <include file="$(find db_config)/launch/dodobot.launch"/>
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
-        <arg name="localize_mode" value="true"/>
+        <arg name="localization" value="true"/>
     </include>
 </launch>
