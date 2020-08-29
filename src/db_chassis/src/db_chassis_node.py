@@ -44,6 +44,10 @@ class DodobotChassis:
         self.max_speed_tps = rospy.get_param("~max_speed_cps", 6800.0)
         self.services_enabled = rospy.get_param("~services_enabled", True)
         self.use_sensor_msg_time = rospy.get_param("~use_sensor_msg_time", False)
+        self.tilter_lower_angle = math.radians(rospy.get_param("~tilter_lower_angle_deg", -60.0))
+        self.tilter_upper_angle = math.radians(rospy.get_param("~tilter_upper_angle_deg", 0.0))
+        self.tilter_lower_command = rospy.get_param("~tilter_lower_command", 5)
+        self.tilter_upper_command = rospy.get_param("~tilter_upper_command", 180)
 
         self.wheel_radius_m = self.wheel_radius_mm / 1000.0
         self.wheel_distance_m = self.wheel_distance_mm / 1000.0
@@ -53,10 +57,13 @@ class DodobotChassis:
 
         self.max_speed_mps = self.max_speed_tps * self.tick_to_m_factor
 
+        self.camera_tilt_angle = self.tilter_upper_angle
+
         # TF parameters
         self.child_frame = rospy.get_param("~odom_child_frame", "base_link")
         self.odom_parent_frame = rospy.get_param("~odom_parent_frame", "odom")
-        self.pan_tilt_frame = rospy.get_param("~tilt_frame", "tilt_link")
+        self.tilt_base_frame = rospy.get_param("~tilt_frame", "tilt_base_link")
+        self.camera_rotate_frame = rospy.get_param("~tilt_frame", "camera_rotate_link")
         self.tf_broadcaster = tf.TransformBroadcaster()
 
         # Drive variables
@@ -83,6 +90,7 @@ class DodobotChassis:
         # Subscribers
         self.twist_sub = rospy.Subscriber("cmd_vel", Twist, self.twist_callback, queue_size=5)
         self.drive_sub = rospy.Subscriber("drive", DodobotDrive, self.drive_callback, queue_size=100)
+        self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=100)
 
         # Publishers
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
@@ -131,13 +139,13 @@ class DodobotChassis:
         except rospy.ServiceException, e:
             rospy.logwarn("%s service call failed: %s" % (self.pid_service_name, e))
 
-    def angle_rad_to_tof_servo_command(self, angle_rad):
+    def angle_rad_to_tilt_servo_command(self, angle_rad):
         angle_rad = angle_rad + (math.pi * 2 if angle_rad <= 0.0 else 0)  # bound to 270...360 deg
         angle_deg = math.degrees(angle_rad)
-        y0 = self.tof_servo_lower_command
-        y1 = self.tof_servo_upper_command
-        x0 = self.tof_servo_lower_angle_deg
-        x1 = self.tof_servo_upper_angle_deg
+        y0 = self.tilter_lower_command
+        y1 = self.tilter_upper_command
+        x0 = self.tilter_lower_angle
+        x1 = self.tilter_upper_angle
 
         servo_command = (x1 - x0) / (y1 - y0) * (angle_deg - x0) + y0
         return int(servo_command)
@@ -161,12 +169,18 @@ class DodobotChassis:
     def servo_to_angle(self, command, max_command, min_command, min_angle, max_angle):
         return (min_angle - max_angle) / (max_command - min_command) * (command - min_command) + max_angle
 
+    def tilt_command_to_angle_rad(self, command):
+        return self.servo_to_angle(command, self.tilter_upper_command, self.tilter_lower_command, self.tilter_upper_angle, self.tilter_lower_angle)
+
     def drive_callback(self, drive_sub_msg):
         self.drive_sub_msg = drive_sub_msg
 
         if self.prev_left_ticks == None or self.prev_right_ticks == None:
             self.prev_left_ticks = self.drive_sub_msg.left_enc_pos
             self.prev_right_ticks = self.drive_sub_msg.right_enc_pos
+
+    def tilter_callback(self, tilter_sub_msg):
+        self.camera_tilt_angle = self.tilt_command_to_angle_rad(tilter_sub_msg.position)
 
     def run(self):
         clock_rate = rospy.Rate(30)
@@ -179,22 +193,22 @@ class DodobotChassis:
 
                 self.compute_odometry()
                 self.publish_chassis_data()
-                # self.publish_pan_tilt_tfs()
+                self.publish_camera_tfs()
             except BaseException, e:
                 traceback.print_exc()
                 rospy.signal_shutdown(str(e))
 
             clock_rate.sleep()
 
-    def publish_pan_tilt_tfs(self):
+    def publish_camera_tfs(self):
         now = rospy.Time.now()
-        pan_tilt_quaternion = tf.transformations.quaternion_from_euler(0.0, -self.servo_tilt, -self.servo_pan)
+        pan_tilt_quaternion = tf.transformations.quaternion_from_euler(0.0, -self.camera_tilt_angle, 0.0)
         self.tf_broadcaster.sendTransform(
             (0.0, 0.0, 0.0),
             pan_tilt_quaternion,
             now,
             self.camera_rotate_frame,
-            self.pan_tilt_frame
+            self.tilt_base_frame
         )
 
     def publish_chassis_data(self):
