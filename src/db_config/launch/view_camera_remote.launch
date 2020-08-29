@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <node pkg="rqt_image_view" type="rqt_image_view" name="camera_view" output="screen">
-        <param name="topic"  type="string" value="/camera/color/image_raw"/>
-        <param name="transport"  type="string" value="compressed"/>
-    </node>
-    <node pkg="rqt_image_view" type="rqt_image_view" name="depth_view" output="screen">
-        <param name="topic"  type="string" value="/camera/aligned_depth_to_color/image_raw"/>
-        <param name="transport"  type="string" value="compressedDepth"/>
-    </node>
+    <node pkg="image_view" type="image_view" name="camera_view" args="image:=/camera/color/image_raw  _image_transport:=compressed" output="screen"/>
+    <node pkg="image_view" type="image_view" name="depth_view" args="image:=/camera/aligned_depth_to_color/image_raw  _image_transport:=compressedDepth" output="screen"/>
 </launch>
