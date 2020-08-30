@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <node pkg="image_view" type="image_view" name="camera_view" args="image:=/camera/color/image_raw  _image_transport:=compressed" output="screen"/>
-    <node pkg="image_view" type="image_view" name="depth_view" args="image:=/camera/aligned_depth_to_color/image_raw  _image_transport:=compressedDepth" output="screen"/>
+    <arg name="use_compressed" default="true"/>
+
+    <node     if="$(arg use_compressed)" pkg="image_view" type="image_view" name="camera_view" args="image:=/camera/color/image_raw  _image_transport:=compressed" output="screen"/>
+    <node     if="$(arg use_compressed)" pkg="image_view" type="image_view" name="depth_view" args="image:=/camera/aligned_depth_to_color/image_raw  _image_transport:=compressedDepth" output="screen"/>
+
+    <node unless="$(arg use_compressed)" pkg="image_view" type="image_view" name="camera_view" args="image:=/camera/color/image_raw" output="screen"/>
+    <node unless="$(arg use_compressed)" pkg="image_view" type="image_view" name="depth_view" args="image:=/camera/aligned_depth_to_color/image_raw" output="screen"/>
 </launch>

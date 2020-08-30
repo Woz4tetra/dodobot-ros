@@ -9,7 +9,7 @@
 
             <arg name="enable_sync"              value="true"/>
             <arg name="align_depth"              value="true"/>
-            <arg name="enable_pointcloud"        value="true"/>
+            <arg name="enable_pointcloud"        value="false"/>
 
             <arg name="enable_fisheye"           value="false"/>
             <arg name="enable_fisheye1"          value="false"/>

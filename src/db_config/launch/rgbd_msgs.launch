@@ -7,7 +7,7 @@
             <arg name="rgb"                           value="color" />
         </include>
 
-        <!-- <node pkg="nodelet" type="nodelet" name="camera_nodelet_manager" args="manager" output="screen"/> -->
+        <node pkg="nodelet" type="nodelet" name="camera_nodelet_manager" args="manager" output="screen"/>
 
         <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync camera_nodelet_manager" output="screen">
             <param name="compressed_rate"  type="double" value="5.0"/>

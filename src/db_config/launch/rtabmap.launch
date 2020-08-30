@@ -6,7 +6,7 @@
     <arg     if="$(arg localization)" name="rtabmap_args"  default=""/>
     <arg unless="$(arg localization)" name="rtabmap_args"  default="--delete_db_on_start"/>
 
-    <include file="$(find db_config)/launch/rgbd_msgs.launch"/>
+    <!-- <include file="$(find db_config)/launch/rgbd_msgs.launch"/> -->
 
     <group ns="rtabmap">
         <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
@@ -29,10 +29,14 @@
             <!-- Remap to /map for move_base -->
             <remap from="grid_map" to="/map"/>
 
+            <param name="proj_max_ground_height" value="0.1"/>
+            <param name="proj_max_height" value="0.35"/>
+
             <!-- RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters. -->
             <param name="RGBD/ProximityBySpace"        type="string" value="true"/>   <!-- Local loop closure detection (using estimated position) with locations in WM -->
             <param name="RGBD/OptimizeFromGraphEnd"    type="string" value="false"/>  <!-- Set to false to generate map correction between /map and /odom -->
             <param name="Kp/MaxDepth"                  type="string" value="4.0"/>
+            <param name="Kp/DetectorStrategy"          type="string" value="8"/>  <!-- 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.] -->
             <param name="Reg/Strategy"                 type="string" value="0"/>      <!-- Loop closure transformation: 0=Visual, 1=ICP, 2=Visual+ICP -->
             <param name="Icp/CorrespondenceRatio"      type="string" value="0.3"/>
             <param name="Vis/MinInliers"               type="string" value="15"/>      <!-- 3D visual words minimum inliers to accept loop closure -->
@@ -43,7 +47,10 @@
             <param name="Rtabmap/TimeThr"              type="string" value="0"/>
             <param name="Mem/RehearsalSimilarity"      type="string" value="0.30"/>
             <param name="Reg/Force3DoF"                type="string" value="true"/>
+            <param name="Optimizer/Slam2D"             type="string" value="true"/>
             <param name="GridGlobal/MinSize"           type="string" value="20"/>
+            <!-- <param name="SURF/GpuVersion"              type="string" value="true"/> -->
+            <param name="ORB/Gpu"                      type="string" value="true"/>
 
 
             <!-- localization mode -->
@@ -52,11 +59,5 @@
             <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization)"/>
         </node>
     </group>
-
-
-    <node pkg="tf" type="static_transform_publisher" name="camera_base_to_depth" args="0.0 0.0 0.0 0 0 0 1 camera_link camera_depth_frame 30" />
-    <node pkg="tf" type="static_transform_publisher" name="camera_depth_to_optical" args="0.0 0.0 0.0 0 0 0 1 camera_depth_frame camera_depth_optical_frame 30" />
-    <node pkg="tf" type="static_transform_publisher" name="camera_base_to_color" args="0.0 0.0 0.0 0 0 0 1 camera_link camera_color_frame 30" />
-    <node pkg="tf" type="static_transform_publisher" name="camera_color_to_optical" args="0.0 0.0 0.0 0 0 0 1 camera_color_frame camera_color_optical_frame 30" />
 
 </launch>
