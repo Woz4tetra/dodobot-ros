@@ -24,7 +24,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     _serialBufferIndex = 0;
     _currentBufferSegment = "";
     _currentSegmentNum = -1;
-    _readPacketNum = 0;
+    _readPacketNum = -1;
     _writePacketNum = 0;
     _recvCharIndex = 0;
     _recvCharBuffer = new char[0xfff];
@@ -227,7 +227,10 @@ bool DodobotParsing::readSerial()
         return false;
     }
     unsigned long long  recv_packet_num = (unsigned long long )stoi(_currentBufferSegment);
-    if (recv_packet_num != _readPacketNum) {
+    if (_readPacketNum == -1) {
+        _readPacketNum = recv_packet_num;
+    }
+    else if (recv_packet_num != _readPacketNum) {
         ROS_ERROR("Received packet num doesn't match local count. recv %llu != local %llu", recv_packet_num, _readPacketNum);
         ROS_ERROR_STREAM("Buffer: " << _serialBuffer);
         _readPacketNum = recv_packet_num;

@@ -5,5 +5,5 @@
 
     <include file="$(find db_parsing)/launch/db_parsing.launch"/>
     <include file="$(find db_config)/launch/static_transforms.launch"/>
-    <include file="$(find db_config)/launch/cmd_vel_mux.launch"/>
+    <!-- <include file="$(find db_config)/launch/cmd_vel_mux.launch"/> -->
 </launch>
