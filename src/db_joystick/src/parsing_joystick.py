@@ -35,7 +35,7 @@ class ParsingJoystick:
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
 
         # publishing topics
-        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
+        self.cmd_vel_pub = rospy.Publisher("/dodobot/cmd_vel", Twist, queue_size=100)
 
         # subscription topics
         self.joy_sub = rospy.Subscriber(self.joystick_topic, Joy, self.joystick_msg_callback, queue_size=5)
@@ -110,23 +110,19 @@ class ParsingJoystick:
         if event.current_real - self.prev_joy_msg.header.stamp > rospy.Duration(0.1):
             if self.set_twist(0.0, 0.0):
                 self.cmd_vel_pub.publish(self.twist_command)
-            if self.set_servos():
-                self.servo_pub.publish(self.servo_command)
             return
 
         if event.current_real - self.prev_joy_msg.header.stamp > rospy.Duration(0.05):
             self.cmd_vel_pub.publish(self.twist_command)
-            self.servo_pub.publish(self.servo_command)
             return
 
     def run(self):
-        clock_rate = rospy.Rate(1)
+        clock_rate = rospy.Rate(15.0)
 
         prev_time = rospy.get_rostime()
         while not rospy.is_shutdown():
 
             self.cmd_vel_pub.publish(self.twist_command)
-            self.servo_pub.publish(self.servo_command)
             clock_rate.sleep()
 
 

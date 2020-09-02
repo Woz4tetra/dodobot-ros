@@ -38,11 +38,13 @@ class DodobotChassis:
 
         # robot dimensions
         self.wheel_radius_mm = rospy.get_param("~wheel_radius_mm", 30.0)  # radius of the wheel
-        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 192.05)  #  min: 172.05, max: 212.05 distance between the two wheels
+        # 192.05, 202.05, 197.05, 199.05
+        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 199.05)  #  min: 172.05, max: 212.05 distance between the two wheels
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
         self.max_speed_tps = rospy.get_param("~max_speed_cps", 6800.0)
         self.services_enabled = rospy.get_param("~services_enabled", True)
+        self.publish_odom_tf = rospy.get_param("~publish_odom_tf", True)
         self.use_sensor_msg_time = rospy.get_param("~use_sensor_msg_time", False)
         self.tilter_lower_angle = math.radians(rospy.get_param("~tilter_lower_angle_deg", -60.0))
         self.tilter_upper_angle = math.radians(rospy.get_param("~tilter_upper_angle_deg", 0.0))
@@ -183,7 +185,7 @@ class DodobotChassis:
         self.camera_tilt_angle = self.tilt_command_to_angle_rad(tilter_sub_msg.position)
 
     def run(self):
-        clock_rate = rospy.Rate(30)
+        clock_rate = rospy.Rate(60)
 
         while not rospy.is_shutdown():
             try:
@@ -216,14 +218,16 @@ class DodobotChassis:
             now = self.drive_sub_msg.header.stamp
         else:
             now = rospy.Time.now()
+
         odom_quaternion = tf.transformations.quaternion_from_euler(0.0, 0.0, self.odom_t)
-        self.tf_broadcaster.sendTransform(
-            (self.odom_x, self.odom_y, 0.0),
-            odom_quaternion,
-            now,
-            self.child_frame,
-            self.odom_parent_frame
-        )
+        if self.publish_odom_tf:
+            self.tf_broadcaster.sendTransform(
+                (self.odom_x, self.odom_y, 0.0),
+                odom_quaternion,
+                now,
+                self.child_frame,
+                self.odom_parent_frame
+            )
 
         self.odom_msg.header.stamp = now
         self.odom_msg.pose.pose.position.x = self.odom_x

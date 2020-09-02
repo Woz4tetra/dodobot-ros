@@ -424,7 +424,7 @@ void DodobotParsing::loop()
 
 void DodobotParsing::stop()
 {
-    // setActive(false);
+    setActive(false);
 
     // leave reporting for other modules
     // setReporting(false);
@@ -436,7 +436,7 @@ int DodobotParsing::run()
 {
     setup();
 
-    ros::Rate clock_rate(120);  // run loop at 120 Hz
+    ros::Rate clock_rate(300);  // run loop at 300 Hz
 
     int exit_code = 0;
     while (ros::ok())
@@ -609,6 +609,10 @@ void DodobotParsing::parseDrive()
     CHECK_SEGMENT; drive_msg.right_enc_pos = stol(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.left_enc_speed = stof(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.right_enc_speed = stof(_currentBufferSegment);
+
+    // double now = ros::Time::now().toSec();
+    // double then = drive_msg.header.stamp.toSec();
+    // ROS_INFO("current time: %f, sensor time: %f. diff: %f", now, then, now - then);
 
     drive_pub.publish(drive_msg);
 }

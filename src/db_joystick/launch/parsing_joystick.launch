@@ -2,7 +2,7 @@
 <launch>
     <arg name="joystick_linear_axis"   default="1" />
     <arg name="joystick_angular_axis"   default="0" />
-    <arg name="deadzone_val"   default="0.05" />
+    <arg name="deadzone_val"   default="0.1" />
 
     <node name="joystick" pkg="joy" type="joy_node" output="log" required="true">
         <param name="dev" value="/dev/input/js0" type="str"/>
