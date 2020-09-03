@@ -42,7 +42,7 @@ class DodobotChassis:
         self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 199.05)  #  min: 172.05, max: 212.05 distance between the two wheels
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
-        self.max_speed_tps = rospy.get_param("~max_speed_cps", 6800.0)
+        self.max_speed_tps = rospy.get_param("~max_speed_tps", 6800.0)
         self.services_enabled = rospy.get_param("~services_enabled", True)
         self.publish_odom_tf = rospy.get_param("~publish_odom_tf", True)
         self.use_sensor_msg_time = rospy.get_param("~use_sensor_msg_time", False)
@@ -266,7 +266,7 @@ class DodobotChassis:
         delta_right = self.ticks_to_m(cur_right_ticks - self.prev_right_ticks)
         delta_dist = (delta_right + delta_left) / 2
 
-        if abs(delta_dist) > 0.0001:
+        if abs(delta_left) > 0.0001 or abs(delta_right) > 0.0001:
             left_speed = self.ticks_to_m(left_enc_speed)
             right_speed = self.ticks_to_m(right_enc_speed)
         else:

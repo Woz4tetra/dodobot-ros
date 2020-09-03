@@ -16,17 +16,16 @@ acc_lim_y: 0.0
 acc_lim_th: 3.2
 
 # The absolute value of the maximum translational velocity for the robot in m/s
-max_vel_trans: 0.12
+max_vel_trans: 0.20  # max speed 0.33 m/s
 
 # The absolute value of the minimum translational velocity for the robot in m/s
-min_vel_trans: 0.04
+min_vel_trans: 0.13
 
 # The maximum x velocity for the robot in m/s.
-max_vel_x: 0.12  # 0.36
+max_vel_x: 0.20  # 0.36
 
 # The minimum x velocity for the robot in m/s, negative for backwards motion.
-min_vel_x: 0.0  # -0.36
-# min_vel_x: -0.2  # -0.36
+min_vel_x: -0.13  # -0.33
 
 # The maximum y velocity for the robot in m/s
 max_vel_y: 0.0
@@ -35,16 +34,16 @@ max_vel_y: 0.0
 min_vel_y: 0.0
 
 # The absolute value of the maximum rotational velocity for the robot in rad/s
-max_vel_theta: 1.0  # 3.0
+max_vel_theta: 3.3  # 7.0
 
 # The absolute value of the minimum rotational velocity for the robot in rad/s
-min_vel_theta: 0.7
+min_vel_theta: 1.7
 
 
 ## Goal Tolerance Parameters ##
 
 # The tolerance in radians for the controller in yaw/rotation when achieving its goal
-yaw_goal_tolerance: 0.05
+yaw_goal_tolerance: 0.1
 
 # The tolerance in meters for the controller in the x & y distance when achieving a goal
 xy_goal_tolerance: 0.1

@@ -4,5 +4,6 @@
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
+        <arg name="database_path" value="rtabmap-***REMOVED***-9-2-2020.db"/>
     </include>
 </launch>
