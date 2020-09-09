@@ -576,14 +576,8 @@ void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, floa
         ROS_WARN("Robot isn't ready! Skipping writeK");
         return;
     }
-    writeSerial("ks", "df", 0, kp_A);
-    writeSerial("ks", "df", 1, ki_A);
-    writeSerial("ks", "df", 2, kd_A);
-    writeSerial("ks", "df", 3, kp_B);
-    writeSerial("ks", "df", 4, ki_B);
-    writeSerial("ks", "df", 5, kd_B);
-    writeSerial("ks", "df", 6, speed_kA);
-    writeSerial("ks", "df", 7, speed_kB);
+    writeSerial("ks", "dffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
+    _serialRef.write('\n');
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)
@@ -646,7 +640,7 @@ void DodobotParsing::parseGripper()
 void DodobotParsing::parseLinear()
 {
     CHECK_SEGMENT; linear_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
-    CHECK_SEGMENT; linear_msg.position = (uint16_t)stoi(_currentBufferSegment);
+    CHECK_SEGMENT; linear_msg.position = (int32_t)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.has_error = (bool)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.is_homed = (bool)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.is_active = (bool)stoi(_currentBufferSegment);

@@ -19,7 +19,7 @@ from db_parsing.msg import DodobotBumper
 from db_parsing.msg import DodobotDrive
 from db_parsing.msg import DodobotFSRs
 from db_parsing.msg import DodobotGripper
-from db_parsing.msg import DodobotGripper
+from db_parsing.msg import DodobotLinear
 from db_parsing.msg import DodobotTilter
 
 from db_parsing.srv import DodobotPidSrv
@@ -43,13 +43,20 @@ class DodobotChassis:
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
         self.max_speed_tps = rospy.get_param("~max_speed_tps", 6800.0)
+
         self.services_enabled = rospy.get_param("~services_enabled", True)
         self.publish_odom_tf = rospy.get_param("~publish_odom_tf", True)
         self.use_sensor_msg_time = rospy.get_param("~use_sensor_msg_time", False)
+
         self.tilter_lower_angle = math.radians(rospy.get_param("~tilter_lower_angle_deg", -60.0))
         self.tilter_upper_angle = math.radians(rospy.get_param("~tilter_upper_angle_deg", 0.0))
         self.tilter_lower_command = rospy.get_param("~tilter_lower_command", 5)
         self.tilter_upper_command = rospy.get_param("~tilter_upper_command", 180)
+
+        self.stepper_ticks_per_R_no_gearbox = rospy.get_param("~stepper_ticks_per_R_no_gearbox", 200.0)
+        self.microsteps = rospy.get_param("~microsteps", 8.0)
+        self.stepper_gearbox_ratio = rospy.get_param("~stepper_gearbox_ratio", 26.0 + 103.0 / 121.0)
+        self.belt_pulley_radius_m = rospy.get_param("~belt_pulley_radius_m", 0.0121)
 
         self.wheel_radius_m = self.wheel_radius_mm / 1000.0
         self.wheel_distance_m = self.wheel_distance_mm / 1000.0
@@ -66,6 +73,9 @@ class DodobotChassis:
         self.odom_parent_frame = rospy.get_param("~odom_parent_frame", "odom")
         self.tilt_base_frame = rospy.get_param("~tilt_frame", "tilt_base_link")
         self.camera_rotate_frame = rospy.get_param("~tilt_frame", "camera_rotate_link")
+        self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
+        self.linear_base_frame = rospy.get_param("~linear_base_frame", "linear_base_link")
+
         self.tf_broadcaster = tf.TransformBroadcaster()
 
         # Drive variables
@@ -84,6 +94,12 @@ class DodobotChassis:
         self.odom_vy = 0.0
         self.odom_vt = 0.0
 
+        # linear variables
+        self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
+        self.stepper_R_per_tick = 1.0 / self.stepper_ticks_per_R
+        self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
+        self.zero_quat = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+
         # Odometry message
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = self.odom_parent_frame
@@ -93,6 +109,7 @@ class DodobotChassis:
         self.twist_sub = rospy.Subscriber("cmd_vel", Twist, self.twist_callback, queue_size=5)
         self.drive_sub = rospy.Subscriber("drive", DodobotDrive, self.drive_callback, queue_size=100)
         self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=100)
+        self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
 
         # Publishers
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
@@ -127,17 +144,17 @@ class DodobotChassis:
         if not self.services_enabled:
             rospy.logwarn("Services for this node aren't enabled!")
         try:
-            # self.set_pid(
-            #     config["kp_A"],
-            #     config["ki_A"],
-            #     config["kd_A"],
-            #     config["kp_B"],
-            #     config["ki_B"],
-            #     config["kd_B"],
-            #     config["speed_kA"],
-            #     config["speed_kB"],
-            # )
-            pass
+            rospy.loginfo("PID service config: %s" % config)
+            self.set_pid(
+                config["kp_A"],
+                config["ki_A"],
+                config["kd_A"],
+                config["kp_B"],
+                config["ki_B"],
+                config["kd_B"],
+                config["speed_kA"],
+                config["speed_kB"],
+            )
         except rospy.ServiceException, e:
             rospy.logwarn("%s service call failed: %s" % (self.pid_service_name, e))
 
@@ -183,6 +200,18 @@ class DodobotChassis:
 
     def tilter_callback(self, tilter_sub_msg):
         self.camera_tilt_angle = self.tilt_command_to_angle_rad(tilter_sub_msg.position)
+
+    def linear_callback(self, linear_sub_msg):
+        stepper_z_pos = linear_sub_msg.position * self.step_ticks_to_linear_m
+
+        now = rospy.Time.now()
+        self.tf_broadcaster.sendTransform(
+            (0.0, 0.0, stepper_z_pos),
+            self.zero_quat,
+            now,
+            self.linear_frame,
+            self.linear_base_frame,
+        )
 
     def run(self):
         clock_rate = rospy.Rate(60)
