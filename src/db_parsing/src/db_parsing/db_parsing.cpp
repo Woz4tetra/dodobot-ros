@@ -577,7 +577,7 @@ void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, floa
         return;
     }
     writeSerial("ks", "dffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
-    _serialRef.write('\n');
+    _serialRef.write("\n");
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)
