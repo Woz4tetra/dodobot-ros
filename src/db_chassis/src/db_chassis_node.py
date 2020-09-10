@@ -315,7 +315,7 @@ class DodobotChassis:
         speed = (left_speed + right_speed) / 2
         self.odom_vx = speed * math.cos(self.odom_t)
         self.odom_vy = speed * math.sin(self.odom_t)
-        self.odom_vt = (right_speed - left_speed) / (self.wheel_distance_m / 2)
+        self.odom_vt = (right_speed - left_speed) / self.wheel_distance_m
 
         # print self.odom_x, self.odom_y, math.degrees(self.odom_t)
 
