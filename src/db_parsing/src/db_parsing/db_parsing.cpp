@@ -576,7 +576,7 @@ void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, floa
         ROS_WARN("Robot isn't ready! Skipping writeK");
         return;
     }
-    writeSerial("ks", "dffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
+    writeSerial("ks", "ffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
     _serialRef.write("\n");
 }
 

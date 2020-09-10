@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="camera">
+        <!-- Load camera parameters. Based on https://answers.ros.org/question/276371/load-parameters-using-roslaunch-saved-as-yaml-from-rqt-dynamic-reconfigure/ -->
+        <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense_config.yaml" />
+
         <!-- Launch the camera device nodelet-->
 
         <!--
