@@ -38,6 +38,7 @@
 
             <remap from="rgb/image"       to="/camera/color/image_raw"/>
             <remap from="depth/image"     to="/camera/aligned_depth_to_color/image_raw"/>
+            <!-- <remap from="depth/image"     to="/camera/depth_registered/sw_registered/image_rect_raw"/> -->
             <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
 
             <!-- When sending goals on /rtabmap/goal topic, use actionlib to communicate with move_base -->
