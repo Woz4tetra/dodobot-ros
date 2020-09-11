@@ -51,7 +51,7 @@
 
         <!-- Publish registered XYZRGB point cloud with hardware registered input (ROS Realsense depth alignment) -->
         <node pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
-                args="load depth_image_proc/point_cloud_xyzrgb camera_nodelet_manager" respawn="false">
+                args="load depth_image_proc/point_cloud_xyzrgb realsense2_camera_manager" respawn="false">
             <remap from="rgb/image_rect_color"        to="color/image_raw" />
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
