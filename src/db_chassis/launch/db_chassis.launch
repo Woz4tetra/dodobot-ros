@@ -2,12 +2,14 @@
 <launch>
     <arg name="cmd_vel_topic" default="cmd_vel"/>
     <arg name="db_chassis_services_enabled" default="true"/>
+    <arg name="db_chassis_publish_odom_tf" default="true"/>
     <arg name="db_chassis_use_sensor_msg_time" default="false"/>
 
     <group ns="dodobot" >
         <node name="db_chassis" pkg="db_chassis" type="db_chassis_node.py" output="screen" required="true">
             <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
+            <param name="publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
             <param name="use_sensor_msg_time" value="$(arg db_chassis_use_sensor_msg_time)"/>
         </node>
     </group>

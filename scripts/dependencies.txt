@@ -1,0 +1,11 @@
+orb_slam_2_ros
+raspicam_node
+rover6_ros
+rplidar_ros
+image_common
+image_transport_plugins
+serial
+navigation_msgs
+joystick_drivers
+geometry2
+navigation

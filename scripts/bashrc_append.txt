@@ -1,0 +1,3 @@
+source /home/${USER}/ros_ws/devel/setup.bash
+source /home/${USER}/ros_ws/src/dodobot-ros/scripts/set_master.sh
+export ROBOT_NAME=chansey

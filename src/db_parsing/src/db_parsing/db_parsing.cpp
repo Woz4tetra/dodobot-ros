@@ -24,7 +24,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     _serialBufferIndex = 0;
     _currentBufferSegment = "";
     _currentSegmentNum = -1;
-    _readPacketNum = 0;
+    _readPacketNum = -1;
     _writePacketNum = 0;
     _recvCharIndex = 0;
     _recvCharBuffer = new char[0xfff];
@@ -227,7 +227,10 @@ bool DodobotParsing::readSerial()
         return false;
     }
     unsigned long long  recv_packet_num = (unsigned long long )stoi(_currentBufferSegment);
-    if (recv_packet_num != _readPacketNum) {
+    if (_readPacketNum == -1) {
+        _readPacketNum = recv_packet_num;
+    }
+    else if (recv_packet_num != _readPacketNum) {
         ROS_ERROR("Received packet num doesn't match local count. recv %llu != local %llu", recv_packet_num, _readPacketNum);
         ROS_ERROR_STREAM("Buffer: " << _serialBuffer);
         _readPacketNum = recv_packet_num;
@@ -421,7 +424,7 @@ void DodobotParsing::loop()
 
 void DodobotParsing::stop()
 {
-    // setActive(false);
+    setActive(false);
 
     // leave reporting for other modules
     // setReporting(false);
@@ -433,7 +436,7 @@ int DodobotParsing::run()
 {
     setup();
 
-    ros::Rate clock_rate(120);  // run loop at 120 Hz
+    ros::Rate clock_rate(300);  // run loop at 300 Hz
 
     int exit_code = 0;
     while (ros::ok())
@@ -573,14 +576,8 @@ void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, floa
         ROS_WARN("Robot isn't ready! Skipping writeK");
         return;
     }
-    writeSerial("ks", "df", 0, kp_A);
-    writeSerial("ks", "df", 1, ki_A);
-    writeSerial("ks", "df", 2, kd_A);
-    writeSerial("ks", "df", 3, kp_B);
-    writeSerial("ks", "df", 4, ki_B);
-    writeSerial("ks", "df", 5, kd_B);
-    writeSerial("ks", "df", 6, speed_kA);
-    writeSerial("ks", "df", 7, speed_kB);
+    writeSerial("ks", "ffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
+    _serialRef.write("\n");
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)
@@ -606,6 +603,10 @@ void DodobotParsing::parseDrive()
     CHECK_SEGMENT; drive_msg.right_enc_pos = stol(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.left_enc_speed = stof(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.right_enc_speed = stof(_currentBufferSegment);
+
+    // double now = ros::Time::now().toSec();
+    // double then = drive_msg.header.stamp.toSec();
+    // ROS_INFO("current time: %f, sensor time: %f. diff: %f", now, then, now - then);
 
     drive_pub.publish(drive_msg);
 }
@@ -639,7 +640,7 @@ void DodobotParsing::parseGripper()
 void DodobotParsing::parseLinear()
 {
     CHECK_SEGMENT; linear_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
-    CHECK_SEGMENT; linear_msg.position = (uint16_t)stoi(_currentBufferSegment);
+    CHECK_SEGMENT; linear_msg.position = (int32_t)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.has_error = (bool)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.is_homed = (bool)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.is_active = (bool)stoi(_currentBufferSegment);
