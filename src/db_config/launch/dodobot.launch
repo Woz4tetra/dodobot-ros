@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <include file="$(find db_chassis)/launch/db_chassis.launch"> </include>
-    <!-- <include file="$(find db_joystick)/launch/parsing_joystick.launch"> </include> -->
+    <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_config)/config/db_chassis.yaml" />
+    <include file="$(find db_chassis)/launch/db_chassis.launch">
+        <arg name="db_chassis_publish_odom_tf" value="true"/>
+    </include>
+    <!-- <include file="$(find db_joystick)/launch/parsing_joystick.launch"/> -->
 
     <include file="$(find db_parsing)/launch/db_parsing.launch"/>
     <include file="$(find db_config)/launch/static_transforms.launch"/>
-    <include file="$(find db_config)/launch/cmd_vel_mux.launch"/>
+    <!-- <include file="$(find db_config)/launch/cmd_vel_mux.launch"/> -->
 </launch>

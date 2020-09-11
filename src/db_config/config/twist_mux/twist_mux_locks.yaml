@@ -8,4 +8,9 @@
 # - priority: priority in the range [0, 255], so all the topics with priority lower than it
 #             will be stopped/disabled
 
-# locks:
+locks:
+-
+    name: "empty"
+    topic: "/"
+    timeout: 0.0
+    priority: 100
