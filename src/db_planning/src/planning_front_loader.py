@@ -25,9 +25,11 @@ class PlanningFrontLoader:
         5: "MOVE_STARTED",
         6: "MOVE_FINISHED",
         7: "POSITION_ERROR",
+        8: "NOT_HOMED",
+        9: "NOT_ACTIVE",
     }
 
-    FAILED_GOAL_EVENTS = ("ACTIVE_TRUE", "ACTIVE_FALSE", "HOMING_STARTED", "HOMING_FINISHED", "POSITION_ERROR")
+    FAILED_GOAL_EVENTS = ("ACTIVE_TRUE", "ACTIVE_FALSE", "HOMING_STARTED", "HOMING_FINISHED", "POSITION_ERROR", "NOT_HOMED", "NOT_ACTIVE")
 
     def __init__(self):
         """Initializes ROS and necessary services and publishers.
@@ -46,7 +48,13 @@ class PlanningFrontLoader:
         self.move_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
         self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
 
-        self.linear_event_topic = "/dodobot/linear_events"
+        self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
+
+        self.has_error = False
+        self.is_homed = False
+        self.is_active = False
+
+        self.linear_event_topic = "linear_events"
         self.linear_event_timeout = 20.0
 
         self.stepper_ticks_per_R_no_gearbox = rospy.get_param("~stepper_ticks_per_R_no_gearbox", 200.0)
@@ -180,6 +188,16 @@ class PlanningFrontLoader:
             (Bool): True if command was successful. False otherwise.
         """
 
+        if self.has_error:
+            rospy.logerr("Can't send move command. Linear reports an error!")
+            return False
+        if not self.is_homed:
+            rospy.logerr("Can't send move command. Linear is not homed!")
+            return False
+        if not self.is_active:
+            rospy.logerr("Can't send move command. Linear is not active!")
+            return False
+
         msg = DodobotLinear()
         msg.command_type = 0
         msg.command_value = int(cmd * self.step_linear_m_to_ticks)
@@ -208,9 +226,12 @@ class PlanningFrontLoader:
 
             elif event_str in self.FAILED_GOAL_EVENTS:
                 rospy.logerr("Move command failed: %s" % event_str)
-
                 return False
 
+    def linear_callback(self, msg):
+        self.has_error = msg.has_error
+        self.is_homed = msg.is_homed
+        self.is_active = msg.is_active
 
     def to_event_str(self, event_num):
         if event_num in self.LINEAR_EVENTS:
