@@ -19,7 +19,8 @@
 #   ]
 standalone_tags:
   [
-      # {id: 113, size: 0.0089, name: chansey},
+      # {id: 242, size: 0.076, name: blissey_tag},
+      {id: 242, size: 0.0696, name: blissey_tag},
   ]
 # ## Tag bundle definitions
 # ### Remarks
@@ -45,7 +46,7 @@ standalone_tags:
 tag_bundles:
   [
     {
-      name: 'chansey_bundle',
+      name: 'chansey_tag',
       layout:
         [
           {id: 113, size: 0.0089, x: -0.007, y: 0.0000, z: 0.0, qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0},
