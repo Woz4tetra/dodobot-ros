@@ -1,0 +1,7 @@
+<launch>
+    <group ns="dodobot" >
+        <node name="db_planning" pkg="db_planning" type="planning_front_loader.py" output="screen" required="true">
+
+        </node>
+    </group>
+</launch>

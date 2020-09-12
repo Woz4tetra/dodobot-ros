@@ -17,6 +17,7 @@
 #include "db_parsing/DodobotGripper.h"
 #include "db_parsing/DodobotFSRs.h"
 #include "db_parsing/DodobotLinear.h"
+#include "db_parsing/DodobotLinearEvent.h"
 #include "db_parsing/DodobotTilter.h"
 
 #include "db_parsing/DodobotPidSrv.h"
@@ -88,6 +89,10 @@ private:
     db_parsing::DodobotLinear linear_msg;
     void parseLinear();
     void linearCallback(const db_parsing::DodobotLinear::ConstPtr& msg);
+
+    ros::Publisher linear_event_pub;
+    db_parsing::DodobotLinearEvent linear_event_msg;
+    void parseLinearEvent();
 
     ros::Publisher battery_pub;
     sensor_msgs::BatteryState battery_msg;

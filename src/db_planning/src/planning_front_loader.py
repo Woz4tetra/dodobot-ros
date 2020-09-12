@@ -1,6 +1,8 @@
 #!/usr/bin/python
+
 import rospy
 import tf
+import math
 
 from geometry_msgs.msg import Pose, TransformStamped
 
@@ -8,12 +10,24 @@ from db_planning.srv import FrontLoaderMove, FrontLoaderMoveResponse
 from db_planning.srv import FrontLoaderGrab, FrontLoaderGrabResponse
 from db_planning.srv import FrontLoaderPlan, FrontLoaderPlanResponse
 
-from db_parsing.msg import DodobotLinear, DodobotGripper
+from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper
 
 
 class PlanningFrontLoader:
     """Class definition for planning_front_loader ROS node.
     """
+
+    LINEAR_EVENTS = {
+        1: "ACTIVE_TRUE",
+        2: "ACTIVE_FALSE",
+        3: "HOMING_STARTED",
+        4: "HOMING_FINISHED",
+        5: "MOVE_STARTED",
+        6: "MOVE_FINISHED",
+        7: "POSITION_ERROR",
+    }
+
+    FAILED_GOAL_EVENTS = ("ACTIVE_TRUE", "ACTIVE_FALSE", "HOMING_STARTED", "HOMING_FINISHED", "POSITION_ERROR")
 
     def __init__(self):
         """Initializes ROS and necessary services and publishers.
@@ -32,6 +46,19 @@ class PlanningFrontLoader:
         self.move_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
         self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
 
+        self.linear_event_topic = "/dodobot/linear_events"
+        self.linear_event_timeout = 20.0
+
+        self.stepper_ticks_per_R_no_gearbox = rospy.get_param("~stepper_ticks_per_R_no_gearbox", 200.0)
+        self.microsteps = rospy.get_param("~microsteps", 8.0)
+        self.stepper_gearbox_ratio = rospy.get_param("~stepper_gearbox_ratio", 26.0 + 103.0 / 121.0)
+        self.belt_pulley_radius_m = rospy.get_param("~belt_pulley_radius_m", 0.0121)
+
+        self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
+        self.stepper_R_per_tick = 1.0 / self.stepper_ticks_per_R
+        self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
+        self.step_linear_m_to_ticks = 1.0 / self.step_ticks_to_linear_m
+
     ### CALLBACK FUNCTIONS ###
 
     def move_callback(self, req):
@@ -43,7 +70,7 @@ class PlanningFrontLoader:
         Returns:
             (FrontLoaderMoveResponse): Response object for indicating (un)successful completion of action.
         """
-        
+
         # transform pose from robot frame to front loader frame
         pose_base_link = req.pose
 
@@ -73,7 +100,7 @@ class PlanningFrontLoader:
         return FrontLoaderGrabResponse(success)
 
     def plan_callback(self, req):
-        """Service callback for front_loader_plan. 
+        """Service callback for front_loader_plan.
 
         Args:
             req (FrontLoaderPlan): FrontLoaderPlan request object
@@ -98,7 +125,7 @@ class PlanningFrontLoader:
         return FrontLoaderPlanResponse(True)
 
     ### HELPER FUNCTIONS ###
-    
+
     def transform_pose(self, pose):
         """Transforms a pose from the base_link frame to the front_loader frame.
 
@@ -108,10 +135,10 @@ class PlanningFrontLoader:
         Returns:
             (Pose): Pose in the front_loader frame.
         """
-        
+
         # http://docs.ros.org/jade/api/tf/html/python/tf_python.html
 
-        # initialize transformer 
+        # initialize transformer
         t = tf.Transformer(True, rospy.Duration(10.0))
 
         # create temp transform
@@ -153,7 +180,43 @@ class PlanningFrontLoader:
             (Bool): True if command was successful. False otherwise.
         """
 
-        return True
+        msg = DodobotLinear()
+        msg.command_type = 0
+        msg.command_value = int(cmd * self.step_linear_m_to_ticks)
+        self.move_pub.publish(msg)
+
+        rospy.loginfo("Publishing command: %s" % msg.command_value)
+
+        while True:
+            try:
+                event_msg = rospy.wait_for_message(self.linear_event_topic, DodobotLinearEvent, timeout=self.linear_event_timeout)
+            except rospy.ROSException:
+                rospy.logerr("Move command timed out after %ss" % self.linear_event_timeout)
+                return False
+
+            event_str = self.to_event_str(event_msg.event_num)
+            if event_str == "UNKNOWN":
+                rospy.logerr("Unknown linear event type: %s" % event_msg.event_num)
+                continue
+
+            elif event_str == "MOVE_FINISHED":
+                rospy.loginfo("Move finished event received!")
+                return True
+
+            elif event_str == "MOVE_STARTED":
+                rospy.loginfo("Move started")
+
+            elif event_str in self.FAILED_GOAL_EVENTS:
+                rospy.logerr("Move command failed: %s" % event_str)
+
+                return False
+
+
+    def to_event_str(self, event_num):
+        if event_num in self.LINEAR_EVENTS:
+            return self.LINEAR_EVENTS[event_num]
+        else:
+            return "UNKNOWN"
 
     def send_grab_cmd(self, cmd):
         """Sends grab command to self.grab_pub. On completion, return true. On timeout, return false.
@@ -172,10 +235,9 @@ if __name__ == "__main__":
     try:
         node = PlanningFrontLoader()
         rospy.spin()
-        
+
     except rospy.ROSInterruptException:
         pass
 
     finally:
         rospy.loginfo("Exiting planning_front_loader node")
-
