@@ -45,6 +45,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper", 50);
     tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear", 50);
+    linear_event_pub = nh.advertise<db_parsing::DodobotLinearEvent>("linear_events", 50);
     battery_pub = nh.advertise<sensor_msgs::BatteryState>("battery", 50);
     drive_pub = nh.advertise<db_parsing::DodobotDrive>("drive", 50);
     bumper_pub = nh.advertise<db_parsing::DodobotBumper>("bumper", 50);
@@ -321,6 +322,9 @@ void DodobotParsing::processSerialPacket(string category)
     // }
     else if (category.compare("linear") == 0) {
         parseLinear();
+    }
+    else if (category.compare("le") == 0) {
+        parseLinearEvent();
     }
     else if (category.compare("batt") == 0) {
         parseBattery();
@@ -646,6 +650,14 @@ void DodobotParsing::parseLinear()
     CHECK_SEGMENT; linear_msg.is_active = (bool)stoi(_currentBufferSegment);
 
     linear_pub.publish(linear_msg);
+}
+
+void DodobotParsing::parseLinearEvent()
+{
+    CHECK_SEGMENT; linear_event_msg.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT; linear_event_msg.event_num = (int)stoi(_currentBufferSegment);
+
+    linear_event_pub.publish(linear_event_msg);
 }
 
 void DodobotParsing::parseBattery()
