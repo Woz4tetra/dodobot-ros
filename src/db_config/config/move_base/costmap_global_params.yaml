@@ -9,3 +9,7 @@ cost_scaling_factor: 5.0
 infration_radius: 0.1
 # width: 5.0
 # height: 5.0
+
+plugins:
+    - {name: static,                  type: "costmap_2d::StaticLayer"}
+    - {name: inflation,               type: "costmap_2d::InflationLayer"}

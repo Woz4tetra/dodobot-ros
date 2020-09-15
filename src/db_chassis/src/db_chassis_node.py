@@ -296,12 +296,15 @@ class DodobotChassis:
         delta_right = self.ticks_to_m(cur_right_ticks - self.prev_right_ticks)
         delta_dist = (delta_right + delta_left) / 2
 
-        if abs(delta_left) > 0.0001 or abs(delta_right) > 0.0001:
-            left_speed = self.ticks_to_m(left_enc_speed)
-            right_speed = self.ticks_to_m(right_enc_speed)
-        else:
-            left_speed = 0.0
-            right_speed = 0.0
+        # if abs(delta_left) > 0.0001 or abs(delta_right) > 0.0001:
+        #     left_speed = self.ticks_to_m(left_enc_speed)
+        #     right_speed = self.ticks_to_m(right_enc_speed)
+        # else:
+        #     left_speed = 0.0
+        #     right_speed = 0.0
+
+        left_speed = self.ticks_to_m(left_enc_speed)
+        right_speed = self.ticks_to_m(right_enc_speed)
 
         # angle = arc / radius
         delta_angle = (delta_right - delta_left) / self.wheel_distance_m
