@@ -9,3 +9,7 @@ static_map: false
 rolling_window: true
 cost_scaling_factor: 2.5
 inflation_radius: 0.1
+
+plugins:
+    - {name: obstacles_laser,           type: "costmap_2d::ObstacleLayer"}
+    - {name: inflation,                 type: "costmap_2d::InflationLayer"}
