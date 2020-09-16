@@ -1,0 +1,5 @@
+string sequence_type
+---
+bool success
+---
+int8 sequence_index
