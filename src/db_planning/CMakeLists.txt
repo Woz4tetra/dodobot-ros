@@ -6,23 +6,34 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs
     std_msgs
     message_generation
+    genmsg
+    actionlib_msgs
+    actionlib
 )
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
-add_service_files(
+# add_service_files(
+#     FILES
+#     SequenceRequest.srv
+#     FrontLoaderAction.srv
+#     ChassisAction.srv
+# )
+add_action_files(
+    DIRECTORY action
     FILES
-    FrontLoaderGrab.srv
-    FrontLoaderMove.srv
-    FrontLoaderPlan.srv
+    SequenceRequest.action
+    Chassis.action
+    FrontLoader.action
 )
 
 generate_messages(
     DEPENDENCIES
     std_msgs
     geometry_msgs
+    actionlib_msgs
 )
 
 
