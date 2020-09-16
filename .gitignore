@@ -3,7 +3,7 @@
 src/db_config/bags/
 
 # data
-*.csv
+# *.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
