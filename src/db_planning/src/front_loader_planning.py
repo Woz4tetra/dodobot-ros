@@ -6,10 +6,7 @@ import math
 
 from geometry_msgs.msg import Pose, TransformStamped
 
-from db_planning.srv import FrontLoaderMove, FrontLoaderMoveResponse
-from db_planning.srv import FrontLoaderGrab, FrontLoaderGrabResponse
-from db_planning.srv import FrontLoaderPlan, FrontLoaderPlanResponse
-
+from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper
 
 
@@ -41,12 +38,15 @@ class FrontLoaderPlanner:
             # log_level=rospy.DEBUG
         )
 
-        self.move_service = rospy.Service('front_loader_move', FrontLoaderMove, self.move_callback)
-        self.grab_service = rospy.Service('front_loader_grab', FrontLoaderGrab, self.grab_callback)
-        self.plan_service = rospy.Service('front_loader_plan', FrontLoaderPlan, self.plan_callback)
+        self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
+
+        self.front_loader_server = actionlib.SimpleActionServer(self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback)
+        self.front_loader_server.start()
+
+        self.result = FrontLoaderResult()
 
         self.move_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
-        self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
+        # self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
 
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
 
@@ -69,68 +69,27 @@ class FrontLoaderPlanner:
 
     ### CALLBACK FUNCTIONS ###
 
-    def move_callback(self, req):
-        """Service callback for front_loader_move. Moves servo into desired front loader pose.
-
-        Args:
-            req (FrontLoaderMove): FrontLoaderMove request object
-
-        Returns:
-            (FrontLoaderMoveResponse): Response object for indicating (un)successful completion of action.
-        """
-
+    def front_loader_callback(self, goal):
+        move_cmd = goal.goal_z
+        max_speed = goal.z_speed
+        acceleration = goal.z_accel
         # transform pose from robot frame to front loader frame
-        pose_base_link = req.pose
+        # pose_base_link = req.pose
 
         # perform IK to get command
-        move_cmd = self.inverse_kinematics(pose_base_link)
+        # move_cmd = self.inverse_kinematics(pose_base_link)
+        if math.isnan(move_cmd):
+            rospy.loginfo("No action required from front loader. Skipping.")
+            self.result.success = True
+            self.front_loader_server.set_succeeded()
 
         # send command
-        success = self.send_move_cmd(move_cmd)
+        success = self.send_move_cmd(move_cmd, max_speed, acceleration)
 
         # send response
-        return FrontLoaderMoveResponse(success)
-
-    def grab_callback(self, req):
-        """Service callback for front_loader_grab. Opens or closes the gripper.
-
-        Args:
-            req (FrontLoaderGrab): FrontLoaderGrab request object
-
-        Returns:
-            (FrontLoaderGrabResponse): Response object for indicating (un)successful completion of action.
-        """
-
-        # send command
-        success = self.send_grab_cmd(req.grab)
-
-        # send response
-        return FrontLoaderGrabResponse(success)
-
-    def plan_callback(self, req):
-        """Service callback for front_loader_plan.
-
-        Args:
-            req (FrontLoaderPlan): FrontLoaderPlan request object
-
-        Returns:
-            (FrontLoaderPlanResponse): Response object for indicating (un)successful completion of action.
-        """
-
-        # call move_callback
-        move_req = FrontLoaderMove()
-        move_req.pose = req.pose
-        success = self.move_callback(move_req)
-        if (success == False): return FrontLoaderPlanResponse(False)
-
-        # call grab_callback
-        grab_req = FrontLoaderGrab()
-        grab_req.grab = req.grab
-        success = self.grab_callback(grab_req)
-        if (success == False): return FrontLoaderPlanResponse(False)
-
-        # send response
-        return FrontLoaderPlanResponse(True)
+        self.result.success = success
+        self.front_loader_server.set_succeeded()
+        
 
     ### HELPER FUNCTIONS ###
 
@@ -178,7 +137,7 @@ class FrontLoaderPlanner:
 
         return pose.position.z
 
-    def send_move_cmd(self, cmd):
+    def send_move_cmd(self, cmd, max_speed=None, acceleration=None):
         """Sends move command to self.move_pub. On completion, return true. On timeout, return false.
 
         Args:
@@ -201,11 +160,29 @@ class FrontLoaderPlanner:
         msg = DodobotLinear()
         msg.command_type = 0
         msg.command_value = int(cmd * self.step_linear_m_to_ticks)
+
+        if max_speed is None:
+            msg.max_speed = -1
+        else:
+            msg.max_speed = int(max_speed * self.step_linear_m_to_ticks)
+
+        if acceleration is None:
+            msg.acceleration = -1
+        else:
+            msg.acceleration = int(acceleration * self.step_linear_m_to_ticks)
+
         self.move_pub.publish(msg)
 
         rospy.loginfo("Publishing command: %s" % msg.command_value)
 
         while True:
+            if rospy.is_shutdown():
+                return
+            if self.front_loader_server.is_preempt_requested():
+                rospy.loginfo("%s: Preempted" % self.front_loader_action_name)
+                self.front_loader_server.set_preempted()
+                return False
+
             try:
                 event_msg = rospy.wait_for_message(self.linear_event_topic, DodobotLinearEvent, timeout=self.linear_event_timeout)
             except rospy.ROSException:
@@ -238,18 +215,6 @@ class FrontLoaderPlanner:
             return self.LINEAR_EVENTS[event_num]
         else:
             return "UNKNOWN"
-
-    def send_grab_cmd(self, cmd):
-        """Sends grab command to self.grab_pub. On completion, return true. On timeout, return false.
-
-        Args:
-            cmd (Bool): True if gripper should close. False if gripper should open.
-
-        Returns:
-            (Bool): True if command was successful. False otherwise.
-        """
-
-        return True
 
 
 if __name__ == "__main__":

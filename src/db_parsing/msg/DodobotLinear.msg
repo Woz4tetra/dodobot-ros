@@ -6,3 +6,5 @@ bool is_active
 
 uint8 command_type
 int32 command_value
+int32 max_speed
+int32 acceleration

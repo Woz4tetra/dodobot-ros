@@ -11,7 +11,7 @@ class Sequence(object):
             self.goal_y = header.index("goal_y")
             self.goal_angle = header.index("goal_angle")
             self.base_speed = header.index("base_speed")
-            self.base_accel = header.index("base_accel")
+            self.base_ang_v = header.index("base_ang_v")
             self.pos_tolerance = header.index("pos_tolerance")
             self.drive_forwards = header.index("drive_forwards")
             self.goal_z = header.index("goal_z")
@@ -19,16 +19,16 @@ class Sequence(object):
             self.z_accel = header.index("z_accel")
 
             self.sequence_names = {
-                self.goal_x: goal_x,
-                self.goal_y: goal_y,
-                self.goal_angle: goal_angle,
-                self.base_speed: base_speed,
-                self.base_accel: base_accel,
-                self.pos_tolerance: pos_tolerance,
-                self.drive_forwards: drive_forwards,
-                self.goal_z: goal_z,
-                self.z_speed: z_speed,
-                self.z_accel: z_accel,
+                self.goal_x: "goal_x",
+                self.goal_y: "goal_y",
+                self.goal_angle: "goal_angle",
+                self.base_speed: "base_speed",
+                self.base_ang_v: "base_ang_v",
+                self.pos_tolerance: "pos_tolerance",
+                self.drive_forwards: "drive_forwards",
+                self.goal_z: "goal_z",
+                self.z_speed: "z_speed",
+                self.z_accel: "z_accel",
             }
 
             self.sequence_types = {
@@ -36,7 +36,7 @@ class Sequence(object):
                 self.goal_y: float,
                 self.goal_angle: float,
                 self.base_speed: float,
-                self.base_accel: float,
+                self.base_ang_v: float,
                 self.pos_tolerance: float,
                 self.drive_forwards: bool,
                 self.goal_z: float,
@@ -49,7 +49,7 @@ class Sequence(object):
                 self.goal_y,
                 self.goal_angle,
                 self.base_speed,
-                self.base_accel,
+                self.base_ang_v,
                 self.pos_tolerance,
                 self.drive_forwards,
                 self.goal_z,
@@ -63,10 +63,7 @@ class Sequence(object):
         for row in self.reader:
             action = {}
             for index in self.sequence_order:
-                if len(row[index]) == 0:
-                    value = None
-                else:
-                    value = self.sequence_types[index](row[index])
+                value = self.sequence_types[index](row[index])
                 action[self.sequence_names[index]] = value
             self.sequence.append(action)
 
