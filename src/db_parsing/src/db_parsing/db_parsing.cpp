@@ -484,8 +484,17 @@ void DodobotParsing::driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg
 
 void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& msg) {
     if (!motorsReady()) {
-        ROS_WARN("Motors aren't ready! Skipping writeTilter");
+        ROS_WARN("Motors aren't ready! Skipping write linear");
         return;
+    }
+
+    if (msg->max_speed != -1) {
+        writeSerial("lincfg", "dd", 0, msg->max_speed);
+        ros::Duration(0.005).sleep();
+    }
+    if (msg->acceleration != -1) {
+        writeSerial("lincfg", "dd", 1, msg->acceleration);        
+        ros::Duration(0.005).sleep();
     }
     writeSerial("linear", "dd", msg->command_type, msg->command_value);
 }
