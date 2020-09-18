@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import tf
 import rospy
-
+import tf
 import math
+import actionlib
 
 from db_planning.pid import PID
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
@@ -27,8 +27,9 @@ class ChassisPlanning:
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
 
-        self.chassis_server = actionlib.SimpleActionServer(self.chassis_action_name, ChassisAction, self.chassis_callback)
+        self.chassis_server = actionlib.SimpleActionServer("/" + self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
         self.chassis_server.start()
+        rospy.loginfo("[%s] server started" % self.chassis_action_name)
 
         self.result = ChassisResult()
 
@@ -39,6 +40,8 @@ class ChassisPlanning:
         self.current_x = 0.0
         self.current_y = 0.0
         self.current_a = 0.0
+
+        rospy.loginfo("[%s] -- Dodobot chassis planning is up! ---" % self.chassis_action_name)
 
 
     def chassis_callback(self, goal):

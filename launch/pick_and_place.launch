@@ -2,6 +2,12 @@
 <launch>
     <include file="$(find db_config)/launch/dodobot.launch"/>
     <include file="$(find db_config)/launch/realsense.launch"/>
-    <include file="$(find db_config)/launch/fake_map.launch"/>
     <include file="$(find db_config)/launch/move_base.launch"/>
+    <!-- <include file="$(find db_config)/launch/rtabmap.launch">
+        <arg name="localization" value="true"/>
+        <arg name="database_path" value="rtabmap-3-maxwells-grn-9-9-2020.db"/>
+    </include> -->
+    <include file="$(find db_config)/launch/fake_map.launch"/>
+    <include file="$(find db_config)/launch/apriltag.launch"/>
+    <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
 </launch>

@@ -3,6 +3,7 @@
 import rospy
 import tf
 import math
+import actionlib
 
 from geometry_msgs.msg import Pose, TransformStamped
 
@@ -40,8 +41,9 @@ class FrontLoaderPlanner:
 
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
 
-        self.front_loader_server = actionlib.SimpleActionServer(self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback)
+        self.front_loader_server = actionlib.SimpleActionServer("/" + self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback, auto_start=False)
         self.front_loader_server.start()
+        rospy.loginfo("[%s] server started" % self.front_loader_action_name)
 
         self.result = FrontLoaderResult()
 
@@ -67,6 +69,8 @@ class FrontLoaderPlanner:
         self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
         self.step_linear_m_to_ticks = 1.0 / self.step_ticks_to_linear_m
 
+        rospy.loginfo("[%s] --- Dodobot front loader planning is up! ---" % self.front_loader_action_name)
+
     ### CALLBACK FUNCTIONS ###
 
     def front_loader_callback(self, goal):
@@ -89,7 +93,7 @@ class FrontLoaderPlanner:
         # send response
         self.result.success = success
         self.front_loader_server.set_succeeded()
-        
+
 
     ### HELPER FUNCTIONS ###
 

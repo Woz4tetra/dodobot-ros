@@ -1,7 +1,16 @@
 --- TFs ---
+base_link -> linear_base_link 0.06046488 0.0 0.01825032
+linear_base_link -> linear_link 0.0 0.0 0.11542     gripper holding BP
 linear_link -> gripper_link 0.097222 0.0 0.0045
-gripper_link -> bp_carriage_link 0.006123 0.0 -0.007330    gripper holding BP
+gripper_link -> bp_carriage_link 0.006123 0.0 -0.007330    BP inserted into carriage and gripper holding BP
 bp_carriage_link -> tag_link 0.135830 0.005 0.087148
+
+base_link when BP is inserted into carriage relative to the tag:
+0.29963988 0.005 0.21798832
+
+start position (offset backwards in X):
+0.54963988 0.005 0.21798832
+
 
 --- Extract routine ---
 
@@ -11,7 +20,7 @@ Starting position
 Position under carriage lever
 0.0765804433442	-0.0376284054305	-0.06485798699251832	63740.0
 
-Push lever up 
+Push lever up
 0.1980225186	-0.0513988905328	-0.13218205714047082	78387.0
 
 Rotate
