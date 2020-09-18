@@ -46,7 +46,7 @@ min_vel_theta: 0.5
 yaw_goal_tolerance: 0.05
 
 # The tolerance in meters for the controller in the x & y distance when achieving a goal
-xy_goal_tolerance: 0.01
+xy_goal_tolerance: 0.05
 
 # If goal tolerance is latched, if the robot ever reaches the goal xy location
 # it will simply rotate in place, even if it ends up outside the goal

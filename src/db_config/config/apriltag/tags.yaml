@@ -45,12 +45,12 @@ standalone_tags:
 #   ]
 tag_bundles:
   [
-    {
-      name: 'chansey_tag',
-      layout:
-        [
-          {id: 113, size: 0.0089, x: -0.007, y: 0.0000, z: 0.0, qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0},
-          {id: 113, size: 0.0089, x: 0.007,  y: 0.0000, z: 0.0, qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0}
-        ]
-    }
+    # {
+    #   name: 'chansey_tag',
+    #   layout:
+    #     [
+    #       {id: 113, size: 0.0089, x: -0.007, y: 0.0000, z: 0.0, qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0},
+    #       {id: 113, size: 0.0089, x: 0.007,  y: 0.0000, z: 0.0, qw: 1.0, qx: 0.0, qy: 0.0, qz: 0.0}
+    #     ]
+    # }
   ]

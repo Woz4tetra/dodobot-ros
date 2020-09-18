@@ -1,13 +1,14 @@
 #!/usr/bin/python
+from __future__ import print_function
 
 import tf
 import rospy
 import actionlib
 import geometry_msgs
 
-from move_base.msg import MoveBaseAction, MoveBaseGoal
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
-from db_planning.msg import SequenceRequestAction, SequenceRequestGoal
+import db_planning.msg
 from db_planning.msg import ChassisAction, ChassisGoal
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal
 from db_planning.sequence import Sequence
@@ -22,8 +23,9 @@ class CentralPlanning:
         Initializes ROS and necessary services and publishers.
         """
 
+        self.node_name = "central_planning"
         rospy.init_node(
-            "central_planning"
+            self.node_name
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
@@ -32,7 +34,7 @@ class CentralPlanning:
         self.extract_sequence_path = rospy.get_param("~extract_sequence_path", "./extract.csv")
         self.insert_sequence = Sequence(self.insert_sequence_path)
         self.extract_sequence = Sequence(self.extract_sequence_path)
-        self.action_types = ["insert", "extract"]
+        self.sequence_types = ["insert", "extract"]
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
@@ -40,8 +42,8 @@ class CentralPlanning:
         # create tag watching tf_listener
         self.tag_name = rospy.get_param("~tag_name", "tag")  # tag's TF name
         self.base_start_name = rospy.get_param("~base_start_name", "base_start_link")
-        self.tag_tf_name = "/" + self.tag_name
-        self.base_start_tf_name = "/" + self.base_start_name
+        self.tag_tf_name = self.tag_name  # "/" + self.tag_name
+        self.base_start_tf_name = self.base_start_name  # "/" + self.base_start_name
         self.tf_listener = tf.TransformListener()
 
         self.saved_start_pos = None
@@ -49,36 +51,43 @@ class CentralPlanning:
         self.last_saved_time = rospy.Time.now()
 
         # create base_move action server
-        self.sequence_server = actionlib.SimpleActionServer("sequence_request", SequenceRequestAction, self.sequence_callback)
+        self.sequence_server = actionlib.SimpleActionServer("/sequence_request", db_planning.msg.SequenceRequestAction, self.sequence_callback, auto_start=False)
         self.sequence_server.start()
+        rospy.loginfo("[%s] Dodobot sequence server started" % self.node_name)
 
         # chassis and front loader services
-        self.chassis_action = actionlib.SimpleActionClient(self.chassis_action_name, ChassisAction)
+        self.chassis_action = actionlib.SimpleActionClient("/" + self.chassis_action_name, ChassisAction)
         self.chassis_action.wait_for_server()
+        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.chassis_action_name))
 
-        self.front_loader_action = actionlib.SimpleActionClient(self.front_loader_action_name, FrontLoaderAction)
+        self.front_loader_action = actionlib.SimpleActionClient("/" + self.front_loader_action_name, FrontLoaderAction)
         self.front_loader_action.wait_for_server()
+        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.front_loader_action_name))
 
         # wait for action client
-        self.move_action_client = actionlib.SimpleActionClient("move_base/goal", MoveBaseAction)
+        self.move_action_client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
         self.move_action_client.wait_for_server()
+        rospy.loginfo("[%s] move_base action server connected" % self.node_name)
+
+        rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
 
     ### CALLBACK FUNCTIONS ###
 
     def sequence_callback(self, goal):
         # transform pose from robot frame to front loader frame
-        action_type = goal.action_type
-        result = SequenceRequestGoal()
+        sequence_type = goal.sequence_type
+        rospy.loginfo("Sequence requested: %s" % sequence_type)
+        result = db_planning.msg.SequenceRequestResult()
 
-        if action_type not in self.action_types:
-            rospy.logwarn("%s not an action type: %s" % (action_type, self.action_types))
+        if sequence_type not in self.sequence_types:
+            rospy.logwarn("%s not an action type: %s" % (sequence_type, self.sequence_types))
             result.success = False
             self.sequence_server.set_aborted(result)
             return
 
         if self.saved_start_pos is None or self.saved_start_quat is None:
             rospy.loginfo("Saved position is null. Waiting 30s for a tag TF to appear.")
-            self.tf_listener.waitForTransform("/map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
+            self.tf_listener.waitForTransform("map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
             if self.saved_start_pos is None or self.saved_start_quat is None:
                 rospy.logwarn("No tag visible or in memory. Can't direct the robot")
                 result.success = False
@@ -86,10 +95,11 @@ class CentralPlanning:
                 return
 
         # Creates a goal to send to the action server.
-        pose_base_link = self.get_sequence_start_pose("/map")
+        pose_base_link = self.get_sequence_start_pose()
 
         goal = MoveBaseGoal()
         goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
         goal.target_pose.pose = pose_base_link
 
         # Sends the goal to the action server.
@@ -99,23 +109,28 @@ class CentralPlanning:
         self.move_action_client.wait_for_result()
 
         # Get the result of executing the action
-        result = self.move_action_client.get_result()
+        move_base_result = self.move_action_client.get_result()
 
-        print result
-        if not result:
+        rospy.loginfo("move_base_result: %s, %s" % (type(move_base_result), move_base_result))
+        if not move_base_result:
             rospy.logwarn("move_base failed to direct the robot to the directed position")
             result.success = False
             self.sequence_server.set_aborted(result)
             return
 
+        # Temporary stopping point for function
+        result.success = True
+        self.sequence_server.set_succeeded(result)
+        return
+
         # TODO: pause rtabmap if running
         try:
-            if action_type == "insert":
+            if sequence_type == "insert":
                 seq_result = self.insert_action_sequence()
-            elif action_type == "extract":
+            elif sequence_type == "extract":
                 seq_result = self.extract_action_sequence()
             else:
-                raise RuntimeError("Invalid action type: %s" % action_type)
+                raise RuntimeError("Invalid sequence type: %s" % sequence_type)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             rospy.logwarn("Failed to complete action sequence due to TF error. Is the tag in view?: %s" % str(e))
             result.success = False
@@ -191,19 +206,25 @@ class CentralPlanning:
             setattr(goal_msg, key, value)
         return goal_msg
 
-    def get_sequence_start_pose(self, frame_id):
-        pose = geometry_msgs.msg.PoseStamped()
-        pose.header.frame_id = self.tag_tf_name
-        pose.pose.position.x = self.saved_start_pos[0]
-        pose.pose.position.y = self.saved_start_pos[1]
-        pose.pose.position.z = self.saved_start_pos[2]
-        pose.pose.orientation.w = self.saved_start_quat[3]
-        pose.pose.orientation.x = self.saved_start_quat[0]
-        pose.pose.orientation.y = self.saved_start_quat[1]
-        pose.pose.orientation.z = self.saved_start_quat[2]
+    def get_sequence_start_pose(self):
+        tag_pose = geometry_msgs.msg.Pose()
+        rospy.loginfo("Using starting pos: %s, %s" % (self.saved_start_pos, self.saved_start_quat))
+        tag_pose.position.x = self.saved_start_pos[0]
+        tag_pose.position.y = self.saved_start_pos[1]
+        tag_pose.position.z = self.saved_start_pos[2]
+        tag_pose.orientation.x = 0.0  # self.saved_start_quat[0]
+        tag_pose.orientation.y = 0.0  # self.saved_start_quat[1]
+        tag_pose.orientation.z = self.saved_start_quat[2]
+        tag_pose.orientation.w = self.saved_start_quat[3]
+        # tag_pose.orientation.x = 0.0
+        # tag_pose.orientation.y = 0.0
+        # tag_pose.orientation.z = 0.0
+        # tag_pose.orientation.w = 1.0
 
-        tfd_pose = self.tf_listener.transformPose(frame_id, pose)
-        return tfd_pose
+        return tag_pose
+
+        # tfd_pose = self.tf_listener.transformPose(frame_id, tag_pose)
+        # return tfd_pose
 
     def adjust_sequence_into_odom(self, sequence):
         # adjust all actions while the tag is in view. If it's not, throw an error
@@ -226,7 +247,7 @@ class CentralPlanning:
         pose.pose.position.y = action["goal_y"]
         pose.pose.position.z = 0.0
 
-        if math.isnan(action["goal_angle"])
+        if math.isnan(action["goal_angle"]):
             pose.pose.orientation.x = 0.0
             pose.pose.orientation.y = 0.0
             pose.pose.orientation.z = 0.0
@@ -259,18 +280,21 @@ class CentralPlanning:
         return tfd_action
 
     def run(self):
+        rospy.loginfo("Tag locator task started")
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
             try:
-                # if self.tf_listener.canTransform("/map", self.base_start_tf_name, rospy.Time(0)):
-                trans, rot = self.tf_listener.lookupTransform("/map", self.base_start_tf_name, rospy.Time(0))
+                # if self.tf_listener.canTransform("map", self.base_start_tf_name, rospy.Time(0)):
+                trans, rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
                 self.saved_start_pos = trans
                 self.saved_start_quat = rot
                 self.last_saved_time = rospy.Time.now()
+                rospy.loginfo("Tag is visible. Saving location")
+                rospy.sleep(5.0)
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 continue
 
-            if rospy.Time.now() - self.last_saved_time > rospy.Time.Duration(300.0):
+            if rospy.Time.now() - self.last_saved_time > rospy.Duration(300.0):
                 rospy.loginfo("5 minutes elapsed. Saved tag position erased.")
                 self.saved_start_pos = None
                 self.saved_start_quat = None
