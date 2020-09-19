@@ -1,0 +1,9 @@
+goal_x,goal_y,goal_angle,base_speed,base_ang_v,pos_tolerance,drive_forwards,goal_z,z_speed,z_accel,comment
+0.0,0.0,0.0,0.36,2.0,0.01,1,10000,31250000,1250000,Starting position
+0.0765804433442,-0.0376284054305,-0.06485798699251832,0.1,0.5,0.01,1,63740,nan,nan,Position under carriage lever
+0.1980225186,-0.0513988905328,-0.13218205714047082,nan,nan,nan,1,78387,nan,nan,Push lever up
+0.197824079313,-0.051307044361,-0.6636229771742017,nan,nan,nan,1,78387,nan,nan,Rotate
+0.145752523517,-0.0104201166064,-0.14204638976277328,nan,nan,nan,0,78387,nan,nan,Back away and center in front of BP
+0.270522144516,-0.0250789504405,-0.10875426716217129,nan,nan,nan,1,60424,nan,nan,Position linear below BP handle and drive into the BP
+nan,nan,nan,nan,nan,nan,1,68692,nan,nan,Lift up BP
+0.0733201470938,-0.00255398305366,-0.11491947505125033,nan,nan,nan,1,68692,nan,nan,Pull back

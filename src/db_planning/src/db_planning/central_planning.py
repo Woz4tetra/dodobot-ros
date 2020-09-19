@@ -229,23 +229,27 @@ class CentralPlanning:
     def adjust_sequence_into_odom(self, sequence):
         # adjust all actions while the tag is in view. If it's not, throw an error
         adj_sequence = []
-        for action in sequence:
+        for action in sequence.sequence:
             adj_sequence.append(self.get_action_goal_in_odom(action))
         return adj_sequence
 
     def get_action_goal_in_odom(self, action):
-        # all action coordinates are relative to the action_start_link frame
+        # all action coordinates are relative to the base_start_link frame
         # and need to be transformed into the odom frame so goals can be sent.
 
         # The robot's starting position isn't needed since we're computing from
         # the theoretically perfect action_start_link which the robot should
         # be very close to
 
+        tf_required = False
+
         pose = geometry_msgs.msg.PoseStamped()
         pose.header.frame_id = self.base_start_tf_name
-        pose.pose.position.x = action["goal_x"]
-        pose.pose.position.y = action["goal_y"]
-        pose.pose.position.z = 0.0
+        if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
+            pose.pose.position.x = action["goal_x"]
+            pose.pose.position.y = action["goal_y"]
+            pose.pose.position.z = 0.0
+            tf_required = True
 
         if math.isnan(action["goal_angle"]):
             pose.pose.orientation.x = 0.0
@@ -258,13 +262,18 @@ class CentralPlanning:
             pose.pose.orientation.y = action_quaternion[1]
             pose.pose.orientation.z = action_quaternion[2]
             pose.pose.orientation.w = action_quaternion[3]
+            tf_required = True
+
+        if not tf_required:
+            return action
 
         tfd_pose = self.tf_listener.transformPose("/odom", pose)
 
         tfd_action = {}
         tfd_action.update(action)
-        tfd_action["goal_x"] = tfd_pose.pose.position.x
-        tfd_action["goal_y"] = tfd_pose.pose.position.y
+        if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
+            tfd_action["goal_x"] = tfd_pose.pose.position.x
+            tfd_action["goal_y"] = tfd_pose.pose.position.y
         # TBD: does goal_z need to be adjusted?
 
         if not math.isnan(action["goal_angle"]):

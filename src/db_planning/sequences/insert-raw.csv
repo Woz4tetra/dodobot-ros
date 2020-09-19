@@ -1,0 +1,22 @@
+goal_x,goal_y,goal_angle,base_speed,base_ang_v,pos_tolerance,drive_forwards,goal_z,z_speed,z_accel,comment
+0.0,0.0,0.0,0.36,2.0,0.01,1,10000,31250000,1250000,Starting position
+0.0,0.0,0.0,0.1,0.5,0.01,1,71639,nan,nan,Set to carriage lever insertion height
+0.186706286496,-0.00102591614656,-0.11245339189566561,nan,nan,nan,1,71639,nan,nan,Drive into the BP carriage
+nan,nan,nan,nan,nan,nan,1,57862,nan,nan,Lower BP
+0.0054256110552,0.0198738996829,-0.12009824967798055,nan,nan,nan,0,nan,nan,nan,Back out
+nan,nan,nan,nan,nan,nan,1,84700,nan,nan,Raise to lever height
+nan,nan,-0.504807221951983,nan,nan,nan,1,nan,nan,nan,Rotate
+0.176948178308,-0.058891185446,-0.14549890618079342,nan,nan,nan,1,nan,nan,nan,Drive behind lever
+0.116313521547,-0.0559328512668,0.12946936566939815,nan,nan,nan,0,82755,nan,nan,Pull lever back 1
+0.118092452804,-0.0557196713113,0.10801444221564971,nan,nan,nan,0,67170,nan,nan,Push lever down 1
+0.113234931281,-0.056229344903,0.10283566758880713,nan,nan,nan,0,67170,nan,nan,Pull lever back 2
+0.106520653849,-0.0569181187031,0.10357549253551923,nan,nan,nan,0,59621,nan,nan,Push lever down 2
+0.095366076054,-0.0580946841536,0.10826105053108481,nan,nan,nan,0,59621,nan,nan,Pull lever back 3
+0.095366076054,-0.0580946841536,0.10826105053108481,nan,nan,nan,0,56347,nan,nan,Push lever down 3
+0.0954148740911,-0.0580893622252,0.10875426716217085,nan,nan,nan,0,84527,nan,nan,Raise up to clear lever
+0.0955834946,-0.0580522163773,-0.3487041582031618,nan,nan,nan,1,84527,nan,nan,Rotate
+0.0442686439788,-0.0392275481508,-0.3543761494601978,nan,nan,nan,0,84527,nan,nan,Pull back
+0.0441922673549,-0.0392506878276,0.05869277910334958,nan,nan,nan,1,84527,nan,nan,Rotate
+0.128729806984,-0.0344152818652,0.05869277910334958,nan,nan,nan,1,84527,nan,nan,Position above lever
+0.12870530591,-0.034416727618,0.05893938741890459,nan,nan,nan,1,55471,nan,nan,Push lever all the way down
+-0.0916506515089,-0.0457275663808,0.04414288848528436,nan,nan,nan,0,84701,nan,nan,Raise up and pull back
