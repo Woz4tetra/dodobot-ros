@@ -12,17 +12,22 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
 
-# generate_messages(
-#     DEPENDENCIES
-#     std_msgs
-# )
+add_service_files(
+    FILES
+    DodobotOdomReset.srv
+)
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+)
 
 generate_dynamic_reconfigure_options(
     cfg/DodobotChassis.cfg
 )
 
 catkin_package(
-    CATKIN_DEPENDS rospy std_msgs
+    CATKIN_DEPENDS rospy std_msgs message_runtime
 )
 
 # add_library(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)

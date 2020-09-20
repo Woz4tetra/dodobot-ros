@@ -2,7 +2,7 @@ float32 goal_x
 float32 goal_y
 float32 goal_angle
 float32 base_speed
-float32 base_accel
+float32 base_ang_v
 float32 pos_tolerance
 bool drive_forwards
 ---

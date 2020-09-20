@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import tf
+import math
 import rospy
 import actionlib
 import geometry_msgs
@@ -32,8 +33,8 @@ class CentralPlanning:
 
         self.insert_sequence_path = rospy.get_param("~insert_sequence_path", "./insert.csv")
         self.extract_sequence_path = rospy.get_param("~extract_sequence_path", "./extract.csv")
-        self.insert_sequence = Sequence(self.insert_sequence_path)
-        self.extract_sequence = Sequence(self.extract_sequence_path)
+        self.insert_sequence = Sequence.from_path(self.insert_sequence_path)
+        self.extract_sequence = Sequence.from_path(self.extract_sequence_path)
         self.sequence_types = ["insert", "extract"]
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
@@ -49,6 +50,12 @@ class CentralPlanning:
         self.saved_start_pos = None
         self.saved_start_quat = None
         self.last_saved_time = rospy.Time.now()
+
+        self.debug_sequence_planning = False
+        # self.debug_sequence_planning = True
+
+        self.debug_move_base = False
+        # self.debug_move_base = True
 
         # create base_move action server
         self.sequence_server = actionlib.SimpleActionServer("/sequence_request", db_planning.msg.SequenceRequestAction, self.sequence_callback, auto_start=False)
@@ -85,43 +92,15 @@ class CentralPlanning:
             self.sequence_server.set_aborted(result)
             return
 
-        if self.saved_start_pos is None or self.saved_start_quat is None:
-            rospy.loginfo("Saved position is null. Waiting 30s for a tag TF to appear.")
-            self.tf_listener.waitForTransform("map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
-            if self.saved_start_pos is None or self.saved_start_quat is None:
-                rospy.logwarn("No tag visible or in memory. Can't direct the robot")
-                result.success = False
-                self.sequence_server.set_aborted(result)
+        if not self.debug_sequence_planning:
+            if not self.move_to_start_pose():
                 return
 
-        # Creates a goal to send to the action server.
-        pose_base_link = self.get_sequence_start_pose()
-
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "map"
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose = pose_base_link
-
-        # Sends the goal to the action server.
-        self.move_action_client.send_goal(goal)
-
-        # Waits for the server to finish performing the action.
-        self.move_action_client.wait_for_result()
-
-        # Get the result of executing the action
-        move_base_result = self.move_action_client.get_result()
-
-        rospy.loginfo("move_base_result: %s, %s" % (type(move_base_result), move_base_result))
-        if not move_base_result:
-            rospy.logwarn("move_base failed to direct the robot to the directed position")
-            result.success = False
-            self.sequence_server.set_aborted(result)
-            return
-
         # Temporary stopping point for function
-        result.success = True
-        self.sequence_server.set_succeeded(result)
-        return
+        if self.debug_move_base:
+            result.success = True
+            self.sequence_server.set_succeeded(result)
+            return
 
         # TODO: pause rtabmap if running
         try:
@@ -151,20 +130,66 @@ class CentralPlanning:
             result.success = False
             self.sequence_server.set_aborted(result)
 
+        rospy.loginfo("%s sequence completed!" % sequence_type)
+
+    def move_to_start_pose(self):
+        if self.saved_start_pos is None or self.saved_start_quat is None:
+            rospy.loginfo("Saved position is null. Waiting 30s for a tag TF to appear.")
+            self.tf_listener.waitForTransform("map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
+            if self.saved_start_pos is None or self.saved_start_quat is None:
+                rospy.logwarn("No tag visible or in memory. Can't direct the robot")
+                result.success = False
+                self.sequence_server.set_aborted(result)
+                return False
+
+        # Creates a goal to send to the action server.
+        pose_base_link = self.get_sequence_start_pose()
+
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose = pose_base_link
+
+        # Sends the goal to the action server.
+        self.move_action_client.send_goal(goal)
+
+        # Waits for the server to finish performing the action.
+        self.move_action_client.wait_for_result()
+
+        # Get the result of executing the action
+        move_base_result = self.move_action_client.get_result()
+
+        rospy.loginfo("move_base_result: %s, %s" % (type(move_base_result), move_base_result))
+        if not move_base_result:
+            rospy.logwarn("move_base failed to direct the robot to the directed position")
+            result.success = False
+            self.sequence_server.set_aborted(result)
+            return False
+
+        return True
+
     def insert_action_sequence(self):
-        adj_sequence = self.adjust_sequence_into_odom(self.insert_sequence)
+        if self.debug_sequence_planning:
+            adj_sequence = self.insert_sequence.sequence
+        else:
+            adj_sequence = self.adjust_sequence_into_odom(self.insert_sequence)
         for index, action in enumerate(adj_sequence):
-            rospy.loginfo("Running insert action #%s" % index)
+            rospy.loginfo("\n\n--- Running insert action #%s ---" % index)
             result = self.run_action(action)
+            rospy.loginfo("--- Action #%s finished ---\n\n" % index)
             if not result:
                 return index
         return None
 
-    def extract_action_sequence(self, start_pose):
-        adj_sequence = self.adjust_sequence_into_odom(self.extract_sequence)
+    def extract_action_sequence(self):
+        if self.debug_sequence_planning:
+            adj_sequence = self.extract_sequence.sequence
+        else:
+            adj_sequence = self.adjust_sequence_into_odom(self.extract_sequence)
         for index, action in enumerate(adj_sequence):
-            rospy.loginfo("Running extract action #%s" % index)
+            rospy.loginfo("\n\n--- Running extract action #%s ---" % index)
             result = self.run_action(action)
+            rospy.loginfo("--- Action #%s finished ---\n\n" % index)
             if not result:
                 return index
         return None
@@ -174,25 +199,26 @@ class CentralPlanning:
         chassis_goal = self.get_goal_msg(ChassisGoal, action)
         front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
 
-        self.chassis_action.send_goal_async(chassis_goal, feedback_callback=self.chassis_action_progress)
-        self.front_loader_action.send_goal_async(front_loader_goal, feedback_callback=self.front_loader_action_progress)
+        self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
+        self.front_loader_action.send_goal(front_loader_goal) #, feedback_callback=self.front_loader_action_progress)
 
         self.front_loader_action.wait_for_result()
         rospy.loginfo("Front loader result received")
+        front_loader_result = self.front_loader_action.get_result()
+        rospy.loginfo("Front loader result obj: %s" % front_loader_result)
+        rospy.loginfo("Front loader result: %s" % front_loader_result.success)
+        if not front_loader_result.success:
+            return False
 
         self.chassis_action.wait_for_result()
         rospy.loginfo("Chassis result received")
-
         chassis_result = self.chassis_action.get_result()
-        front_loader_result = self.front_loader_action.get_result()
-
-        rospy.loginfo("Front loader result: %s" % front_loader_result.success)
+        rospy.loginfo("Chassis result obj: %s" % chassis_result)
         rospy.loginfo("Chassis result: %s" % chassis_result.success)
-
-        if chassis_result.success and front_loader_result.success:
-            return True
-        else:
+        if not chassis_result.success:
             return False
+
+        return True
 
     def chassis_action_progress(self, msg):
         rospy.loginfo("x: %s, y: %s" % (msg.current_x, msg.current_y))
@@ -203,7 +229,10 @@ class CentralPlanning:
     def get_goal_msg(self, goal_msg_class, action):
         goal_msg = goal_msg_class()
         for key, value in action.items():
-            setattr(goal_msg, key, value)
+            try:
+                setattr(goal_msg, key, value)
+            except AttributeError:
+                pass
         return goal_msg
 
     def get_sequence_start_pose(self):
@@ -277,12 +306,12 @@ class CentralPlanning:
         # TBD: does goal_z need to be adjusted?
 
         if not math.isnan(action["goal_angle"]):
-            tfd_goal_angle = tf.transformations.euler_from_quaternion(
+            tfd_goal_angle = tf.transformations.euler_from_quaternion([
                 tfd_pose.pose.orientation.x,
                 tfd_pose.pose.orientation.y,
                 tfd_pose.pose.orientation.z,
                 tfd_pose.pose.orientation.w
-            )[2]
+            ])[2]
             tfd_action["goal_angle"] = tfd_goal_angle
             # if the original goal_angle is NaN, that value will be copied over
 
