@@ -1,8 +1,8 @@
 
 base_global_planner: "global_planner/GlobalPlanner" # alternatives: navfn/NavfnROS, global_planner/GlobalPlanner, carrot_planner/CarrotPlanner, navigation_experimental/goal_passer
 # base_global_planner: "goal_passer/GoalPasser"
-base_local_planner: "dwa_local_planner/DWAPlannerROS"
-# base_local_planner: "base_local_planner/TrajectoryPlannerROS"
+# base_local_planner: "dwa_local_planner/DWAPlannerROS"
+base_local_planner: "base_local_planner/TrajectoryPlannerROS"
 # recovery_behaviors:
 #   - name: 'super_conservative_reset1'
 #     type: 'clear_costmap_recovery/ClearCostmapRecovery'
