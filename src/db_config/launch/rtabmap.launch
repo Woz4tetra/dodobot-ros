@@ -44,6 +44,7 @@
             <!-- When sending goals on /rtabmap/goal topic, use actionlib to communicate with move_base -->
             <param name="use_action_for_goal" type="bool" value="true"/>
             <remap from="move_base"            to="/move_base"/>
+            <remap from="/rtabmap/goal_out"            to="/move_base_simple/goal"/>
 
             <!-- Remap to /map for move_base -->
             <remap from="grid_map" to="/map"/>
@@ -57,7 +58,7 @@
             <param name="Reg/Strategy"                 type="string" value="0"/>      <!-- Loop closure transformation: 0=Visual, 1=ICP, 2=Visual+ICP -->
             <param name="Icp/CorrespondenceRatio"      type="string" value="0.3"/>
             <param name="Vis/MinInliers"               type="string" value="15"/>      <!-- 3D visual words minimum inliers to accept loop closure -->
-            <param name="Vis/InlierDistance"           type="string" value="0.1"/>    <!-- 3D visual words correspondence distance -->
+            <param name="Vis/InlierDistance"           type="string" value="0.25"/>    <!-- 3D visual words correspondence distance -->
             <param name="RGBD/AngularUpdate"           type="string" value="0.1"/>    <!-- Update map only if the robot is moving -->
             <param name="RGBD/LinearUpdate"            type="string" value="0.1"/>    <!-- Update map only if the robot is moving -->
             <param name="RGBD/ProximityPathMaxNeighbors" type="string" value="0"/>
@@ -65,7 +66,7 @@
             <param name="Mem/RehearsalSimilarity"      type="string" value="0.30"/>
             <param name="Reg/Force3DoF"                type="string" value="true"/>
             <!-- <param name="GridGlobal/MinSize"           type="string" value="20"/> -->
-            <param name="Grid/MaxGroundHeight" value="0.1"/>
+            <param name="Grid/MaxGroundHeight" value="0.0"/>
             <param name="Grid/MaxObstacleHeight" value="0.35"/>
             <!-- <param name="SURF/GpuVersion"              type="string" value="true"/> -->
             <!-- <param name="ORB/Gpu"                      type="string" value="true"/> -->

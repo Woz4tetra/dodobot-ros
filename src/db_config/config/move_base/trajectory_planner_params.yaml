@@ -2,8 +2,8 @@
 acc_lim_x: 100.0
 acc_lim_theta:  100.0
 
-max_vel_x: 0.25  # max speed 0.33 m/s
-min_vel_x: 0.0
+max_vel_x: 0.15  # max speed 0.33 m/s
+min_vel_x: 0.05
 
 max_vel_theta: 3.3
 min_vel_theta: -3.3
@@ -18,7 +18,7 @@ xy_goal_tolerance: 0.1
 latch_xy_goal_tolerance: false
 
 # Forward Simulation Parameters
-sim_time: 2.0
+sim_time: 6.0
 sim_granularity: 0.02
 angular_sim_granularity: 0.02
 vx_samples: 6
