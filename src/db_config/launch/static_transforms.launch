@@ -7,10 +7,6 @@
 
     <node pkg="tf" type="static_transform_publisher" name="linear_to_base" args="0.06046488 0.0 0.01825032 0 0 0 1 base_link linear_base_link 12" />
     <node pkg="tf" type="static_transform_publisher" name="gripper_to_linear" args="0.097222 0.0 0.0045 0 0 0 1 linear_link gripper_link 12" />
-    <!-- <node pkg="tf" type="static_transform_publisher" name="carriage_to_gripper" args="0.006123 0.0 -0.007330 0 0 0 1 gripper_link bp_carriage_link 30" /> -->
-    <!-- <node pkg="tf" type="static_transform_publisher" name="tag_to_carriage" args="0.135830 0.005 0.087148 0 0 0 1 bp_carriage_link tag_origin_link 30" /> -->
-    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="0.005 -0.21798832 0.54963988 -0.5 0.5 0.5 0.5 blissey_tag base_start_link 30" />
-
 
     <node pkg="tf" type="static_transform_publisher" name="camera_base_to_depth" args="0.0 0.0 0.0 0 0 0 1 camera_link camera_depth_frame 30" />
     <node pkg="tf" type="static_transform_publisher" name="camera_depth_to_optical" args="0.0 0.0 0.0 0 0 0 1 camera_depth_frame camera_depth_optical_frame 30" />

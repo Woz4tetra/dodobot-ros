@@ -72,7 +72,7 @@ def parse_sequence(filename, new_filename, bp_inserted_index):
             goal_y = action["goal_y"]
 
         goal_z_ticks = action["goal_z"]
-        if not math.isnan(action["goal_y"]):
+        if not math.isnan(action["goal_z"]):
             goal_z = goal_z_ticks * STEP_TICKS_TO_LINEAR_MM / 1000.0
         else:
             goal_z = goal_z_ticks

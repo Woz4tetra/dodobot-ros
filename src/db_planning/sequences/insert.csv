@@ -2,9 +2,9 @@ goal_x,goal_y,goal_angle,base_speed,base_ang_v,pos_tolerance,drive_forwards,goal
 0.362933593504,0.00602591614656,0.0,0.36,2.0,0.01,1,0.017696236550172422,55.300739219288815,2.2120295687715528,Starting position
 0.362933593504,0.00602591614656,0.0,0.1,0.5,0.01,1,0.1267740690217802,nan,nan,Set to carriage lever insertion height
 0.54963988,0.005,-0.11245339189566561,nan,nan,nan,1,0.1267740690217802,nan,nan,Drive into the BP carriage
-nan,nan,nan,nan,nan,nan,1,57862.0,nan,nan,Lower BP
+nan,nan,nan,nan,nan,nan,1,0.10239396392660767,nan,nan,Lower BP
 0.3683592045592,0.02589981582946,-0.12009824967798055,nan,nan,nan,0,nan,nan,nan,Back out
-nan,nan,nan,nan,nan,nan,1,84700.0,nan,nan,Raise to lever height
+nan,nan,nan,nan,nan,nan,1,0.14988712357996042,nan,nan,Raise to lever height
 nan,nan,-0.504807221951983,nan,nan,nan,1,nan,nan,nan,Rotate
 0.5398817718119999,-0.05286526929944,-0.14549890618079342,nan,nan,nan,1,nan,nan,nan,Drive behind lever
 0.479247115051,-0.04990693512024,0.12946936566939815,nan,nan,nan,0,0.1464452055709519,nan,nan,Pull lever back 1

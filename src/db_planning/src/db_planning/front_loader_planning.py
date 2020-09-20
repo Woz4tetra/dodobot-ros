@@ -3,6 +3,7 @@
 import rospy
 import tf
 import math
+import Queue
 import actionlib
 
 from geometry_msgs.msg import Pose, TransformStamped
@@ -27,7 +28,7 @@ class FrontLoaderPlanner:
         9: "NOT_ACTIVE",
     }
 
-    FAILED_GOAL_EVENTS = ("ACTIVE_TRUE", "ACTIVE_FALSE", "HOMING_STARTED", "HOMING_FINISHED", "POSITION_ERROR", "NOT_HOMED", "NOT_ACTIVE")
+    FAILED_GOAL_EVENTS = ("ACTIVE_FALSE", "POSITION_ERROR", "NOT_HOMED", "NOT_ACTIVE")
 
     def __init__(self):
         """Initializes ROS and necessary services and publishers.
@@ -51,12 +52,16 @@ class FrontLoaderPlanner:
         # self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
 
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
+        self.events = Queue.Queue()
+
+        self.is_goal_set = False
 
         self.has_error = False
         self.is_homed = False
         self.is_active = False
 
         self.linear_event_topic = "linear_events"
+        self.linear_event_sub = rospy.Subscriber(self.linear_event_topic, DodobotLinearEvent, self.linear_event_callback, queue_size=100)
         self.linear_event_timeout = 20.0
 
         self.stepper_ticks_per_R_no_gearbox = rospy.get_param("~stepper_ticks_per_R_no_gearbox", 200.0)
@@ -73,6 +78,11 @@ class FrontLoaderPlanner:
 
     ### CALLBACK FUNCTIONS ###
 
+    def linear_event_callback(self, msg):
+        if self.is_goal_set:
+            event_str = self.to_event_str(msg.event_num)
+            self.events.put(event_str)
+
     def front_loader_callback(self, goal):
         move_cmd = goal.goal_z
         max_speed = goal.z_speed
@@ -85,14 +95,14 @@ class FrontLoaderPlanner:
         if math.isnan(move_cmd):
             rospy.loginfo("No action required from front loader. Skipping.")
             self.result.success = True
-            self.front_loader_server.set_succeeded()
+            self.front_loader_server.set_succeeded(self.result)
 
         # send command
         success = self.send_move_cmd(move_cmd, max_speed, acceleration)
 
         # send response
         self.result.success = success
-        self.front_loader_server.set_succeeded()
+        self.front_loader_server.set_succeeded(self.result)
 
 
     ### HELPER FUNCTIONS ###
@@ -165,20 +175,29 @@ class FrontLoaderPlanner:
         msg.command_type = 0
         msg.command_value = int(cmd * self.step_linear_m_to_ticks)
 
-        if max_speed is None:
+        if math.isnan(max_speed):
             msg.max_speed = -1
         else:
             msg.max_speed = int(max_speed * self.step_linear_m_to_ticks)
 
-        if acceleration is None:
+        if math.isnan(acceleration):
             msg.acceleration = -1
         else:
             msg.acceleration = int(acceleration * self.step_linear_m_to_ticks)
 
+        rospy.loginfo("Publishing command: %s\t%s\t%s" % (msg.command_value, msg.max_speed, msg.acceleration))
+
         self.move_pub.publish(msg)
 
-        rospy.loginfo("Publishing command: %s" % msg.command_value)
+        self.is_goal_set = True
+        success = self.wait_for_linear()
+        self.is_goal_set = False
 
+        rospy.loginfo("Linear result: %s" % success)
+
+        return success
+
+    def wait_for_linear(self):
         while True:
             if rospy.is_shutdown():
                 return
@@ -188,14 +207,18 @@ class FrontLoaderPlanner:
                 return False
 
             try:
-                event_msg = rospy.wait_for_message(self.linear_event_topic, DodobotLinearEvent, timeout=self.linear_event_timeout)
-            except rospy.ROSException:
+                event_str = self.events.get(timeout=self.linear_event_timeout)
+            except Queue.Empty, rospy.ROSException:
                 rospy.logerr("Move command timed out after %ss" % self.linear_event_timeout)
                 return False
+            # try:
+            #     event_msg = rospy.wait_for_message(self.linear_event_topic, DodobotLinearEvent, timeout=self.linear_event_timeout)
+            # except rospy.ROSException:
+            #     rospy.logerr("Move command timed out after %ss" % self.linear_event_timeout)
+            #     return False
 
-            event_str = self.to_event_str(event_msg.event_num)
             if event_str == "UNKNOWN":
-                rospy.logerr("Unknown linear event type: %s" % event_msg.event_num)
+                rospy.logerr("Unknown linear event type")
                 continue
 
             elif event_str == "MOVE_FINISHED":

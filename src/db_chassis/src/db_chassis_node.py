@@ -14,6 +14,7 @@ from std_msgs.msg import Float32MultiArray
 from nav_msgs.msg import Odometry
 
 from db_chassis.cfg import DodobotChassisConfig
+from db_chassis.srv import DodobotOdomReset, DodobotOdomResetResponse
 
 from db_parsing.msg import DodobotBumper
 from db_parsing.msg import DodobotDrive
@@ -39,8 +40,7 @@ class DodobotChassis:
 
         # robot dimensions
         self.wheel_radius_mm = rospy.get_param("~wheel_radius_mm", 30.0)  # radius of the wheel
-        # 192.05, 202.05, 197.05, 199.05
-        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 199.05)  #  min: 172.05, max: 212.05 distance between the two wheels
+        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 182.18)  #  min: 172.05, max: 212.05 distance between the two wheels
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
         self.max_speed_tps = rospy.get_param("~max_speed_tps", 6800.0)
@@ -120,6 +120,9 @@ class DodobotChassis:
         self.pid_service_name = "dodobot_pid"
         self.set_pid = None
 
+        self.odom_reset_service_name = "dodobot_odom_reset"
+        self.odom_reset = None
+
         if self.services_enabled:
             rospy.loginfo("Waiting for service %s" % self.pid_service_name)
             rospy.wait_for_service(self.pid_service_name)
@@ -128,6 +131,10 @@ class DodobotChassis:
 
             # dynamic reconfigure
             dyn_cfg = Server(DodobotChassisConfig, lambda config, level: DodobotChassis.dynamic_callback(self, config, level))
+
+            rospy.loginfo("Setting up service %s" % self.odom_reset_service_name)
+            self.odom_reset = rospy.Service(self.odom_reset_service_name, DodobotOdomReset, self.odom_reset_callback)
+            rospy.loginfo("%s service is ready" % self.odom_reset_service_name)
 
     def dynamic_callback(self, config, level):
         if not self.services_enabled:
@@ -158,6 +165,13 @@ class DodobotChassis:
             )
         except rospy.ServiceException, e:
             rospy.logwarn("%s service call failed: %s" % (self.pid_service_name, e))
+
+    def odom_reset_callback(self, req):
+        self.odom_x = req.x
+        self.odom_y = req.y
+        self.odom_t = req.t
+        rospy.loginfo("Resetting odom to x: %s, y: %s, a: %s" % (self.odom_x, self.odom_y, self.odom_t))
+        return DodobotOdomResetResponse(True)
 
     def angle_rad_to_tilt_servo_command(self, angle_rad):
         angle_rad = angle_rad + (math.pi * 2 if angle_rad <= 0.0 else 0)  # bound to 270...360 deg
