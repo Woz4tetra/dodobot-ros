@@ -5,8 +5,8 @@
         <remap from="/odom" to="/dodobot/odom"/>
         <rosparam file="$(find db_config)/config/move_base/move_base_global_params.yaml" command="load"/>
 
-        <!-- <rosparam file="$(find db_config)/config/move_base/dwaplanner_params.yaml" command="load" ns="DWAPlannerROS"/> -->
-        <rosparam file="$(find db_config)/config/move_base/trajectory_planner_params.yaml" command="load" ns="TrajectoryPlannerROS"/>
+        <rosparam file="$(find db_config)/config/move_base/dwaplanner_params.yaml" command="load" ns="DWAPlannerROS"/>
+        <!-- <rosparam file="$(find db_config)/config/move_base/trajectory_planner_params.yaml" command="load" ns="TrajectoryPlannerROS"/> -->
         <rosparam file="$(find db_config)/config/move_base/global_planner_params.yaml" command="load" ns="GlobalPlanner"/>
 
         <rosparam file="$(find db_config)/config/move_base/costmap_common_params.yaml" command="load" ns="local_costmap"/>

@@ -42,6 +42,16 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     deviceStartTime = ros::Time::now();
     offsetTimeMs = 0;
 
+    pidConstants = new PidKs;
+    pidConstants->kp_A = 0.0;
+    pidConstants->ki_A = 0.0;
+    pidConstants->kd_A = 0.0;
+    pidConstants->kp_B = 0.0;
+    pidConstants->ki_B = 0.0;
+    pidConstants->kd_B = 0.0;
+    pidConstants->speed_kA = 0.0;
+    pidConstants->speed_kB = 0.0;
+
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper", 50);
     tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear", 50);
@@ -332,6 +342,16 @@ void DodobotParsing::processSerialPacket(string category)
     else if (category.compare("tilt") == 0) {
         parseTilter();
     }
+    else if (category.compare("pidks") == 0) {
+        CHECK_SEGMENT; bool success = (bool)stoi(_currentBufferSegment);
+        if (!success) {
+            ROS_WARN("Failed to set PID constants. Waiting 1.0s and writing again");
+            resendPidKsTimed();
+        }
+        else {
+            ROS_INFO("PID constants set successfully!");
+        }
+    }
     else if (category.compare("ready") == 0) {
         CHECK_SEGMENT; readyState->time_ms = (uint32_t)stoi(_currentBufferSegment);
         CHECK_SEGMENT; readyState->robot_name = _currentBufferSegment;
@@ -493,7 +513,7 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
         ros::Duration(0.005).sleep();
     }
     if (msg->acceleration != -1) {
-        writeSerial("lincfg", "dd", 1, msg->acceleration);        
+        writeSerial("lincfg", "dd", 1, msg->acceleration);
         ros::Duration(0.005).sleep();
     }
     writeSerial("linear", "dd", msg->command_type, msg->command_value);
@@ -544,10 +564,16 @@ bool DodobotParsing::set_pid(db_parsing::DodobotPidSrv::Request  &req,
         ROS_WARN("Robot isn't ready! Skipping set_pid");
         return false;
     }
-    writeK(req.kp_A, req.ki_A, req.kd_A, req.kp_B, req.ki_B, req.kd_B, req.speed_kA, req.speed_kB);
-    ROS_INFO("Setting pid: kp_A=%f, ki_A=%f, kd_A=%f, kp_B=%f, ki_B=%f, kd_B=%f, speed_kA=%f, speed_kB=%f",
-        req.kp_A, req.ki_A, req.kd_A, req.kp_B, req.ki_B, req.kd_B, req.speed_kA, req.speed_kB
-    );
+    pidConstants->kp_A = req.kp_A;
+    pidConstants->ki_A = req.ki_A;
+    pidConstants->kd_A = req.kd_A;
+    pidConstants->kp_B = req.kp_B;
+    pidConstants->ki_B = req.ki_B;
+    pidConstants->kd_B = req.kd_B;
+    pidConstants->speed_kA = req.speed_kA;
+    pidConstants->speed_kB = req.speed_kB;
+    writeK(pidConstants);
+
     res.resp = true;
     return true;
 }
@@ -584,13 +610,47 @@ void DodobotParsing::writeDriveChassis(float speedA, float speedB) {
     writeSerial("drive", "ff", speedA, speedB);
 }
 
-void DodobotParsing::writeK(float kp_A, float ki_A, float kd_A, float kp_B, float ki_B, float kd_B, float speed_kA, float speed_kB) {
+void DodobotParsing::writeK(PidKs* constants) {
     if (!robotReady()) {
         ROS_WARN("Robot isn't ready! Skipping writeK");
         return;
     }
-    writeSerial("ks", "ffffffff", kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB);
+    ROS_INFO("Setting pid: kp_A=%f, ki_A=%f, kd_A=%f, kp_B=%f, ki_B=%f, kd_B=%f, speed_kA=%f, speed_kB=%f",
+        constants->kp_A,
+        constants->ki_A,
+        constants->kd_A,
+        constants->kp_B,
+        constants->ki_B,
+        constants->kd_B,
+        constants->speed_kA,
+        constants->speed_kB
+    );
+    writeSerial("ks", "ffffffff",
+        constants->kp_A,
+        constants->ki_A,
+        constants->kd_A,
+        constants->kp_B,
+        constants->ki_B,
+        constants->kd_B,
+        constants->speed_kA,
+        constants->speed_kB
+    );
     _serialRef.write("\n");
+}
+
+void DodobotParsing::resendPidKs() {
+    writeK(pidConstants);
+}
+
+void DodobotParsing::resendPidKsTimed() {
+    if (pid_resend_timer == NULL) {
+        pid_resend_timer = nh.createTimer(ros::Duration(1.0), boost::bind(&DodobotParsing::resendPidKs, this), true);  // oneshot timer
+    }
+    else {
+        pid_resend_timer.stop();
+        pid_resend_timer.setPeriod(ros::Duration(1.0));
+        pid_resend_timer.start();
+    }
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)

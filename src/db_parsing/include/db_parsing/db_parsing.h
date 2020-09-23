@@ -44,6 +44,10 @@ struct StructRobotState {
     double loop_rate;
 };
 
+struct PidKs {
+    float kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB;
+};
+
 class ReadyTimeoutExceptionClass : public exception {
     virtual const char* what() const throw() { return "Timeout reached. Never got ready signal from serial device"; }
 } ReadyTimeoutException;
@@ -117,6 +121,10 @@ private:
     StructReadyState* readyState;
 
     ros::ServiceServer pid_service;
+    PidKs* pidConstants;
+    ros::Timer pid_resend_timer;
+    void resendPidKs();
+    void resendPidKsTimed();
 
     void configure();
     void checkReady();
@@ -142,7 +150,7 @@ private:
     void resetSensors();
     // void writeCurrentState();
     void writeSpeed(float speedA, float speedB);
-    void writeK(float kp_A, float ki_A, float kd_A, float kp_B, float ki_B, float kd_B, float speed_kA, float speed_kB);
+    void writeK(PidKs* constants);
     void logPacketErrorCode(int error_code, unsigned long long packet_num);
 
     void parseEncoder();

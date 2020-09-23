@@ -54,8 +54,8 @@ class CentralPlanning:
         self.debug_sequence_planning = False
         # self.debug_sequence_planning = True
 
-        self.debug_move_base = False
-        # self.debug_move_base = True
+        # self.debug_move_base = False
+        self.debug_move_base = True
 
         # create base_move action server
         self.sequence_server = actionlib.SimpleActionServer("/sequence_request", db_planning.msg.SequenceRequestAction, self.sequence_callback, auto_start=False)

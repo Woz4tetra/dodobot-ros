@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="camera">
-        <arg name="compute_pointcloud" value="false"/>
+        <arg name="compute_pointcloud" value="true"/>
         <arg name="hirez_mode" value="false"/>
 
         <!-- Load camera parameters. Based on https://answers.ros.org/question/276371/load-parameters-using-roslaunch-saved-as-yaml-from-rqt-dynamic-reconfigure/ -->
@@ -45,6 +45,8 @@
             <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/>
             <arg name="enable_gyro"              value="false"/>
             <arg name="enable_accel"             value="false"/>
+
+            <!-- <arg name="filters"                  value="pointcloud"/> -->
 
             <!-- <arg name="depth_optical_frame_id"    default="camera_color_optical_frame"/> -->
             <!-- <arg name="color_optical_frame_id"    default="camera_color_optical_frame"/> -->
