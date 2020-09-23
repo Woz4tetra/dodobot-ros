@@ -43,7 +43,7 @@ class DodobotChassis:
         self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 182.18)  #  min: 172.05, max: 212.05 distance between the two wheels
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
-        self.max_speed_tps = rospy.get_param("~max_speed_tps", 6800.0)
+        self.max_speed_tps = rospy.get_param("~max_speed_tps", 9000.0)
 
         self.services_enabled = rospy.get_param("~services_enabled", True)
         self.publish_odom_tf = rospy.get_param("~publish_odom_tf", True)
@@ -94,6 +94,10 @@ class DodobotChassis:
         self.odom_vx = 0.0
         self.odom_vy = 0.0
         self.odom_vt = 0.0
+        self.odom_speed = 0.0
+
+        self.linear_speed_cmd = 0.0
+        self.angular_speed_cmd = 0.0
 
         # linear variables
         self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
@@ -106,19 +110,20 @@ class DodobotChassis:
         self.odom_msg.header.frame_id = self.odom_parent_frame
         self.odom_msg.child_frame_id = self.child_frame
 
+        # Publishers
+        self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
+        self.drive_pub = rospy.Publisher(self.drive_pub_name, DodobotDrive, queue_size=100)
+
         # Subscribers
         self.twist_sub = rospy.Subscriber("cmd_vel", Twist, self.twist_callback, queue_size=5)
         self.drive_sub = rospy.Subscriber("drive", DodobotDrive, self.drive_callback, queue_size=100)
         self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=100)
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
 
-        # Publishers
-        self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
-        self.drive_pub = rospy.Publisher(self.drive_pub_name, DodobotDrive, queue_size=100)
-
         # Services
         self.pid_service_name = "dodobot_pid"
         self.set_pid = None
+        self.first_time_pid_setup = False
 
         self.odom_reset_service_name = "dodobot_odom_reset"
         self.odom_reset = None
@@ -151,6 +156,9 @@ class DodobotChassis:
     def call_pid_service(self, config):
         if not self.services_enabled:
             rospy.logwarn("Services for this node aren't enabled!")
+        if not self.first_time_pid_setup:
+            self.first_time_pid_setup = True
+            return
         try:
             rospy.loginfo("PID service config: %s" % config)
             self.set_pid(
@@ -188,12 +196,26 @@ class DodobotChassis:
         linear_speed_mps = twist_msg.linear.x  # m/s
         angular_speed_radps = twist_msg.angular.z  # rad/s
 
+        self.linear_speed_cmd = linear_speed_mps
+        self.angular_speed_cmd = angular_speed_radps
+
         # arc = angle * radius
         # rotation speed at the wheels
         rotational_speed_mps = angular_speed_radps * self.wheel_distance_m / 2
 
         left_command = self.m_to_ticks(linear_speed_mps - rotational_speed_mps)
         right_command = self.m_to_ticks(linear_speed_mps + rotational_speed_mps)
+
+        larger_cmd = max(left_command, right_command)
+        if abs(larger_cmd) > self.max_speed_tps:
+            abs_left = abs(left_command)
+            abs_right = abs(right_command)
+            if abs_left > abs_right:
+                left_command = math.copysign(self.max_speed_tps, left_command)
+                right_command = math.copysign(self.max_speed_tps * abs_right / abs_left, right_command)
+            else:
+                left_command = math.copysign(self.max_speed_tps * abs_left / abs_right, left_command)
+                right_command = math.copysign(self.max_speed_tps, right_command)
 
         self.drive_pub_msg.left_setpoint = left_command
         self.drive_pub_msg.right_setpoint = right_command
@@ -231,6 +253,7 @@ class DodobotChassis:
     def run(self):
         clock_rate = rospy.Rate(60)
 
+        # prev_report_time = rospy.Time.now()
         while not rospy.is_shutdown():
             try:
                 # wait for encoders to be initialized
@@ -240,6 +263,14 @@ class DodobotChassis:
                 self.compute_odometry()
                 self.publish_chassis_data()
                 self.publish_camera_tfs()
+
+                # if rospy.Time.now() - prev_report_time > rospy.Duration(0.25):
+                #     rospy.loginfo("odom; speed: %s\tangular: %s" % (self.odom_speed, self.odom_vt))
+                #     rospy.loginfo("cmd; speed: %s\tangular: %s" % (self.linear_speed_cmd, self.angular_speed_cmd))
+                #     rospy.loginfo("setpoint; l: %s\tr: %s" % (self.drive_pub_msg.left_setpoint, self.drive_pub_msg.right_setpoint))
+                #     rospy.loginfo("measure; l: %s\tr: %s\n" % (self.drive_sub_msg.left_enc_speed, self.drive_sub_msg.right_enc_speed))
+                #
+                #     prev_report_time = rospy.Time.now()
             except BaseException, e:
                 traceback.print_exc()
                 rospy.signal_shutdown(str(e))
@@ -330,9 +361,9 @@ class DodobotChassis:
         self.odom_x += dx
         self.odom_y += dy
 
-        speed = (left_speed + right_speed) / 2
-        self.odom_vx = speed * math.cos(self.odom_t)
-        self.odom_vy = speed * math.sin(self.odom_t)
+        self.odom_speed = (left_speed + right_speed) / 2
+        self.odom_vx = self.odom_speed * math.cos(self.odom_t)
+        self.odom_vy = self.odom_speed * math.sin(self.odom_t)
         self.odom_vt = (right_speed - left_speed) / self.wheel_distance_m
 
         # print self.odom_x, self.odom_y, math.degrees(self.odom_t)

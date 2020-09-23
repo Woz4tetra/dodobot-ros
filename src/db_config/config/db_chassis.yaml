@@ -1,31 +1,11 @@
 !!python/object/new:dynamic_reconfigure.encoding.Config
 dictitems:
-  groups: !!python/object/new:dynamic_reconfigure.encoding.Config
-    dictitems:
-      groups: !!python/object/new:dynamic_reconfigure.encoding.Config
-        state: []
-      id: 0
-      kd_A: 0.08
-      kd_B: 0.08
-      ki_A: 0.0
-      ki_B: 0.0
-      kp_A: 0.3
-      kp_B: 0.3
-      name: Default
-      parameters: !!python/object/new:dynamic_reconfigure.encoding.Config
-        state: []
-      parent: 0
-      speed_kA: 0.9
-      speed_kB: 0.9
-      state: true
-      type: ''
-    state: []
-  kd_A: 0.08
-  kd_B: 0.08
+  kp_A: 0.1
+  kp_B: 0.1
+  kd_A: 0.001
+  kd_B: 0.001
   ki_A: 0.0
   ki_B: 0.0
-  kp_A: 0.3
-  kp_B: 0.3
   speed_kA: 0.9
   speed_kB: 0.9
 state: []
