@@ -16,6 +16,7 @@ class Sequence(object):
         self.comment = ""
 
         self.header = []
+        self.path = ""
 
         self.sequence_names = {}
         self.sequence_indices = {}
@@ -25,7 +26,12 @@ class Sequence(object):
     @classmethod
     def from_path(cls, path):
         self = cls()
+        self._init_from_path(path)
+        return self
+
+    def _init_from_path(self, path):
         with open(path) as file:
+            self.path = path
             self.reader = csv.reader(file)
             self.header = next(self.reader)
             self._parse_header()
@@ -37,7 +43,11 @@ class Sequence(object):
                     value = self.sequence_types[index](row[index])
                     action[self.sequence_names[index]] = value
                 self.sequence.append(action)
-        return self
+
+    def reload(self):
+        if len(self.path) == 0:
+            raise ValueError("Sequence wasn't loaded from a path!")
+        self._init_from_path(self.path)
 
     def _parse_header(self):
         self.goal_x = self.header.index("goal_x")

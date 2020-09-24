@@ -54,8 +54,8 @@ class CentralPlanning:
         self.debug_sequence_planning = False
         # self.debug_sequence_planning = True
 
-        # self.debug_move_base = False
-        self.debug_move_base = True
+        self.debug_move_base = False
+        # self.debug_move_base = True
 
         # create base_move action server
         self.sequence_server = actionlib.SimpleActionServer("/sequence_request", db_planning.msg.SequenceRequestAction, self.sequence_callback, auto_start=False)
@@ -94,6 +94,8 @@ class CentralPlanning:
 
         if not self.debug_sequence_planning:
             if not self.move_to_start_pose():
+                result.success = False
+                self.sequence_server.set_aborted(result)
                 return
 
         # Temporary stopping point for function
@@ -101,6 +103,9 @@ class CentralPlanning:
             result.success = True
             self.sequence_server.set_succeeded(result)
             return
+
+        rospy.sleep(1.0)
+        self.search_for_tag()
 
         # TODO: pause rtabmap if running
         try:
@@ -138,8 +143,6 @@ class CentralPlanning:
             self.tf_listener.waitForTransform("map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
             if self.saved_start_pos is None or self.saved_start_quat is None:
                 rospy.logwarn("No tag visible or in memory. Can't direct the robot")
-                result.success = False
-                self.sequence_server.set_aborted(result)
                 return False
 
         # Creates a goal to send to the action server.
@@ -169,6 +172,7 @@ class CentralPlanning:
         return True
 
     def insert_action_sequence(self):
+        self.insert_sequence.reload()
         if self.debug_sequence_planning:
             adj_sequence = self.insert_sequence.sequence
         else:
@@ -182,6 +186,7 @@ class CentralPlanning:
         return None
 
     def extract_action_sequence(self):
+        self.extract_sequence.reload()
         if self.debug_sequence_planning:
             adj_sequence = self.extract_sequence.sequence
         else:
@@ -199,6 +204,8 @@ class CentralPlanning:
         chassis_goal = self.get_goal_msg(ChassisGoal, action)
         front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
 
+        rospy.sleep(2.0)
+
         self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
         self.front_loader_action.send_goal(front_loader_goal) #, feedback_callback=self.front_loader_action_progress)
 
@@ -208,6 +215,7 @@ class CentralPlanning:
         rospy.loginfo("Front loader result obj: %s" % front_loader_result)
         rospy.loginfo("Front loader result: %s" % front_loader_result.success)
         if not front_loader_result.success:
+            self.chassis_action.cancel_goal()
             return False
 
         self.chassis_action.wait_for_result()
@@ -315,27 +323,33 @@ class CentralPlanning:
             tfd_action["goal_angle"] = tfd_goal_angle
             # if the original goal_angle is NaN, that value will be copied over
 
+        rospy.loginfo("x: %0.4f, y: %0.4f, a: %0.4f -> x: %0.4f, y: %0.4f, a: %0.4f" % (
+            action["goal_x"], action["goal_y"], action["goal_angle"],
+            tfd_action["goal_x"], tfd_action["goal_y"], tfd_action["goal_angle"],
+        ))
         return tfd_action
+
+    def search_for_tag(self):
+        try:
+            trans, rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
+            self.saved_start_pos = trans
+            self.saved_start_quat = rot
+            self.last_saved_time = rospy.Time.now()
+            rospy.loginfo("Tag is visible. Base starting pose: (%s, %s, %s). Saving location" % tuple(self.saved_start_pos))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            return
 
     def run(self):
         rospy.loginfo("Tag locator task started")
         rate = rospy.Rate(10.0)
         while not rospy.is_shutdown():
-            try:
-                # if self.tf_listener.canTransform("map", self.base_start_tf_name, rospy.Time(0)):
-                trans, rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
-                self.saved_start_pos = trans
-                self.saved_start_quat = rot
-                self.last_saved_time = rospy.Time.now()
-                rospy.loginfo("Tag is visible. Saving location")
-                rospy.sleep(5.0)
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                continue
+            self.search_for_tag()
+            rospy.sleep(5.0)
 
-            if rospy.Time.now() - self.last_saved_time > rospy.Duration(300.0):
-                rospy.loginfo("5 minutes elapsed. Saved tag position erased.")
-                self.saved_start_pos = None
-                self.saved_start_quat = None
+            # if rospy.Time.now() - self.last_saved_time > rospy.Duration(300.0):
+            #     rospy.loginfo("5 minutes elapsed. Saved tag position erased.")
+            #     self.saved_start_pos = None
+            #     self.saved_start_quat = None
             rate.sleep()
 
 if __name__ == "__main__":

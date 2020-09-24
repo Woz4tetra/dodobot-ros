@@ -96,6 +96,7 @@ class FrontLoaderPlanner:
             rospy.loginfo("No action required from front loader. Skipping.")
             self.result.success = True
             self.front_loader_server.set_succeeded(self.result)
+            return
 
         # send command
         success = self.send_move_cmd(move_cmd, max_speed, acceleration)
