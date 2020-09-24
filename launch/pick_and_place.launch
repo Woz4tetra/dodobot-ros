@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <include file="$(find db_config)/launch/dodobot.launch"/>
-    <include file="$(find db_config)/launch/realsense.launch"/>
+    <include file="$(find db_config)/launch/realsense.launch">
+        <arg name="compute_pointcloud" value="false"/>
+        <arg name="hirez_mode"         value="true"/>
+    </include>
     <include file="$(find db_config)/launch/move_base.launch"/>
     <!-- <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>

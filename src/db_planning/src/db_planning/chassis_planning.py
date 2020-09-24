@@ -56,7 +56,11 @@ class ChassisPlanning:
         self.current_a = 0.0
 
         self.base_max_speed = 0.36  # m/s
-        self.base_max_ang_v = 0.2  # rad/s
+        self.base_max_ang_v = 0.7  # rad/s
+
+        self.dist_timeout_tolerance = 0.0005
+        self.angle_timeout_tolerance = 0.0025
+        self.move_timeout = rospy.Duration(10.0)
 
         self.pos_tolerance = 0.005  # m
         self.laterial_tolerance = 0.03  # m
@@ -64,23 +68,27 @@ class ChassisPlanning:
         self.base_speed = self.base_max_speed
         self.base_ang_v = self.base_max_ang_v
 
-        self.min_ang_v = 0.5  # rad/s
+        self.min_ang_v = 0.3  # rad/s
         self.min_ang_v_deadzone = 0.1
 
         self.min_speed = 0.05  # m/s
         self.min_speed_deadzone = 0.01
 
-        self.dist_pid = PID(2.0, 0.0, 0.0)
-        self.lateral_pid = PID(3.0, 0.0, 0.0)
-        self.angle_pid = PID(9.5, 0.0, 0.0)
+        self.dist_pid = PID(4.0, 0.5, 0.5)
+        # self.lateral_pid = PID(3.0, 0.0, 0.01)
+        self.angle_pid = PID(9.0, 0.0, 0.5)
+        self.in_place_angle_pid = PID(24.0, 0.0, 0.1)
 
         self.dist_pid.set_bounds(-self.base_max_speed, self.base_max_speed)
-        self.lateral_pid.set_bounds(-self.base_max_ang_v, self.base_max_ang_v)
+        # self.lateral_pid.set_bounds(-self.base_max_ang_v, self.base_max_ang_v)
         self.angle_pid.set_bounds(-self.base_max_ang_v, self.base_max_ang_v)
+        self.in_place_angle_pid.set_bounds(-self.base_max_ang_v, self.base_max_ang_v)
 
         # self.dist_pid.set_deadzones(self.min_speed_deadzone, self.min_speed)
         # self.lateral_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
         # self.angle_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
+        self.in_place_angle_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
+
 
         rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
 
@@ -124,6 +132,7 @@ class ChassisPlanning:
         self.tf_listener.waitForTransform("/base_link", "/odom", rospy.Time(), rospy.Duration(5.0))
 
         self.has_active_goal = True
+        self.update_current_pose()
         rospy.loginfo("Sending parameters to chassis guidance: %s" % str(params))
         try:
             success = self.goto_pose(params)
@@ -134,6 +143,8 @@ class ChassisPlanning:
             return
 
         self.has_active_goal = False
+        if not success:
+            rospy.logerr("Failed to go to pose")
 
         self.set_succeeded(success)
 
@@ -162,6 +173,11 @@ class ChassisPlanning:
         goal_y = params.get("goal_y", default_val)
         goal_angle = params.get("goal_angle", default_val)
 
+        rospy.loginfo("Current pose: (%s, %s, %s). Goal pose: (%s, %s, %s)" % (
+            self.current_x, self.current_y, self.current_a,
+            goal_x, goal_y, goal_angle
+        ))
+
         self.base_speed = params.get("base_speed", self.base_speed)
         self.base_ang_v = params.get("base_ang_v", self.base_ang_v)
         self.pos_tolerance = params.get("pos_tolerance", self.pos_tolerance)
@@ -175,7 +191,7 @@ class ChassisPlanning:
         #         goal_y = self.current_y
 
         self.dist_pid.set_bounds(-self.base_speed, self.base_speed)
-        self.lateral_pid.set_bounds(-self.base_ang_v, self.base_ang_v)
+        # self.lateral_pid.set_bounds(-self.base_ang_v, self.base_ang_v)
         self.angle_pid.set_bounds(-self.base_ang_v, self.base_ang_v)
 
         if goal_x is not None and goal_y is not None:
@@ -185,13 +201,16 @@ class ChassisPlanning:
 
             if not self.rotate_to_angle(traj_goal_angle, drive_forwards):
                 return False
+            rospy.loginfo("Initial angle rotate complete!")
 
             if not self.drive_to_point(goal_x, goal_y, traj_goal_angle, drive_forwards):
                 return False
+            rospy.loginfo("Initial drive to point complete!")
 
         if goal_angle is not None:
             if not self.rotate_to_angle(goal_angle):
                 return False
+            rospy.loginfo("Final goal angle reached!")
 
         rospy.loginfo("goto_pose command completed successfully!")
         return True
@@ -213,9 +232,11 @@ class ChassisPlanning:
         return angle
 
     def rotate_to_angle(self, angle, drive_forwards=True):
-        self.angle_pid.reset()
+        self.in_place_angle_pid.reset()
 
         prev_time = rospy.Time.now()
+        timeout_timer = rospy.Time.now()
+        prev_error = 0.0
         rate = rospy.Rate(30.0)
 
         while True:
@@ -225,15 +246,25 @@ class ChassisPlanning:
                 rospy.loginfo("Goal angle current: %s, goal: %s reached!" % (self.current_a, angle))
                 return True
 
+            if abs(angle_error - prev_error) < self.angle_timeout_tolerance:
+                if rospy.Time.now() - timeout_timer > self.move_timeout:
+                    rospy.loginfo("Rotate command timed out after %ss" % (self.move_timeout.to_sec()))
+                    return False
+            else:
+                timeout_timer = rospy.Time.now()
+            prev_error = angle_error
+
+            # angle_error = math.copysign(angle_error ** 2, angle_error)
+
             current_time = rospy.Time.now()
             dt = (current_time - prev_time).to_sec()
             prev_time = current_time
 
-            angular_wz = self.angle_pid.update(angle_error, dt)
+            angular_wz = self.in_place_angle_pid.update(angle_error, dt)
             self.send_cmd(0.0, angular_wz)
 
-            # rospy.loginfo("Goal: %s\tCurrent: %s\tError: %s" % (angle, self.current_a, angle_error))
-            # rospy.loginfo("Wz: %s" % angular_wz)
+            rospy.loginfo("Goal: %s\tCurrent: %s\tError: %s" % (angle, self.current_a, angle_error))
+            rospy.loginfo("Wz: %s" % angular_wz)
 
             if self.check_cancelled():
                 rospy.loginfo("Drive to point routine cancelled")
@@ -244,6 +275,11 @@ class ChassisPlanning:
         self.angle_pid.reset()
         # self.lateral_pid.reset()
         self.dist_pid.reset()
+
+        prev_dist_error = 0.0
+        prev_angle_error = 0.0
+        angle_timeout_timer = rospy.Time.now()
+        dist_timeout_timer = rospy.Time.now()
 
         prev_time = rospy.Time.now()
         rate = rospy.Rate(30.0)
@@ -261,6 +297,22 @@ class ChassisPlanning:
                 self.send_cmd(0.0, 0.0)
                 return True
 
+            if abs(angle_error - prev_angle_error) < self.angle_timeout_tolerance:
+                if rospy.Time.now() - angle_timeout_timer > self.move_timeout:
+                    rospy.loginfo("Drive to point timed out after %ss due to stuck angle" % (self.move_timeout.to_sec()))
+                    return False
+            else:
+                angle_timeout_timer = rospy.Time.now()
+            prev_angle_error = angle_error
+
+            if abs(dist_error - prev_dist_error) < self.angle_timeout_tolerance:
+                if rospy.Time.now() - dist_timeout_timer > self.move_timeout:
+                    rospy.loginfo("Drive to point timed out after %ss due to stuck distance" % (self.move_timeout.to_sec()))
+                    return False
+            else:
+                dist_timeout_timer = rospy.Time.now()
+            prev_dist_error = dist_error
+
             current_time = rospy.Time.now()
             dt = (current_time - prev_time).to_sec()
             prev_time = current_time
@@ -272,8 +324,8 @@ class ChassisPlanning:
             angular_wz = self.angle_pid.update(angle_error, dt)
             self.send_cmd(linear_vx, angular_wz)
 
-            # rospy.loginfo("Dist Error: %s\tAngle Error: %s" % (dist_error, angle_error))
-            # rospy.loginfo("Vx: %s\tWz: %s" % (linear_vx, angular_wz))
+            rospy.loginfo("Dist Error: %s\tAngle Error: %s" % (dist_error, angle_error))
+            rospy.loginfo("Vx: %s\tWz: %s" % (linear_vx, angular_wz))
 
             # rospy.loginfo("Dist Error: %s\tLateral Error: %s" % (dist_error, lateral_error))
             # rospy.loginfo("Angle Goal: %s\tCurrent: %s\tError: %s" % (traj_goal_angle, self.current_a, angle_error))
@@ -288,20 +340,24 @@ class ChassisPlanning:
         self.twist_command.angular.z = angular_wz
         self.cmd_vel_pub.publish(self.twist_command)
 
+    def update_current_pose(self):
+        try:
+            trans, rot = self.tf_listener.lookupTransform("/odom", "/base_link", rospy.Time(0))
+            self.current_x = trans[0]
+            self.current_y = trans[1]
+            self.current_a = tf.transformations.euler_from_quaternion(rot)[2]
+
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            return
+
     def run(self):
         rate = rospy.Rate(30.0)
         while not rospy.is_shutdown():
             rate.sleep()
             if not self.has_active_goal:
+                rospy.sleep(0.1)
                 continue
-            try:
-                trans, rot = self.tf_listener.lookupTransform("/odom", "/base_link", rospy.Time(0))
-                self.current_x = trans[0]
-                self.current_y = trans[1]
-                self.current_a = tf.transformations.euler_from_quaternion(rot)[2]
-
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                continue
+            self.update_current_pose()
 
 
 
