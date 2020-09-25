@@ -41,7 +41,7 @@ class CentralPlanning:
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
 
         # create tag watching tf_listener
-        self.tag_name = rospy.get_param("~tag_name", "tag")  # tag's TF name
+        self.tag_name = rospy.get_param("~tag_name", "target")  # tag's TF name
         self.base_start_name = rospy.get_param("~base_start_name", "base_start_link")
         self.tag_tf_name = self.tag_name  # "/" + self.tag_name
         self.base_start_tf_name = self.base_start_name  # "/" + self.base_start_name
@@ -204,7 +204,7 @@ class CentralPlanning:
         chassis_goal = self.get_goal_msg(ChassisGoal, action)
         front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
 
-        rospy.sleep(2.0)
+        rospy.sleep(1.0)
 
         self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
         self.front_loader_action.send_goal(front_loader_goal) #, feedback_callback=self.front_loader_action_progress)
@@ -331,13 +331,15 @@ class CentralPlanning:
 
     def search_for_tag(self):
         try:
-            trans, rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
-            self.saved_start_pos = trans
-            self.saved_start_quat = rot
+            tag_trans, tag_rot = self.tf_listener.lookupTransform("map", self.tag_tf_name, rospy.Time(0))
+            start_trans, start_rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
+            self.saved_start_pos = start_trans
+            self.saved_start_quat = tag_rot
             self.last_saved_time = rospy.Time.now()
             rospy.loginfo("Tag is visible. Base starting pose: (%s, %s, %s). Saving location" % tuple(self.saved_start_pos))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
+            # raise
 
     def run(self):
         rospy.loginfo("Tag locator task started")

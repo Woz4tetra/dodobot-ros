@@ -100,6 +100,7 @@ class ChassisPlanning:
         base_speed = goal.base_speed
         base_ang_v = goal.base_ang_v
         pos_tolerance = goal.pos_tolerance
+        angle_tolerance = goal.angle_tolerance
         drive_forwards = goal.drive_forwards
 
         params = {}
@@ -126,6 +127,9 @@ class ChassisPlanning:
 
         if not math.isnan(pos_tolerance):
             params["pos_tolerance"] = pos_tolerance
+
+        if not math.isnan(angle_tolerance):
+            params["angle_tolerance"] = angle_tolerance
 
         params["drive_forwards"] = drive_forwards
 
@@ -243,8 +247,11 @@ class ChassisPlanning:
             angle_error = self.convert_angle_range(angle - self.current_a)
 
             if abs(angle_error) < self.angle_tolerance:
-                rospy.loginfo("Goal angle current: %s, goal: %s reached!" % (self.current_a, angle))
-                return True
+                self.send_cmd(0.0, 0.0)
+                rospy.sleep(0.1)  # wait for motors to stop
+                if abs(angle_error) < self.angle_tolerance:
+                    rospy.loginfo("Goal angle current: %s, goal: %s reached!" % (self.current_a, angle))
+                    return True
 
             if abs(angle_error - prev_error) < self.angle_timeout_tolerance:
                 if rospy.Time.now() - timeout_timer > self.move_timeout:
@@ -293,9 +300,11 @@ class ChassisPlanning:
             angle_error = self.convert_angle_range(traj_goal_angle - self.current_a)
 
             if abs(dist_error) < self.pos_tolerance and abs(angle_error) < self.angle_tolerance:  # and abs(lateral_error) < self.laterial_tolerance:
-                rospy.loginfo("Goal point current: (%s, %s), goal: (%s, %s) reached!" % (self.current_x, self.current_y, goal_x, goal_y))
                 self.send_cmd(0.0, 0.0)
-                return True
+                rospy.sleep(0.1)  # wait for motors to stop
+                if abs(dist_error) < self.pos_tolerance and abs(angle_error) < self.angle_tolerance:
+                    rospy.loginfo("Goal point current: (%s, %s), goal: (%s, %s) reached!" % (self.current_x, self.current_y, goal_x, goal_y))
+                    return True
 
             if abs(angle_error - prev_angle_error) < self.angle_timeout_tolerance:
                 if rospy.Time.now() - angle_timeout_timer > self.move_timeout:
