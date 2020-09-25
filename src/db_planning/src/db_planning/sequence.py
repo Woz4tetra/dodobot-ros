@@ -9,6 +9,7 @@ class Sequence(object):
         self.base_speed = 0
         self.base_ang_v = 0
         self.pos_tolerance = 0
+        self.angle_tolerance = 0
         self.drive_forwards = 0
         self.goal_z = 0
         self.z_speed = 0
@@ -56,6 +57,7 @@ class Sequence(object):
         self.base_speed = self.header.index("base_speed")
         self.base_ang_v = self.header.index("base_ang_v")
         self.pos_tolerance = self.header.index("pos_tolerance")
+        self.angle_tolerance = self.header.index("angle_tolerance")
         self.drive_forwards = self.header.index("drive_forwards")
         self.goal_z = self.header.index("goal_z")
         self.z_speed = self.header.index("z_speed")
@@ -73,33 +75,35 @@ class Sequence(object):
 
     def update_sequence_mapping(self):
         self.sequence_names = {
-            self.goal_x        : "goal_x",
-            self.goal_y        : "goal_y",
-            self.goal_angle    : "goal_angle",
-            self.base_speed    : "base_speed",
-            self.base_ang_v    : "base_ang_v",
-            self.pos_tolerance : "pos_tolerance",
-            self.drive_forwards: "drive_forwards",
-            self.goal_z        : "goal_z",
-            self.z_speed       : "z_speed",
-            self.z_accel       : "z_accel",
-            self.comment       : "comment",
+            self.goal_x         : "goal_x",
+            self.goal_y         : "goal_y",
+            self.goal_angle     : "goal_angle",
+            self.base_speed     : "base_speed",
+            self.base_ang_v     : "base_ang_v",
+            self.pos_tolerance  : "pos_tolerance",
+            self.angle_tolerance: "angle_tolerance",
+            self.drive_forwards : "drive_forwards",
+            self.goal_z         : "goal_z",
+            self.z_speed        : "z_speed",
+            self.z_accel        : "z_accel",
+            self.comment        : "comment",
         }
 
         self.sequence_indices = {v: k for k, v in self.sequence_names.items()}
 
         self.sequence_types = {
-            self.goal_x        : float,
-            self.goal_y        : float,
-            self.goal_angle    : float,
-            self.base_speed    : float,
-            self.base_ang_v    : float,
-            self.pos_tolerance : float,
-            self.drive_forwards: int,
-            self.goal_z        : float,
-            self.z_speed       : float,
-            self.z_accel       : float,
-            self.comment       : str,
+            self.goal_x         : float,
+            self.goal_y         : float,
+            self.goal_angle     : float,
+            self.base_speed     : float,
+            self.base_ang_v     : float,
+            self.pos_tolerance  : float,
+            self.angle_tolerance: float,
+            self.drive_forwards : int,
+            self.goal_z         : float,
+            self.z_speed        : float,
+            self.z_accel        : float,
+            self.comment        : str,
         }
 
         self.sequence_order = [
@@ -109,6 +113,7 @@ class Sequence(object):
             self.base_speed,
             self.base_ang_v,
             self.pos_tolerance,
+            self.angle_tolerance,
             self.drive_forwards,
             self.goal_z,
             self.z_speed,
