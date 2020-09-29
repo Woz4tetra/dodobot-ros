@@ -5,8 +5,10 @@ import tf
 import math
 import traceback
 import actionlib
+import geometry_msgs
+import dynamic_reconfigure.client
 
-from geometry_msgs.msg import Twist
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 from db_planning.pid import PID
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
@@ -37,16 +39,12 @@ class ChassisPlanning:
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
+        rospy.on_shutdown(self.shutdown_hook)
 
-        self.twist_command = Twist()
-        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
+        self.twist_command = geometry_msgs.msg.Twist()
+        self.cmd_vel_pub = rospy.Publisher("cmd_vel", geometry_msgs.msg.Twist, queue_size=100)
 
         self.tf_listener = tf.TransformListener()
-
-        self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
-        self.chassis_server = actionlib.SimpleActionServer("/" + self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
-        self.chassis_server.start()
-        rospy.loginfo("[%s] server started" % self.chassis_action_name)
 
         self.result = ChassisResult()
 
@@ -88,6 +86,19 @@ class ChassisPlanning:
         # self.lateral_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
         # self.angle_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
         self.in_place_angle_pid.set_deadzones(self.min_ang_v_deadzone, self.min_ang_v)
+
+        self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
+        self.chassis_server = actionlib.SimpleActionServer(self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
+        self.chassis_server.start()
+        rospy.loginfo("[%s] server started" % self.chassis_action_name)
+
+        self.move_action_client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
+        self.move_action_client.wait_for_server()
+        rospy.loginfo("[%s] move_base action server connected" % self.chassis_action_name)
+
+        self.dwa_planner_dyncfg = None
+        self.dwa_planner_dyncfg = dynamic_reconfigure.client.Client("/move_base/DWAPlannerROS")
+        self.dwa_planner_dyncfg.get_configuration(timeout=30.0)
 
 
         rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
@@ -140,6 +151,7 @@ class ChassisPlanning:
         rospy.loginfo("Sending parameters to chassis guidance: %s" % str(params))
         try:
             success = self.goto_pose(params)
+            # success = self.send_goal(params)
         except BaseException as e:
             tb = traceback.format_exc()
             rospy.logerr("An error occurred while going to pose: %s" % str(tb))
@@ -170,6 +182,69 @@ class ChassisPlanning:
             return True
         else:
             return False
+
+    def send_goal(self, params):
+        if self.dwa_planner_dyncfg is None:
+            rospy.logwarn("Dynamic reconfigure node not up! Can't send goal to move_base")
+            return False
+
+        goal_x = params.get("goal_x", self.current_x)
+        goal_y = params.get("goal_y", self.current_y)
+        goal_angle = params.get("goal_angle", self.current_a)
+
+        rospy.loginfo("Current pose: (%s, %s, %s). Goal pose: (%s, %s, %s)" % (
+            self.current_x, self.current_y, self.current_a,
+            goal_x, goal_y, goal_angle
+        ))
+
+        goal_quat = tf.transformations.quaternion_from_euler(0.0, 0.0, goal_angle)
+
+        goal_pose = geometry_msgs.msg.Pose()
+        goal_pose.position.x = goal_x
+        goal_pose.position.y = goal_y
+        goal_pose.orientation.x = goal_quat[0]
+        goal_pose.orientation.y = goal_quat[1]
+        goal_pose.orientation.z = goal_quat[2]
+        goal_pose.orientation.w = goal_quat[3]
+
+        self.base_speed = params.get("base_speed", self.base_speed)
+        self.base_ang_v = params.get("base_ang_v", self.base_ang_v)
+        self.pos_tolerance = params.get("pos_tolerance", self.pos_tolerance)
+        self.angle_tolerance = params.get("angle_tolerance", self.angle_tolerance)
+        drive_forwards = bool(params.get("drive_forwards"))
+
+        new_config = dict(
+            max_vel_trans=self.base_speed,
+            max_vel_theta=self.base_ang_v,
+            xy_goal_tolerance=self.pos_tolerance,
+            yaw_goal_tolerance=self.angle_tolerance,
+            max_vel_x=self.base_speed if drive_forwards else 0.0,
+            min_vel_x=0.0 if drive_forwards else -self.base_speed,
+        )
+
+        self.dwa_planner_dyncfg.update_configuration(new_config)
+
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "odom"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose = goal_pose
+
+        # Sends the goal to the action server.
+        self.move_action_client.send_goal(goal)
+
+        # Waits for the server to finish performing the action.
+        self.move_action_client.wait_for_result()
+
+        # Get the result of executing the action
+        move_base_result = self.move_action_client.get_result()
+
+        rospy.loginfo("move_base_result: %s, %s" % (type(move_base_result), move_base_result))
+        if not move_base_result:
+            rospy.logwarn("move_base failed to direct the robot to the directed position")
+            return False
+
+        return True
+
 
     def goto_pose(self, params):
         default_val = None  # float("nan")
@@ -368,7 +443,8 @@ class ChassisPlanning:
                 continue
             self.update_current_pose()
 
-
+    def shutdown_hook(self):
+        self.move_action_client.cancel_goal()
 
 if __name__ == "__main__":
     try:
