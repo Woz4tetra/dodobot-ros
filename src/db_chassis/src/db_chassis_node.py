@@ -253,7 +253,7 @@ class DodobotChassis:
     def run(self):
         clock_rate = rospy.Rate(60)
 
-        # prev_report_time = rospy.Time.now()
+        prev_report_time = rospy.Time.now()
         while not rospy.is_shutdown():
             try:
                 # wait for encoders to be initialized
@@ -264,13 +264,13 @@ class DodobotChassis:
                 self.publish_chassis_data()
                 self.publish_camera_tfs()
 
-                # if rospy.Time.now() - prev_report_time > rospy.Duration(0.25):
-                #     rospy.loginfo("odom; speed: %s\tangular: %s" % (self.odom_speed, self.odom_vt))
-                #     rospy.loginfo("cmd; speed: %s\tangular: %s" % (self.linear_speed_cmd, self.angular_speed_cmd))
-                #     rospy.loginfo("setpoint; l: %s\tr: %s" % (self.drive_pub_msg.left_setpoint, self.drive_pub_msg.right_setpoint))
-                #     rospy.loginfo("measure; l: %s\tr: %s\n" % (self.drive_sub_msg.left_enc_speed, self.drive_sub_msg.right_enc_speed))
-                #
-                #     prev_report_time = rospy.Time.now()
+                if rospy.Time.now() - prev_report_time > rospy.Duration(0.25):
+                    rospy.loginfo("odom; speed: %s\tangular: %s" % (self.odom_speed, self.odom_vt))
+                    rospy.loginfo("cmd; speed: %s\tangular: %s" % (self.linear_speed_cmd, self.angular_speed_cmd))
+                    rospy.loginfo("setpoint; l: %s\tr: %s" % (self.drive_pub_msg.left_setpoint, self.drive_pub_msg.right_setpoint))
+                    rospy.loginfo("measure; l: %s\tr: %s\n" % (self.drive_sub_msg.left_enc_speed, self.drive_sub_msg.right_enc_speed))
+
+                    prev_report_time = rospy.Time.now()
             except BaseException, e:
                 traceback.print_exc()
                 rospy.signal_shutdown(str(e))

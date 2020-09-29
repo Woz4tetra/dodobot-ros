@@ -30,6 +30,7 @@ class CentralPlanning:
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
+        rospy.on_shutdown(self.shutdown_hook)
 
         self.insert_sequence_path = rospy.get_param("~insert_sequence_path", "./insert.csv")
         self.extract_sequence_path = rospy.get_param("~extract_sequence_path", "./extract.csv")
@@ -63,11 +64,11 @@ class CentralPlanning:
         rospy.loginfo("[%s] Dodobot sequence server started" % self.node_name)
 
         # chassis and front loader services
-        self.chassis_action = actionlib.SimpleActionClient("/" + self.chassis_action_name, ChassisAction)
+        self.chassis_action = actionlib.SimpleActionClient(self.chassis_action_name, ChassisAction)
         self.chassis_action.wait_for_server()
         rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.chassis_action_name))
 
-        self.front_loader_action = actionlib.SimpleActionClient("/" + self.front_loader_action_name, FrontLoaderAction)
+        self.front_loader_action = actionlib.SimpleActionClient(self.front_loader_action_name, FrontLoaderAction)
         self.front_loader_action.wait_for_server()
         rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.front_loader_action_name))
 
@@ -178,7 +179,7 @@ class CentralPlanning:
         else:
             adj_sequence = self.adjust_sequence_into_odom(self.insert_sequence)
         for index, action in enumerate(adj_sequence):
-            rospy.loginfo("\n\n--- Running insert action #%s ---" % index)
+            rospy.loginfo("\n\n--- Running insert action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
             rospy.loginfo("--- Action #%s finished ---\n\n" % index)
             if not result:
@@ -192,7 +193,7 @@ class CentralPlanning:
         else:
             adj_sequence = self.adjust_sequence_into_odom(self.extract_sequence)
         for index, action in enumerate(adj_sequence):
-            rospy.loginfo("\n\n--- Running extract action #%s ---" % index)
+            rospy.loginfo("\n\n--- Running extract action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
             rospy.loginfo("--- Action #%s finished ---\n\n" % index)
             if not result:
@@ -353,6 +354,9 @@ class CentralPlanning:
             #     self.saved_start_pos = None
             #     self.saved_start_quat = None
             rate.sleep()
+
+    def shutdown_hook(self):
+        self.move_action_client.cancel_goal()
 
 if __name__ == "__main__":
     try:

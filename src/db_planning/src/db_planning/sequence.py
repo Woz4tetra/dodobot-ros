@@ -39,6 +39,8 @@ class Sequence(object):
             self.update_sequence_mapping()
 
             for row in self.reader:
+                if row[0].startswith("#"):
+                    continue
                 action = {}
                 for index in self.sequence_order:
                     value = self.sequence_types[index](row[index])

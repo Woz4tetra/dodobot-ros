@@ -42,7 +42,7 @@ class FrontLoaderPlanner:
 
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
 
-        self.front_loader_server = actionlib.SimpleActionServer("/" + self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback, auto_start=False)
+        self.front_loader_server = actionlib.SimpleActionServer(self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback, auto_start=False)
         self.front_loader_server.start()
         rospy.loginfo("[%s] server started" % self.front_loader_action_name)
 
