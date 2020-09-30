@@ -197,7 +197,7 @@ bool DodobotParsing::readSerial()
     // _serialBuffer = _serialRef.readline();
     _serialBuffer = string(_recvCharBuffer);
     // _serialBuffer = _serialBuffer.substr(0, _serialBuffer.length() - 1);  // remove newline character
-    ROS_DEBUG_STREAM("Buffer: " << _serialBuffer);
+    // ROS_DEBUG_STREAM("Buffer: " << _serialBuffer);
     // at least 1 char for packet num
     // \t + at least 1 category char
     // 2 chars for checksum
@@ -416,6 +416,7 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
     // to include packet stop and checksum
 
     ROS_DEBUG_STREAM("Writing: " << packet);
+    // ROS_INFO_STREAM("Writing: " << packet);
     _serialRef.write(packet);
     _writePacketNum++;
     ros::Duration(0.0005).sleep();
@@ -516,7 +517,18 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
         writeSerial("lincfg", "dd", 1, msg->acceleration);
         ros::Duration(0.005).sleep();
     }
-    writeSerial("linear", "dd", msg->command_type, msg->command_value);
+
+    if (msg->command_value == 2 || msg->command_value == 3 || msg->command_value == 4) {
+        // stop linear:  2
+        // reset linear: 3
+        // home linear:  4
+        writeSerial("linear", "d", msg->command_type);
+    }
+    else {
+        // position: 0
+        // velocity: 1
+        writeSerial("linear", "dd", msg->command_type, msg->command_value);
+    }
 }
 
 void DodobotParsing::tilterCallback(const db_parsing::DodobotTilter::ConstPtr& msg) {
