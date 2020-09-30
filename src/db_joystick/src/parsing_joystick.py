@@ -11,6 +11,11 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64, Bool
 
+from db_parsing.msg import DodobotLinear
+
+
+MAX_INT32 = 0x7fffffff
+
 
 class ParsingJoystick:
     def __init__(self):
@@ -27,15 +32,18 @@ class ParsingJoystick:
         # parameters from launch file
         self.linear_axis = int(rospy.get_param("~linear_axis", 1))
         self.angular_axis = int(rospy.get_param("~angular_axis", 2))
+        self.stepper_axis = int(rospy.get_param("~stepper_axis", 4))
 
         self.linear_scale = rospy.get_param("~linear_scale", 1.0)
         self.angular_scale = rospy.get_param("~angular_scale", 1.0)
+        self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 31250000 * 8)
 
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
 
         # publishing topics
-        self.cmd_vel_pub = rospy.Publisher("/dodobot/cmd_vel", Twist, queue_size=100)
+        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
+        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
 
         # subscription topics
         self.joy_sub = rospy.Subscriber(self.joystick_topic, Joy, self.joystick_msg_callback, queue_size=5)
@@ -47,6 +55,9 @@ class ParsingJoystick:
         self.twist_command.angular.z = 0.0
 
         self.cmd_vel_timeout = rospy.Time.now()
+
+        self.linear_vel_command = 0
+        self.prev_linear_vel_command = 0
 
     def joy_to_speed(self, scale_factor, value):
         if abs(value) < self.deadzone_joy_val:
@@ -77,6 +88,26 @@ class ParsingJoystick:
         else:
             return rospy.Time.now() - self.cmd_vel_timeout < rospy.Duration(0.5)
 
+    def set_linear(self, value):
+        self.linear_vel_command = int(self.stepper_max_speed * value)
+        if self.linear_vel_command != self.prev_linear_vel_command:
+            self.prev_linear_vel_command = self.linear_vel_command
+            msg = DodobotLinear()
+
+            msg.command_type = 1  # velocity command
+            msg.command_value = self.linear_vel_command
+            msg.max_speed = -1
+            msg.acceleration = -1
+
+            self.linear_pub.publish(msg)
+
+    def home_linear(self):
+        msg = DodobotLinear()
+        msg.command_type = 4  # home stepper command
+        msg.max_speed = -1
+        msg.acceleration = -1
+        self.linear_pub.publish(msg)
+
     def process_joy_msg(self, msg):
         if self.prev_joy_msg is None:
             self.prev_joy_msg = msg
@@ -94,9 +125,13 @@ class ParsingJoystick:
         # R brake: 4
         # D-pad left-right: 6
         # D-pad up-down: 7
+        if self.did_button_change(msg, 0):  # A
+            self.home_linear()
 
         linear_val = self.joy_to_speed(self.linear_scale, msg.axes[self.linear_axis])
         angular_val = self.joy_to_speed(self.angular_scale, msg.axes[self.angular_axis])
+
+        self.set_linear(msg.axes[self.stepper_axis])
 
         if self.set_twist(linear_val, angular_val):
             self.cmd_vel_pub.publish(self.twist_command)

@@ -205,7 +205,7 @@ class CentralPlanning:
         chassis_goal = self.get_goal_msg(ChassisGoal, action)
         front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
 
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
 
         self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
         self.front_loader_action.send_goal(front_loader_goal) #, feedback_callback=self.front_loader_action_progress)
@@ -356,7 +356,8 @@ class CentralPlanning:
             rate.sleep()
 
     def shutdown_hook(self):
-        self.move_action_client.cancel_goal()
+        if self.move_action_client.get_state() == actionlib.SimpleGoalState.ACTIVE:
+            self.move_action_client.cancel_goal()
 
 if __name__ == "__main__":
     try:
