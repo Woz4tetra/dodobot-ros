@@ -13,6 +13,7 @@ import db_planning.msg
 from db_planning.msg import ChassisAction, ChassisGoal
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal
 from db_planning.sequence import Sequence
+from db_planning.sounds import Sounds
 
 class CentralPlanning:
     """
@@ -31,6 +32,14 @@ class CentralPlanning:
             # log_level=rospy.DEBUG
         )
         rospy.on_shutdown(self.shutdown_hook)
+
+        self.audio_sink = rospy.get_param("~audio_sink", "alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo")
+
+        self.sounds = Sounds(self.audio_sink, {
+            "sequence_finished": "/home/ben/Music/sound_effects/ding.wav",
+            "action_finished": "/home/ben/Music/sound_effects/click.wav",
+            "action_failed": "/home/ben/Music/sound_effects/thud.wav",
+        })
 
         self.insert_sequence_path = rospy.get_param("~insert_sequence_path", "./insert.csv")
         self.extract_sequence_path = rospy.get_param("~extract_sequence_path", "./extract.csv")
@@ -78,6 +87,8 @@ class CentralPlanning:
         rospy.loginfo("[%s] move_base action server connected" % self.node_name)
 
         rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
+
+        self.sounds["sequence_finished"].play()
 
     ### CALLBACK FUNCTIONS ###
 
@@ -137,6 +148,7 @@ class CentralPlanning:
             self.sequence_server.set_aborted(result)
 
         rospy.loginfo("%s sequence completed!" % sequence_type)
+        self.sounds["sequence_finished"].play()
 
     def move_to_start_pose(self):
         if self.saved_start_pos is None or self.saved_start_quat is None:
@@ -224,9 +236,13 @@ class CentralPlanning:
         chassis_result = self.chassis_action.get_result()
         rospy.loginfo("Chassis result obj: %s" % chassis_result)
         rospy.loginfo("Chassis result: %s" % chassis_result.success)
+
+
         if not chassis_result.success:
+            self.sounds["action_failed"].play()
             return False
 
+        self.sounds["action_finished"].play()
         return True
 
     def chassis_action_progress(self, msg):
