@@ -9,7 +9,7 @@ import actionlib
 from geometry_msgs.msg import Pose, TransformStamped
 
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
-from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper
+from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper, DodobotParallelGripper
 
 
 class FrontLoaderPlanner:
@@ -49,9 +49,10 @@ class FrontLoaderPlanner:
         self.result = FrontLoaderResult()
 
         self.move_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
-        # self.grab_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
+        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
 
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
+        self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
         self.events = Queue.Queue()
 
         self.is_goal_set = False
@@ -74,9 +75,16 @@ class FrontLoaderPlanner:
         self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
         self.step_linear_m_to_ticks = 1.0 / self.step_ticks_to_linear_m
 
+        self.gripper_max_dist = 0.08
+        self.gripper_dist = self.gripper_max_dist
+        self.parallel_gripper_msg = DodobotParallelGripper()
+
         rospy.loginfo("[%s] --- Dodobot front loader planning is up! ---" % self.front_loader_action_name)
 
     ### CALLBACK FUNCTIONS ###
+
+    def parallel_gripper_callback(self, msg):
+        self.gripper_dist = gripper_msg.distance
 
     def linear_event_callback(self, msg):
         if self.is_goal_set:
@@ -87,22 +95,38 @@ class FrontLoaderPlanner:
         move_cmd = goal.goal_z
         max_speed = goal.z_speed
         acceleration = goal.z_accel
+        grip_dist = goal.grip_dist
+        grip_threshold = goal.grip_threshold
         # transform pose from robot frame to front loader frame
         # pose_base_link = req.pose
 
         # perform IK to get command
         # move_cmd = self.inverse_kinematics(pose_base_link)
-        if math.isnan(move_cmd):
+        if math.isnan(move_cmd) and math.isnan(grip_dist):
             rospy.loginfo("No action required from front loader. Skipping.")
             self.result.success = True
             self.front_loader_server.set_succeeded(self.result)
             return
 
         # send command
-        success = self.send_move_cmd(move_cmd, max_speed, acceleration)
+        if not math.isnan(grip_dist):
+            success = self.send_grab_cmd(grip_dist, grip_threshold)
+
+            if not success:
+                self.result.success = success
+                self.front_loader_server.set_succeeded(self.result)
+                return
+
+        if not math.isnan(move_cmd):
+            success = self.send_move_cmd(move_cmd, max_speed, acceleration)
+
+            if not success:
+                self.result.success = success
+                self.front_loader_server.set_succeeded(self.result)
+                return
 
         # send response
-        self.result.success = success
+        self.result.success = True
         self.front_loader_server.set_succeeded(self.result)
 
 
@@ -197,6 +221,16 @@ class FrontLoaderPlanner:
         rospy.loginfo("Linear result: %s" % success)
 
         return success
+
+    def send_grab_cmd(self, distance, force_threshold):
+        self.parallel_gripper_msg.distance = distance
+        self.parallel_gripper_msg.force_threshold = force_threshold
+        self.parallel_gripper_pub.publish(self.parallel_gripper_msg.distance)
+
+        return self.wait_for_gripper()
+
+    def wait_for_gripper(self):
+        return True
 
     def wait_for_linear(self):
         while True:

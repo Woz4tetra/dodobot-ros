@@ -10,6 +10,7 @@
         <param name="serial_port" type="string" value="/dev/ttyTHS1"/>
         <param name="serial_baud" type="int" value="115200"/>
         <param name="drive_topic" type="string" value="$(arg drive_topic)"/>
+
         <node type="db_parsing_node" name="db_parsing_node" pkg="db_parsing" required="true" output="screen"/>
     </group>
 </launch>

@@ -1,5 +1,6 @@
 #!/usr/bin/python
 from __future__ import division
+from __future__ import print_function
 import os
 import sys
 import math
@@ -8,6 +9,9 @@ import traceback
 
 import tf
 import rospy
+import numpy as np
+from scipy.interpolate import interp1d
+
 from dynamic_reconfigure.server import Server
 from geometry_msgs.msg import Twist, TwistStamped
 from std_msgs.msg import Float32MultiArray
@@ -20,6 +24,7 @@ from db_parsing.msg import DodobotBumper
 from db_parsing.msg import DodobotDrive
 from db_parsing.msg import DodobotFSRs
 from db_parsing.msg import DodobotGripper
+from db_parsing.msg import DodobotParallelGripper
 from db_parsing.msg import DodobotLinear
 from db_parsing.msg import DodobotTilter
 
@@ -69,6 +74,29 @@ class DodobotChassis:
 
         self.camera_tilt_angle = self.tilter_upper_angle
 
+        self.gripper_open_cmd = rospy.get_param("~gripper_open_cmd", 50)
+        self.gripper_closed_cmd = rospy.get_param("~gripper_closed_cmd", 157)
+        self.gripper_open_angle = rospy.get_param("~gripper_open_angle", 344.89282)
+        self.gripper_closed_angle = rospy.get_param("~gripper_closed_angle", 302.560457)
+
+        self.gripper_open_angle = math.radians(self.gripper_open_angle)
+        self.gripper_closed_angle = math.radians(self.gripper_closed_angle)
+
+        self.armature_length = rospy.get_param("~armature_length", 0.06)
+        self.armature_width = rospy.get_param("~armature_width", 0.01)
+        self.hinge_pin_to_armature_end = rospy.get_param("~hinge_pin_to_armature_end", 0.004)
+        self.hinge_pin_diameter = rospy.get_param("~hinge_pin_diameter", 0.0028575)
+
+        self.hinge_pin_to_pad_plane = rospy.get_param("~hinge_pin_to_pad_plane", 0.0055)
+        self.pad_extension_offset = rospy.get_param("~pad_extension_offset", 0.01998285)
+        self.central_axis_dist = rospy.get_param("~central_axis_dist", 0.015)
+
+        self.rotation_offset_x = self.armature_length + self.hinge_pin_to_armature_end
+        self.rotation_offset_y = (self.armature_width + self.hinge_pin_diameter) / 2.0
+
+        self.parallel_dist_interp_fn = None
+        self.compute_parallel_dist_to_angle_lookup()
+
         # TF parameters
         self.child_frame = rospy.get_param("~odom_child_frame", "base_link")
         self.odom_parent_frame = rospy.get_param("~odom_parent_frame", "odom")
@@ -85,6 +113,10 @@ class DodobotChassis:
 
         self.prev_left_ticks = None
         self.prev_right_ticks = None
+
+        # gripper variables
+        self.parallel_gripper_msg = DodobotParallelGripper()
+        self.gripper_msg = DodobotGripper()
 
         # odometry state
         self.odom_x = 0.0
@@ -113,12 +145,16 @@ class DodobotChassis:
         # Publishers
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
         self.drive_pub = rospy.Publisher(self.drive_pub_name, DodobotDrive, queue_size=100)
+        self.gripper_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
+        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper", DodobotParallelGripper, queue_size=100)
 
         # Subscribers
         self.twist_sub = rospy.Subscriber("cmd_vel", Twist, self.twist_callback, queue_size=5)
         self.drive_sub = rospy.Subscriber("drive", DodobotDrive, self.drive_callback, queue_size=100)
         self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=100)
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
+        self.gripper_sub = rospy.Subscriber("gripper", DodobotGripper, self.gripper_callback, queue_size=100)
+        self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper_cmd", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
 
         # Services
         self.pid_service_name = "dodobot_pid"
@@ -223,10 +259,13 @@ class DodobotChassis:
         self.drive_pub.publish(self.drive_pub_msg)
 
     def servo_to_angle(self, command, max_command, min_command, min_angle, max_angle):
-        return (min_angle - max_angle) / (max_command - min_command) * (command - min_command) + max_angle
+        return (max_angle - min_angle) / (max_command - min_command) * (float(command) - min_command) + min_angle
+
+    def angle_to_servo(self, command, max_command, min_command, min_angle, max_angle):
+        return int((max_command - min_command) / (max_angle - min_angle) * (command - min_angle) + min_command)
 
     def tilt_command_to_angle_rad(self, command):
-        return self.servo_to_angle(command, self.tilter_upper_command, self.tilter_lower_command, self.tilter_upper_angle, self.tilter_lower_angle)
+        return self.servo_to_angle(command, self.tilter_upper_command, self.tilter_lower_command, self.tilter_lower_angle, self.tilter_upper_angle)
 
     def drive_callback(self, drive_sub_msg):
         self.drive_sub_msg = drive_sub_msg
@@ -249,6 +288,48 @@ class DodobotChassis:
             self.linear_frame,
             self.linear_base_frame,
         )
+
+    def parallel_gripper_callback(self, parallel_gripper_msg):
+        angle = self.parallel_dist_to_angle(parallel_gripper_msg.distance)
+        servo_pos = self.angle_to_servo(angle, self.gripper_closed_cmd, self.gripper_open_cmd, self.gripper_closed_angle, self.gripper_open_angle)
+
+        self.gripper_msg.header.stamp = rospy.Time.now()
+        self.gripper_msg.position = servo_pos
+        self.gripper_msg.force_threshold = -1  # TODO: add force calculations
+        # if math.isnan(parallel_gripper_msg.force_threshold):
+        #     self.gripper_msg.force_threshold = -1
+        # else:
+        #     pass
+
+        self.gripper_pub.publish(self.gripper_msg)
+
+    def gripper_callback(self, gripper_msg):
+        angle = self.servo_to_angle(gripper_msg.position, self.gripper_closed_cmd, self.gripper_open_cmd, self.gripper_closed_angle, self.gripper_open_angle)
+        parallel_dist = self.angle_to_parallel_dist(angle)
+        self.parallel_gripper_msg.header.stamp = rospy.Time.now()
+        self.parallel_gripper_msg.distance = parallel_dist
+
+        self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
+
+    def angle_to_parallel_dist(self, angle_rad):
+        angle_adj = angle_rad - math.pi*2 + math.pi/2
+        hinge_pin_x = self.rotation_offset_x * math.cos(angle_adj) - self.rotation_offset_y * math.sin(angle_adj)
+        parallel_dist = 2.0 * (hinge_pin_x - self.hinge_pin_to_pad_plane - self.pad_extension_offset + self.central_axis_dist)
+        return parallel_dist
+
+    def compute_parallel_dist_to_angle_lookup(self):
+        angle_buffer = math.radians(20.0)
+        angle_sample_start = self.gripper_open_angle + angle_buffer
+        angle_sample_stop = self.gripper_closed_angle - angle_buffer
+        angle_samples = np.linspace(angle_sample_start, angle_sample_stop, 100)
+        dist_samples = []
+        for angle in angle_samples:
+            parallel_dist = self.angle_to_parallel_dist(angle)
+            dist_samples.append(parallel_dist)
+        self.parallel_dist_interp_fn = interp1d(dist_samples, angle_samples, kind="linear")
+
+    def parallel_dist_to_angle(self, parallel_dist):
+        return self.parallel_dist_interp_fn(parallel_dist)
 
     def run(self):
         clock_rate = rospy.Rate(60)

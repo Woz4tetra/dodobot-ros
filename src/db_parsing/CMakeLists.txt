@@ -56,6 +56,7 @@ add_message_files(
     FILES
     DodobotDrive.msg
     DodobotGripper.msg
+    DodobotParallelGripper.msg
     DodobotLinear.msg
     DodobotLinearEvent.msg
     DodobotTilter.msg

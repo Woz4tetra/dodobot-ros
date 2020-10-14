@@ -8,6 +8,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     nh.param<string>("serial_port", _serialPort, "");
     nh.param<int>("serial_baud", _serialBaud, 115200);
     nh.param<string>("drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
+
     int num_servos = 0;
 
     drive_msg.header.frame_id = "drive";
@@ -551,21 +552,22 @@ void DodobotParsing::writeTilter(uint8_t command, int position) {
 }
 
 void DodobotParsing::gripperCallback(const db_parsing::DodobotGripper::ConstPtr& msg) {
-    writeGripper(msg->command, msg->force_threshold);
+    writeGripper(msg->position, msg->force_threshold);
 }
 
-void DodobotParsing::writeGripper(uint8_t command, uint8_t force_threshold) {
+void DodobotParsing::writeGripper(int position, int force_threshold) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeGripper");
         return;
     }
-    if (command == 0) {
+
+    if (position < gripper_position) {
         // Open gripper
-        writeSerial("grip", "d", command);
+        writeSerial("grip", "dd", 0, position);
     }
     else {
-        // Close or toggle gripper
-        writeSerial("grip", "dd", command, force_threshold);
+        // Close gripper
+        writeSerial("grip", "ddd", 1, force_threshold, position);
     }
 }
 
@@ -717,7 +719,9 @@ void DodobotParsing::parseFSR()
 void DodobotParsing::parseGripper()
 {
     CHECK_SEGMENT; gripper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
-    CHECK_SEGMENT; gripper_msg.position = (int)stoi(_currentBufferSegment);
+    CHECK_SEGMENT; gripper_position = (int)stoi(_currentBufferSegment);
+
+    gripper_msg.position = gripper_position;
 
     gripper_pub.publish(gripper_msg);
 }
