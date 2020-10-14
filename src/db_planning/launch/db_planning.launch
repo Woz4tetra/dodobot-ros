@@ -12,5 +12,5 @@
     <!-- <node pkg="tf" type="static_transform_publisher" name="carriage_to_gripper" args="0.006123 0.0 -0.007330 0 0 0 1 gripper_link bp_carriage_link 30" /> -->
     <!-- <node pkg="tf" type="static_transform_publisher" name="tag_to_carriage" args="0.135830 0.005 0.087148 0 0 0 1 bp_carriage_link tag_origin_link 30" /> -->
     <node pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 target target_rotated 30" />
-    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.0 -0.26824532 0 0 0 1 target_rotated base_start_link 30" />
+    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.0 -0.11132121 0 0 0 1 target_rotated base_start_link 30" />
 </launch>

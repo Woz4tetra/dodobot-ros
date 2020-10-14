@@ -84,7 +84,7 @@ class FrontLoaderPlanner:
     ### CALLBACK FUNCTIONS ###
 
     def parallel_gripper_callback(self, msg):
-        self.gripper_dist = gripper_msg.distance
+        self.gripper_dist = msg.distance
 
     def linear_event_callback(self, msg):
         if self.is_goal_set:
@@ -225,7 +225,7 @@ class FrontLoaderPlanner:
     def send_grab_cmd(self, distance, force_threshold):
         self.parallel_gripper_msg.distance = distance
         self.parallel_gripper_msg.force_threshold = force_threshold
-        self.parallel_gripper_pub.publish(self.parallel_gripper_msg.distance)
+        self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
 
         return self.wait_for_gripper()
 

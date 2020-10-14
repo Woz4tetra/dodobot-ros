@@ -218,8 +218,8 @@ class ChassisPlanning:
             self.update_current_pose()
 
     def shutdown_hook(self):
-        if self.move_action_client.get_state() == actionlib.SimpleGoalState.ACTIVE:
-            self.move_action_client.cancel_goal()
+        if self.chassis_server.get_state() == actionlib.SimpleGoalState.ACTIVE:
+            self.chassis_server.cancel_goal()
 
 if __name__ == "__main__":
     try:
