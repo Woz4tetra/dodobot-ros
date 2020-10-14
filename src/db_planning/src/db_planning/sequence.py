@@ -57,7 +57,7 @@ class Sequence(object):
         self._init_from_path(self.path)
 
     def _parse_header(self):
-        for column_name in self.header_set:
+        for column_name in self.header_info:
             self.sequence_indices[column_name] = self.header.index(column_name)
 
     @classmethod

@@ -302,7 +302,10 @@ class CentralPlanning:
         if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
             pose.pose.position.x = action["goal_x"]
             pose.pose.position.y = action["goal_y"]
-            pose.pose.position.z = 0.0
+            tf_required = True
+
+        if not math.isnan(action["goal_z"]):
+            pose.pose.position.z = action["goal_z"]
             tf_required = True
 
         if math.isnan(action["goal_angle"]):
@@ -323,12 +326,17 @@ class CentralPlanning:
 
         tfd_pose = self.tf_listener.transformPose("/odom", pose)
 
+        # goal_z=0.0 is when the gripper is grabbing the target. Offset defined in db_planning.launch (tag_to_start_pos)
+        # This TF will translate goal_z to a Z height relative to the zero position of the linear slide
+        tfd_linear_pose = self.tf_listener.transformPose("/linear_base_link", pose)
+
         tfd_action = {}
         tfd_action.update(action)
         if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
             tfd_action["goal_x"] = tfd_pose.pose.position.x
             tfd_action["goal_y"] = tfd_pose.pose.position.y
-        # TODO: does goal_z need to be adjusted?
+        if not math.isnan(action["goal_z"]):
+            tfd_action["goal_z"] = tfd_linear_pose.pose.position.z
 
         if not math.isnan(action["goal_angle"]):
             tfd_goal_angle = tf.transformations.euler_from_quaternion([
@@ -336,13 +344,13 @@ class CentralPlanning:
                 tfd_pose.pose.orientation.y,
                 tfd_pose.pose.orientation.z,
                 tfd_pose.pose.orientation.w
-            ])[2]
-            tfd_action["goal_angle"] = tfd_goal_angle
+            ])
+            tfd_action["goal_angle"] = tfd_goal_angle[2]
             # if the original goal_angle is NaN, that value will be copied over
 
-        rospy.loginfo("x: %0.4f, y: %0.4f, a: %0.4f -> x: %0.4f, y: %0.4f, a: %0.4f" % (
-            action["goal_x"], action["goal_y"], action["goal_angle"],
-            tfd_action["goal_x"], tfd_action["goal_y"], tfd_action["goal_angle"],
+        rospy.loginfo("x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f -> x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f" % (
+            action["goal_x"], action["goal_y"], action["goal_z"], action["goal_angle"],
+            tfd_action["goal_x"], tfd_action["goal_y"], tfd_action["goal_z"], tfd_action["goal_angle"],
         ))
         return tfd_action
 
