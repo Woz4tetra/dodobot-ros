@@ -328,7 +328,7 @@ class CentralPlanning:
         if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
             tfd_action["goal_x"] = tfd_pose.pose.position.x
             tfd_action["goal_y"] = tfd_pose.pose.position.y
-        # TBD: does goal_z need to be adjusted?
+        # TODO: does goal_z need to be adjusted?
 
         if not math.isnan(action["goal_angle"]):
             tfd_goal_angle = tf.transformations.euler_from_quaternion([

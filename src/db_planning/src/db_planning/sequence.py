@@ -3,25 +3,29 @@ import csv
 
 class Sequence(object):
     def __init__(self):
-        self.goal_x = 0
-        self.goal_y = 0
-        self.goal_angle = 0
-        self.base_speed = 0
-        self.base_ang_v = 0
-        self.pos_tolerance = 0
-        self.angle_tolerance = 0
-        self.drive_forwards = 0
-        self.goal_z = 0
-        self.z_speed = 0
-        self.z_accel = 0
-        self.comment = ""
+        self.header_info = {
+            "goal_x": float,
+            "goal_y": float,
+            "goal_angle": float,
+            "base_speed": float,
+            "base_ang_v": float,
+            "pos_tolerance": float,
+            "angle_tolerance": float,
+            "drive_forwards": int,
+            "goal_z": float,
+            "z_speed": float,
+            "z_accel": float,
+            "grip_dist": float,
+            "grip_threshold": float,
+            "comment": str,
+        }
 
         self.header = []
         self.path = ""
 
-        self.sequence_names = {}
-        self.sequence_indices = {}
-        self.sequence_types = {}
+        self.sequence_names = {}  # column indices mapped to column names
+        self.sequence_indices = {}  # column names mapped to column index
+        self.sequence_types = {}  # column indices mapped to expected data type
         self.sequence = []
 
     @classmethod
@@ -42,9 +46,9 @@ class Sequence(object):
                 if row[0].startswith("#"):
                     continue
                 action = {}
-                for index in self.sequence_order:
+                for column_name, index in self.sequence_indices.items():
                     value = self.sequence_types[index](row[index])
-                    action[self.sequence_names[index]] = value
+                    action[column_name] = value
                 self.sequence.append(action)
 
     def reload(self):
@@ -53,18 +57,8 @@ class Sequence(object):
         self._init_from_path(self.path)
 
     def _parse_header(self):
-        self.goal_x = self.header.index("goal_x")
-        self.goal_y = self.header.index("goal_y")
-        self.goal_angle = self.header.index("goal_angle")
-        self.base_speed = self.header.index("base_speed")
-        self.base_ang_v = self.header.index("base_ang_v")
-        self.pos_tolerance = self.header.index("pos_tolerance")
-        self.angle_tolerance = self.header.index("angle_tolerance")
-        self.drive_forwards = self.header.index("drive_forwards")
-        self.goal_z = self.header.index("goal_z")
-        self.z_speed = self.header.index("z_speed")
-        self.z_accel = self.header.index("z_accel")
-        self.comment = self.header.index("comment")
+        for column_name in self.header_set:
+            self.sequence_indices[column_name] = self.header.index(column_name)
 
     @classmethod
     def from_sequence(cls, sequence):
@@ -76,52 +70,8 @@ class Sequence(object):
         return self
 
     def update_sequence_mapping(self):
-        self.sequence_names = {
-            self.goal_x         : "goal_x",
-            self.goal_y         : "goal_y",
-            self.goal_angle     : "goal_angle",
-            self.base_speed     : "base_speed",
-            self.base_ang_v     : "base_ang_v",
-            self.pos_tolerance  : "pos_tolerance",
-            self.angle_tolerance: "angle_tolerance",
-            self.drive_forwards : "drive_forwards",
-            self.goal_z         : "goal_z",
-            self.z_speed        : "z_speed",
-            self.z_accel        : "z_accel",
-            self.comment        : "comment",
-        }
-
-        self.sequence_indices = {v: k for k, v in self.sequence_names.items()}
-
-        self.sequence_types = {
-            self.goal_x         : float,
-            self.goal_y         : float,
-            self.goal_angle     : float,
-            self.base_speed     : float,
-            self.base_ang_v     : float,
-            self.pos_tolerance  : float,
-            self.angle_tolerance: float,
-            self.drive_forwards : int,
-            self.goal_z         : float,
-            self.z_speed        : float,
-            self.z_accel        : float,
-            self.comment        : str,
-        }
-
-        self.sequence_order = [
-            self.goal_x,
-            self.goal_y,
-            self.goal_angle,
-            self.base_speed,
-            self.base_ang_v,
-            self.pos_tolerance,
-            self.angle_tolerance,
-            self.drive_forwards,
-            self.goal_z,
-            self.z_speed,
-            self.z_accel,
-            self.comment
-        ]
+        self.sequence_names = {v: k for k, v in self.sequence_indices.items()}
+        self.sequence_types = {v: self.header_info[k] for k, v in self.sequence_indices.items()}
         self.sequence = []
 
     def insert(self, index, action):

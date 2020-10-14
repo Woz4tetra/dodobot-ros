@@ -12,6 +12,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64, Bool
 
 from db_parsing.msg import DodobotLinear
+from db_parsing.msg import DodobotParallelGripper
 
 
 MAX_INT32 = 0x7fffffff
@@ -44,15 +45,21 @@ class ParsingJoystick:
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
         self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
+        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
 
         # subscription topics
         self.joy_sub = rospy.Subscriber(self.joystick_topic, Joy, self.joystick_msg_callback, queue_size=5)
+        self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
 
         self.max_joy_val = 1.0
         self.prev_brake_engage_time = rospy.Time.now()
 
         self.twist_command.linear.x = 0.0
         self.twist_command.angular.z = 0.0
+
+        self.gripper_max_dist = 0.08
+        self.gripper_dist = self.gripper_max_dist
+        self.parallel_gripper_msg = DodobotParallelGripper()
 
         self.cmd_vel_timeout = rospy.Time.now()
 
@@ -108,6 +115,17 @@ class ParsingJoystick:
         msg.acceleration = -1
         self.linear_pub.publish(msg)
 
+    def parallel_gripper_callback(self, gripper_msg):
+        self.gripper_dist = gripper_msg.distance
+
+    def toggle_gripper(self):
+        if abs(self.gripper_dist) < 0.005:
+            self.parallel_gripper_msg.distance = self.gripper_max_dist
+        else:
+            self.parallel_gripper_msg.distance = 0.0
+
+        self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
+
     def process_joy_msg(self, msg):
         if self.prev_joy_msg is None:
             self.prev_joy_msg = msg
@@ -127,6 +145,8 @@ class ParsingJoystick:
         # D-pad up-down: 7
         if self.did_button_change(msg, 0):  # A
             self.home_linear()
+        elif self.did_button_change(msg, 1): # B
+            self.toggle_gripper()
 
         linear_val = self.joy_to_speed(self.linear_scale, msg.axes[self.linear_axis])
         angular_val = self.joy_to_speed(self.angular_scale, msg.axes[self.angular_axis])

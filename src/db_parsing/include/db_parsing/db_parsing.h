@@ -73,9 +73,10 @@ private:
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
     db_parsing::DodobotGripper gripper_msg;
+    int gripper_position;
     void parseGripper();
     void gripperCallback(const db_parsing::DodobotGripper::ConstPtr& msg);
-    void writeGripper(uint8_t command, uint8_t force_threshold);
+    void writeGripper(int command, int force_threshold);
 
     ros::Publisher fsr_pub;
     db_parsing::DodobotFSRs fsr_msg;
