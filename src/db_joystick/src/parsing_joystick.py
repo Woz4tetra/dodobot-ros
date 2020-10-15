@@ -26,6 +26,11 @@ class ParsingJoystick:
             # log_level=rospy.DEBUG
         )
 
+        self.enabled = not rospy.get_param("joystick/enabled", True)
+        if not self.enabled:
+            rospy.loginfo("Joystick is not enabled. Exiting node")
+            return
+
         # class variables
         self.twist_command = Twist()
         self.prev_joy_msg = None
@@ -41,6 +46,7 @@ class ParsingJoystick:
 
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
+
 
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
@@ -172,6 +178,8 @@ class ParsingJoystick:
             return
 
     def run(self):
+        if not self.enabled:
+            return
         clock_rate = rospy.Rate(15.0)
 
         prev_time = rospy.get_rostime()
@@ -185,7 +193,8 @@ if __name__ == "__main__":
     try:
         node = ParsingJoystick()
         # node.run()
-        rospy.spin()
+        if node.enabled:
+            rospy.spin()
     except rospy.ROSInterruptException:
         pass
     rospy.loginfo("Exiting parsing_joystick node")

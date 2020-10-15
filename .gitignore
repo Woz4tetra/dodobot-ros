@@ -1,6 +1,7 @@
 
 # Specific dirs
 src/db_config/bags/
+src/db_planning/debug_images
 
 # data
 # *.csv

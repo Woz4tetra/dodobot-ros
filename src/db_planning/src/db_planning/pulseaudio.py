@@ -90,9 +90,10 @@ class Pacmd:
         rospy.loginfo("Setting audio sink to %s" % self.sink)
         self._run_cmd(["set-default-sink", self.sink])
 
-    def _run_cmd(self, command):
+    def _run_cmd(self, command, log_output=False):
         p = Popen(["pacmd"] + command, stdout=PIPE)
         output = p.communicate()[0]
         output = output.decode()
-        rospy.loginfo("pacmd output: '%s'" % output)
+        if log_output:
+            rospy.loginfo("pacmd output: '%s'" % output)
         return output

@@ -4,7 +4,8 @@
     <include file="$(find db_chassis)/launch/db_chassis.launch">
         <arg name="db_chassis_publish_odom_tf" value="true"/>
     </include>
-    <!-- <include file="$(find db_joystick)/launch/parsing_joystick.launch"/> -->
+
+    <include file="$(find db_joystick)/launch/parsing_joystick.launch"/>
 
     <include file="$(find db_parsing)/launch/db_parsing.launch"/>
     <include file="$(find db_config)/launch/static_transforms.launch"/>

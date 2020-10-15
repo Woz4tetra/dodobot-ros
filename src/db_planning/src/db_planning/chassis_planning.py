@@ -47,15 +47,16 @@ class ChassisPlanning:
         self.base_max_ang_v = 0.7  # rad/s
 
         self.pos_tolerance = 0.005  # m
-        self.angle_tolerance = 0.005  # rad
+        self.angle_tolerance = 0.01  # rad
         self.base_speed = self.base_max_speed
         self.base_ang_v = self.base_max_ang_v
 
-        self.min_ang_v = 0.5  # rad/s
+        self.min_ang_v = 0.6  # rad/s
         self.min_speed = 0.05  # m/s
 
         self.controller = GoalController()
-        self.controller.set_constants(3.5, 8.0, -1.5)
+        # self.controller.set_constants(3.5, 8.0, -1.5)
+        self.controller.set_constants(3.5, 6.0, -1.0)
         self.controller.forward_movement_only = True
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
@@ -179,7 +180,6 @@ class ChassisPlanning:
             prev_time = current_time
 
             command_state = self.controller.get_velocity(self.state, goal_state, dt)
-            rospy.loginfo("cmd: %s" % command_state.str_vs())
             self.send_cmd(command_state.vx, command_state.vt)
 
             if self.controller.is_stuck():
@@ -196,6 +196,7 @@ class ChassisPlanning:
     def send_cmd(self, linear_vx, angular_wz):
         self.twist_command.linear.x = linear_vx
         self.twist_command.angular.z = angular_wz
+        rospy.loginfo("cmd: %s, %s" % (linear_vx, angular_wz))
         self.cmd_vel_pub.publish(self.twist_command)
 
     def update_current_pose(self):
