@@ -1,11 +1,16 @@
 #!/usr/bin/python
 from __future__ import print_function
 
+import os
 import tf
+import cv2
 import math
 import rospy
+import datetime
 import actionlib
 import geometry_msgs
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
@@ -14,6 +19,8 @@ from db_planning.msg import ChassisAction, ChassisGoal
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal
 from db_planning.sequence import Sequence
 from db_planning.sounds import Sounds
+
+
 
 class CentralPlanning:
     """
@@ -32,6 +39,8 @@ class CentralPlanning:
             # log_level=rospy.DEBUG
         )
         rospy.on_shutdown(self.shutdown_hook)
+
+        self.bridge = CvBridge()
 
         self.audio_sink = rospy.get_param("~audio_sink", "alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo")
 
@@ -66,6 +75,10 @@ class CentralPlanning:
 
         self.debug_move_base = False
         # self.debug_move_base = True
+
+        self.tag_detections_topic = "/tag_detections_image"
+        self.debug_image_dir = rospy.get_param("~debug_image_dir", ".")
+        self.debug_image_date_format = "%Y-%m-%dT%H-%M-%S--%f"
 
         # create base_move action server
         self.sequence_server = actionlib.SimpleActionServer("/sequence_request", db_planning.msg.SequenceRequestAction, self.sequence_callback, auto_start=False)
@@ -116,8 +129,8 @@ class CentralPlanning:
             self.sequence_server.set_succeeded(result)
             return
 
-        rospy.sleep(1.0)
-        self.search_for_tag()
+        rospy.sleep(2.0)
+        self.search_for_tag(save_image=True)
 
         # TODO: pause rtabmap if running
         try:
@@ -154,6 +167,7 @@ class CentralPlanning:
         if self.saved_start_pos is None or self.saved_start_quat is None:
             rospy.loginfo("Saved position is null. Waiting 30s for a tag TF to appear.")
             self.tf_listener.waitForTransform("map", self.base_start_tf_name, rospy.Time(), rospy.Duration(30.0))
+            self.search_for_tag()
             if self.saved_start_pos is None or self.saved_start_quat is None:
                 rospy.logwarn("No tag visible or in memory. Can't direct the robot")
                 return False
@@ -354,16 +368,29 @@ class CentralPlanning:
         ))
         return tfd_action
 
-    def search_for_tag(self):
+    def search_for_tag(self, save_image=False):
         try:
+            image_msg = rospy.wait_for_message(self.tag_detections_topic, Image, timeout=10.0)
+
             tag_trans, tag_rot = self.tf_listener.lookupTransform("map", self.tag_tf_name, rospy.Time(0))
             start_trans, start_rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
             self.saved_start_pos = start_trans
             self.saved_start_quat = tag_rot
             self.last_saved_time = rospy.Time.now()
-            rospy.loginfo("Tag is visible. Base starting pose: (%s, %s, %s). Saving location" % tuple(self.saved_start_pos))
+            rospy.loginfo("Tag is visible. Base starting pose: (%0.4f, %0.4f, %0.4f). Saving location" % tuple(self.saved_start_pos))
+
+            if save_image:
+                cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+
+                timestamp = rospy.Time.now().to_sec()
+                date_str = datetime.datetime.fromtimestamp(timestamp).strftime(self.debug_image_date_format)
+                filename = date_str + ".png"
+                debug_image_path = os.path.join(self.debug_image_dir, filename)
+                cv2.imwrite(debug_image_path, cv2_img)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
+        except rospy.ROSException as e:
+            rospy.logerr("Exception occurred in search_for_tag: %s" % str(e))
             # raise
 
     def run(self):

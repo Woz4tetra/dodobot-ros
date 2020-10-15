@@ -8,6 +8,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     nh.param<string>("serial_port", _serialPort, "");
     nh.param<int>("serial_baud", _serialBaud, 115200);
     nh.param<string>("drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
+    nh.param<int>("write_thread_rate", write_thread_rate, 30);
 
     int num_servos = 0;
 
@@ -53,6 +54,9 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     pidConstants->speed_kA = 0.0;
     pidConstants->speed_kB = 0.0;
 
+    prev_left_setpoint = 0.0;
+    prev_right_setpoint = 0.0;
+
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper", 50);
     tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear", 50);
@@ -68,6 +72,9 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
+
+    write_stop_flag = false;
+    write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
 
     ROS_INFO("Dodobot serial bridge init done");
 }
@@ -416,11 +423,8 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
     // checksum might be inserting null characters. Force the buffer to extend
     // to include packet stop and checksum
 
-    ROS_DEBUG_STREAM("Writing: " << packet);
-    // ROS_INFO_STREAM("Writing: " << packet);
-    _serialRef.write(packet);
     _writePacketNum++;
-    ros::Duration(0.0005).sleep();
+    write_queue.push(packet);
 }
 
 void DodobotParsing::setup()
@@ -436,6 +440,29 @@ void DodobotParsing::setup()
 }
 
 
+void DodobotParsing::write_packet_from_queue()
+{
+    string packet = write_queue.front();
+    write_queue.pop();
+    ROS_DEBUG_STREAM("Writing: " << packet);
+    // ROS_INFO_STREAM("Writing: " << packet);
+    _serialRef.write(packet);
+    // ros::Duration(0.0005).sleep();
+}
+
+void DodobotParsing::write_thread_task()
+{
+    ros::Rate clock_rate(write_thread_rate);  // Hz
+    while (!write_stop_flag)
+    {
+        if (!write_queue.empty()) {
+            write_packet_from_queue();
+        }
+        clock_rate.sleep();
+    }
+    ROS_INFO("Dodobot write thread task finished");
+}
+
 void DodobotParsing::loop()
 {
     // if the serial buffer has data, parse it
@@ -450,7 +477,12 @@ void DodobotParsing::loop()
 
 void DodobotParsing::stop()
 {
+    write_stop_flag = true;
+
     setActive(false);
+    while (!write_queue.empty()) {
+        write_packet_from_queue();
+    }
 
     // leave reporting for other modules
     // setReporting(false);
@@ -482,6 +514,8 @@ int DodobotParsing::run()
     }
     stop();
 
+    write_thread->join();
+
     return exit_code;
 }
 
@@ -496,11 +530,11 @@ bool DodobotParsing::robotReady() {
 void DodobotParsing::driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg)
 {
     // motor commands in ticks per second
-    // ROS_DEBUG("left motor: %f, right motor: %f", msg->left_setpoint, msg->right_setpoint);
-    // if (drive_msg.left_setpoint != msg->left_setpoint || drive_msg.right_setpoint != msg->right_setpoint) {
+    ROS_DEBUG("left motor: %f, right motor: %f", msg->left_setpoint, msg->right_setpoint);
+    // if (prev_left_setpoint != msg->left_setpoint || prev_right_setpoint != msg->right_setpoint) {
     writeDriveChassis(msg->left_setpoint, msg->right_setpoint);
-    //     drive_msg.left_setpoint = msg->left_setpoint;
-    //     drive_msg.right_setpoint = msg->right_setpoint;
+    //     prev_left_setpoint = msg->left_setpoint;
+    //     prev_right_setpoint = msg->right_setpoint;
     // }
 }
 

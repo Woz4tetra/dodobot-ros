@@ -3,6 +3,8 @@
 #include <exception>
 #include <iostream>
 #include <ctime>
+#include <queue>
+#include <boost/thread/thread.hpp>
 
 #include "ros/ros.h"
 #include "ros/console.h"
@@ -107,6 +109,7 @@ private:
     ros::Publisher drive_pub;
     ros::Subscriber drive_sub;
     db_parsing::DodobotDrive drive_msg;
+    float prev_left_setpoint, prev_right_setpoint = 0.0;
     void parseDrive();
     void driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg);
     void writeDriveChassis(float speedA, float speedB);
@@ -138,6 +141,13 @@ private:
 
     bool readSerial();
     void writeSerial(string name, const char *formats, ...);
+
+    bool write_stop_flag;
+    int write_thread_rate;
+    queue<string> write_queue;
+    boost::thread* write_thread;
+    void write_packet_from_queue();
+    void write_thread_task();
 
     void setup();
     void loop();

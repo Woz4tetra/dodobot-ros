@@ -9,13 +9,15 @@
         <param name="deadzone" value="0.0" />
         <param name="autorepeat_rate" value="30.0" />
     </node>
-    <!-- <node name="joy_throttle" pkg="topic_tools" type="throttle" output="log" required="true" args="messages /joy 30 /joy_throttled" /> -->
+    <node name="joy_throttle" pkg="topic_tools" type="throttle" required="true" args="messages /joy 30 /joy_throttled" />
 
 
     <group ns="dodobot" >
-        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="screen" required="true">
+        <rosparam file="/home/ben/.local/dodobot/dodobot_py/config/joystick.yaml" command="load" ns="joystick"/>
+        
+        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="screen" required="false">
             <param name="deadzone_joy_val" value="$(arg deadzone_val)" />
-            <param name="joystick_topic" value="/joy" />
+            <param name="joystick_topic" value="/joy_throttled" />
             <param name="linear_scale" value="0.4" />
             <param name="angular_scale" value="3.0" />
 
