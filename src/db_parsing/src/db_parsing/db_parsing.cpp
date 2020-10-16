@@ -429,6 +429,7 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
 
     ROS_DEBUG_STREAM("Writing: " << packet);
     _serialRef.write(packet);
+    ros::Duration(0.0005).sleep();
 
     if (_writePacketNum % 100 == 0) {
         ros::Duration dt = ros::Time::now() - write_timer;
