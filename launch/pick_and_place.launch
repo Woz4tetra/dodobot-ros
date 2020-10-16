@@ -3,7 +3,8 @@
     <include file="$(find db_config)/launch/dodobot.launch"/>
     <include file="$(find db_config)/launch/realsense.launch">
         <arg name="compute_pointcloud" value="false"/>
-        <arg name="hirez_mode"         value="true"/>
+        <!-- <arg name="hirez_mode"         value="true"/> -->
+        <arg name="hirez_mode"         value="false"/>
     </include>
     <include file="$(find db_config)/launch/move_base.launch"/>
     <!-- <include file="$(find db_config)/launch/rtabmap.launch">

@@ -128,6 +128,15 @@ class DodobotChassis:
         self.odom_vt = 0.0
         self.odom_speed = 0.0
 
+        self.odom_covariance = [
+            1e-3, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 1e-3, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 1e-3, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1e-3, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 1e-3
+        ]
+
         self.linear_speed_cmd = 0.0
         self.angular_speed_cmd = 0.0
 
@@ -402,6 +411,8 @@ class DodobotChassis:
         self.odom_msg.twist.twist.angular.x = 0.0
         self.odom_msg.twist.twist.angular.y = 0.0
         self.odom_msg.twist.twist.angular.z = self.odom_vt
+
+        self.odom_msg.pose.covariance = self.odom_covariance
 
         self.odom_pub.publish(self.odom_msg)
 
