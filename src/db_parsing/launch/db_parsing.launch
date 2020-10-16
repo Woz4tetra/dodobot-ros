@@ -1,16 +1,15 @@
 <launch>
     <group ns="dodobot" >
-        <arg name="drive_topic" default="drive_cmd_throttle"/>
-        <arg name="motor_topic_throttle_rate" default="15.0"/>
-        <!-- <arg name="drive_topic" default="drive"/> -->
+        <arg name="drive_cmd_topic" value="drive_cmd_throttle"/>
+        <arg name="motor_topic_throttle_rate" default="60.0"/>
+        <!-- <arg name="drive_cmd_topic" value="drive_cmd"/> -->
 
         <node type="throttle" name="motor_topic_throttle" pkg="topic_tools" required="true" output="screen"
-            args="messages drive_cmd $(arg motor_topic_throttle_rate) $(arg drive_topic)"/>
+            args="messages drive_cmd $(arg motor_topic_throttle_rate) $(arg drive_cmd_topic)"/>
 
         <param name="serial_port" type="string" value="/dev/ttyTHS1"/>
         <param name="serial_baud" type="int" value="115200"/>
-        <param name="drive_topic" type="string" value="$(arg drive_topic)"/>
-        <param name="write_thread_rate" type="int" value="45"/>
+        <param name="drive_cmd_topic" type="string" value="$(arg drive_cmd_topic)"/>
 
         <node type="db_parsing_node" name="db_parsing_node" pkg="db_parsing" required="true" output="screen"/>
     </group>

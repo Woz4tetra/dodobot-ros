@@ -145,7 +145,7 @@ class GoalController:
             ratio = self.min_linear_speed / abs(desired.vx)
             desired.vx *= ratio
             desired.vt *= ratio
-        elif desired.vx == 0.0 and abs(desired.vt) < self.min_angular_speed:
+        elif desired.vx == 0.0 and desired.vt != 0.0 and abs(desired.vt) < self.min_angular_speed:
             ratio = self.min_angular_speed / abs(desired.vt)
             desired.vx *= ratio
             desired.vt *= ratio

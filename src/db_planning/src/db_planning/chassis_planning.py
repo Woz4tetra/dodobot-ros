@@ -9,6 +9,7 @@ import geometry_msgs
 import dynamic_reconfigure.client
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from nav_msgs.msg import Odometry
 
 from db_planning.pid import PID
 from db_planning.goal_controller import GoalController
@@ -36,6 +37,8 @@ class ChassisPlanning:
         self.twist_command = geometry_msgs.msg.Twist()
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", geometry_msgs.msg.Twist, queue_size=100)
 
+        self.odom_sub = rospy.Subscriber("odom", Odometry, self.odom_callback, queue_size=100)
+
         self.tf_listener = tf.TransformListener()
 
         self.result = ChassisResult()
@@ -43,20 +46,19 @@ class ChassisPlanning:
         self.has_active_goal = False
         self.state = ChassisState()
 
-        self.base_max_speed = 0.36  # m/s
-        self.base_max_ang_v = 0.7  # rad/s
+        self.base_max_speed = 0.36  # m/s, absolute max: 0.36
+        self.base_max_ang_v = 7.0  # rad/s, absolute max: 7.0
 
-        self.pos_tolerance = 0.005  # m
-        self.angle_tolerance = 0.01  # rad
+        self.pos_tolerance = 0.01  # m
+        self.angle_tolerance = 0.05  # rad
         self.base_speed = self.base_max_speed
         self.base_ang_v = self.base_max_ang_v
 
-        self.min_ang_v = 0.6  # rad/s
-        self.min_speed = 0.05  # m/s
+        self.min_ang_v = 0.75  # rad/s, cold start minimum: 0.75
+        self.min_speed = 0.025  # m/s
 
         self.controller = GoalController()
-        # self.controller.set_constants(3.5, 8.0, -1.5)
-        self.controller.set_constants(3.5, 6.0, -1.0)
+        self.controller.set_constants(3.5, 8.0, -1.5)
         self.controller.forward_movement_only = True
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
@@ -110,11 +112,11 @@ class ChassisPlanning:
         self.tf_listener.waitForTransform("/base_link", "/odom", rospy.Time(), rospy.Duration(5.0))
 
         self.has_active_goal = True
-        self.update_current_pose()
+        # self.update_current_pose()
         rospy.loginfo("Sending parameters to chassis guidance: %s" % str(params))
         try:
             success = self.goto_pose(params)
-            self.send_cmd(0.0, 0.0)
+            self.send_stop()
             # success = self.send_goal(params)
         except BaseException as e:
             tb = traceback.format_exc()
@@ -131,17 +133,17 @@ class ChassisPlanning:
     def set_succeeded(self, success):
         self.result.success = success
         self.chassis_server.set_succeeded(self.result)
-        self.send_cmd(0.0, 0.0)
+        self.send_stop()
 
     def check_cancelled(self):
         if rospy.is_shutdown():
-            self.send_cmd(0.0, 0.0)
+            self.send_stop()
             return True
 
         if self.chassis_server.is_preempt_requested():
             rospy.loginfo("%s: Preempted" % self.chassis_action_name)
             self.chassis_server.set_preempted()
-            self.send_cmd(0.0, 0.0)
+            self.send_stop()
             return True
         else:
             return False
@@ -169,7 +171,7 @@ class ChassisPlanning:
         self.controller.angular_tolerance = self.angle_tolerance
         self.controller.reverse_direction = not drive_forwards
 
-        rate = rospy.Rate(30.0)
+        rate = rospy.Rate(60.0)
         prev_time = rospy.Time.now()
 
         while not self.controller.at_goal(self.state, goal_state):
@@ -181,9 +183,11 @@ class ChassisPlanning:
 
             command_state = self.controller.get_velocity(self.state, goal_state, dt)
             self.send_cmd(command_state.vx, command_state.vt)
+            rospy.loginfo("cmd: %0.4f, %0.4f, error: %s" % (command_state.vx, command_state.vt, goal_state - self.state))
 
             if self.controller.is_stuck():
                 rospy.logwarn("Robot got stuck during go to pose routine!")
+                rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
                 return False
 
             if self.check_cancelled():
@@ -191,13 +195,27 @@ class ChassisPlanning:
                 return False
 
         rospy.loginfo("goto_pose command completed successfully!")
+        rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
         return True
+
+    def send_stop(self):
+        rospy.loginfo("Chassis planner is sending stop")
+        self.send_cmd(0.0, 0.0)
 
     def send_cmd(self, linear_vx, angular_wz):
         self.twist_command.linear.x = linear_vx
         self.twist_command.angular.z = angular_wz
-        rospy.loginfo("cmd: %s, %s" % (linear_vx, angular_wz))
         self.cmd_vel_pub.publish(self.twist_command)
+
+    def odom_callback(self, msg):
+        self.state.x = msg.pose.pose.position.x
+        self.state.y = msg.pose.pose.position.y
+        self.state.t = tf.transformations.euler_from_quaternion([
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        ])[2]
 
     def update_current_pose(self):
         try:
@@ -225,8 +243,8 @@ class ChassisPlanning:
 if __name__ == "__main__":
     try:
         node = ChassisPlanning()
-        node.run()
-        # rospy.spin()
+        # node.run()
+        rospy.spin()
 
     except rospy.ROSInterruptException:
         pass

@@ -45,7 +45,7 @@ class DodobotChassis:
 
         # robot dimensions
         self.wheel_radius_mm = rospy.get_param("~wheel_radius_mm", 30.0)  # radius of the wheel
-        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 182.18)  #  min: 172.05, max: 212.05 distance between the two wheels
+        self.wheel_distance_mm = rospy.get_param("~wheel_distance_mm", 183.21)  #  min: 172.05, max: 212.05 distance between the two wheels
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
         self.max_speed_tps = rospy.get_param("~max_speed_tps", 9000.0)
