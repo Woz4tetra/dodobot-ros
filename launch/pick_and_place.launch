@@ -14,4 +14,6 @@
     <include file="$(find db_config)/launch/fake_map.launch"/>
     <include file="$(find db_config)/launch/apriltag.launch"/>
     <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
+    <include file="$(find db_planning)/launch/tag_conversion.launch"/>
+
 </launch>

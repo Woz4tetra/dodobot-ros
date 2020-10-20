@@ -4,6 +4,7 @@
     <arg name="db_chassis_services_enabled" default="true"/>
     <arg name="db_chassis_publish_odom_tf" default="true"/>
     <arg name="db_chassis_use_sensor_msg_time" default="false"/>
+    <arg name="db_chassis_odom_frame" default="odom"/>
 
     <group ns="dodobot" >
         <node name="db_chassis" pkg="db_chassis" type="db_chassis_node.py" output="screen" required="true">
@@ -11,6 +12,7 @@
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <param name="publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
             <param name="use_sensor_msg_time" value="$(arg db_chassis_use_sensor_msg_time)"/>
+            <param name="odom_parent_frame" value="$(arg db_chassis_odom_frame)"/>
         </node>
     </group>
 </launch>

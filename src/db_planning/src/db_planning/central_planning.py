@@ -38,7 +38,7 @@ class CentralPlanning:
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
-        rospy.on_shutdown(self.shutdown_hook)
+        # rospy.on_shutdown(self.shutdown_hook)
 
         self.bridge = CvBridge()
 
@@ -70,12 +70,6 @@ class CentralPlanning:
         self.saved_start_quat = None
         self.last_saved_time = rospy.Time.now()
 
-        self.debug_sequence_planning = False
-        # self.debug_sequence_planning = True
-
-        self.debug_move_base = False
-        # self.debug_move_base = True
-
         self.tag_detections_topic = "/tag_detections_image"
         self.debug_image_dir = rospy.get_param("~debug_image_dir", ".")
         self.debug_image_date_format = "%Y-%m-%dT%H-%M-%S--%f"
@@ -93,11 +87,6 @@ class CentralPlanning:
         self.front_loader_action = actionlib.SimpleActionClient(self.front_loader_action_name, FrontLoaderAction)
         self.front_loader_action.wait_for_server()
         rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.front_loader_action_name))
-
-        # wait for action client
-        self.move_action_client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
-        self.move_action_client.wait_for_server()
-        rospy.loginfo("[%s] move_base action server connected" % self.node_name)
 
         rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
 
@@ -117,17 +106,12 @@ class CentralPlanning:
             self.sequence_server.set_aborted(result)
             return
 
-        if not self.debug_sequence_planning:
-            if not self.move_to_start_pose():
-                result.success = False
-                self.sequence_server.set_aborted(result)
-                return
-
-        # Temporary stopping point for function
-        if self.debug_move_base:
-            result.success = True
-            self.sequence_server.set_succeeded(result)
+        if not self.move_to_start_pose():
+            result.success = False
+            self.sequence_server.set_aborted(result)
             return
+
+        # start EFK and tag odometry
 
         rospy.sleep(2.0)
         self.search_for_tag(save_image=True)
@@ -175,28 +159,14 @@ class CentralPlanning:
         # Creates a goal to send to the action server.
         pose_base_link = self.get_sequence_start_pose()
 
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "map"
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose = pose_base_link
+        chassis_goal = self.get_goal_msg(ChassisGoal, action)
 
-        # Sends the goal to the action server.
-        self.move_action_client.send_goal(goal)
+        self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
 
-        # Waits for the server to finish performing the action.
-        self.move_action_client.wait_for_result()
+        self.chassis_action.wait_for_result()
+        chassis_result = self.chassis_action.get_result()
 
-        # Get the result of executing the action
-        move_base_result = self.move_action_client.get_result()
-
-        rospy.loginfo("move_base_result: %s, %s" % (type(move_base_result), move_base_result))
-        if not move_base_result:
-            rospy.logwarn("move_base failed to direct the robot to the directed position")
-            result.success = False
-            self.sequence_server.set_aborted(result)
-            return False
-
-        return True
+        return chassis_result.success
 
     def insert_action_sequence(self):
         self.insert_sequence.reload()
@@ -407,8 +377,7 @@ class CentralPlanning:
             rate.sleep()
 
     def shutdown_hook(self):
-        if self.move_action_client.get_state() == actionlib.SimpleGoalState.ACTIVE:
-            self.move_action_client.cancel_goal()
+        pass
 
 if __name__ == "__main__":
     try:

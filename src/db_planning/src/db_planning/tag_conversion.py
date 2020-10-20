@@ -34,11 +34,13 @@ class TagConversion:
         self.services_enabled = rospy.get_param("~services_enabled", True)
 
         self.tf_listener = tf.TransformListener()
+        # self.tf_broadcaster = tf.TransformBroadcaster()
 
-        self.tag_sub = rospy.Subscriber("/tag_detections", AprilTagDetectionArray, self.tag_callback, queue_size=5)
+        # self.tag_sub = rospy.Subscriber("/tag_detections", AprilTagDetectionArray, self.tag_callback, queue_size=5)
         self.odom_pub = rospy.Publisher("tag_odom", Odometry, queue_size=5)
 
-        self.tag_odom_frame = "map"
+        self.tag_odom_frame = "odom"
+        self.publish_odom_frame = "odom"
         self.tag_child_frame = "base_link"
         self.tag_frame = "target"
         self.tag_rotated_frame = "target_rotated"
@@ -57,6 +59,9 @@ class TagConversion:
         self.tag_inital_rot = None
         self.tag_initial_matrix = None
 
+        self.tag_odom_trans = [0.0, 0.0, 0.0]
+        self.tag_odom_quat = [0.0, 0.0, 0.0, 1.0]
+
         self.odom_reset_service_name = "tag_conversion_odom_reset"
         self.odom_reset = None
 
@@ -71,7 +76,7 @@ class TagConversion:
         if result is None:
             return TriggerResponse(True, "")
         else:
-            return TriggerResponse(False, str(e))
+            return TriggerResponse(False, str(result))
 
     def reset_odom(self):
         try:
@@ -109,19 +114,13 @@ class TagConversion:
         if len(msg.detections) == 0:
             return
 
-        # tag_pose_with_covar_stamped = msg.detections[0].pose
-        # tag_pose_stamped = PoseStamped()
-        # tag_pose_stamped.header = tag_pose_with_covar_stamped.header
-        # tag_pose_stamped.pose = tag_pose_with_covar_stamped.pose.pose
-        #
-        # try:
-        #     rotated_pose = self.tf_listener.transformPose(self.tag_rotated_frame, tag_pose_stamped)
-        #     print(tag_pose_stamped.pose.orientation)
-        #     print(rotated_pose.pose.orientation)
-        #     print()
-        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        #     return
+    def run(self):
+        clock_rate = rospy.Rate(30)
+        while not rospy.is_shutdown():
+            self.publish_odom()
+            clock_rate.sleep()
 
+    def publish_odom(self):
         if self.first_sighting:
             if self.reset_odom() is not None:
                 return
@@ -132,32 +131,41 @@ class TagConversion:
 
         try:
             tfd_pose = self.tf_listener.transformPose(self.tag_rotated_frame, tag_pose_stamped)
+            self.tag_odom_trans, self.tag_odom_quat = self.tf_to_odom_start(tfd_pose)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            return
+            pass
 
-        tfd_trans, tfd_quat = self.tf_to_odom_start(tfd_pose)
+        now = rospy.Time.now()
 
         odom_msg = Odometry()
         # odom_msg.pose.pose = tfd_pose.pose
-        odom_msg.pose.pose.position.x = tfd_trans[0]
-        odom_msg.pose.pose.position.y = tfd_trans[1]
-        odom_msg.pose.pose.position.z = tfd_trans[2]
-        odom_msg.pose.pose.orientation.x = tfd_quat[0]
-        odom_msg.pose.pose.orientation.y = tfd_quat[1]
-        odom_msg.pose.pose.orientation.z = tfd_quat[2]
-        odom_msg.pose.pose.orientation.w = tfd_quat[3]
+        odom_msg.pose.pose.position.x = self.tag_odom_trans[0]
+        odom_msg.pose.pose.position.y = self.tag_odom_trans[1]
+        odom_msg.pose.pose.position.z = self.tag_odom_trans[2]
+        odom_msg.pose.pose.orientation.x = self.tag_odom_quat[0]
+        odom_msg.pose.pose.orientation.y = self.tag_odom_quat[1]
+        odom_msg.pose.pose.orientation.z = self.tag_odom_quat[2]
+        odom_msg.pose.pose.orientation.w = self.tag_odom_quat[3]
         odom_msg.pose.covariance = self.tag_covariance
-        odom_msg.header.frame_id = self.tag_odom_frame
-        odom_msg.header.stamp = rospy.Time.now()
+        odom_msg.header.frame_id = self.publish_odom_frame
+        odom_msg.header.stamp = now
         odom_msg.child_frame_id = self.tag_child_frame
         self.odom_pub.publish(odom_msg)
+
+        # self.tf_broadcaster.sendTransform(
+        #     self.tag_odom_trans,
+        #     self.tag_odom_quat,
+        #     now,
+        #     self.tag_child_frame,
+        #     self.publish_odom_frame
+        # )
 
 
 if __name__ == "__main__":
     try:
         node = TagConversion()
-        # node.run()
-        rospy.spin()
+        node.run()
+        # rospy.spin()
 
     except rospy.ROSInterruptException:
         pass
