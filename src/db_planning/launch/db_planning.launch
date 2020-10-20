@@ -9,5 +9,4 @@
         <node name="db_planning_chassis"      pkg="db_planning" type="chassis_planning.py" output="screen" required="true"></node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
     </group>
-    <include file="$(find db_planning)/launch/tag_conversion.launch"/>
 </launch>

@@ -11,10 +11,7 @@ import dynamic_reconfigure.client
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Odometry
 
-from db_planning.pid import PID
-from db_planning.goal_controller import GoalController
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
-from db_planning.chassis_state import ChassisState
 
 
 class ChassisPlanning:
@@ -37,14 +34,7 @@ class ChassisPlanning:
         self.twist_command = geometry_msgs.msg.Twist()
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", geometry_msgs.msg.Twist, queue_size=100)
 
-        self.odom_sub = rospy.Subscriber("odom", Odometry, self.odom_callback, queue_size=100)
-
-        self.tf_listener = tf.TransformListener()
-
         self.result = ChassisResult()
-
-        self.has_active_goal = False
-        self.state = ChassisState()
 
         self.base_max_speed = 0.36  # m/s, absolute max: 0.36
         self.base_max_ang_v = 7.0  # rad/s, absolute max: 7.0
@@ -57,17 +47,21 @@ class ChassisPlanning:
         self.min_ang_v = 0.75  # rad/s, cold start minimum: 0.75
         self.min_speed = 0.025  # m/s
 
-        self.controller = GoalController()
-        self.controller.set_constants(3.5, 8.0, -1.5)
-        self.controller.forward_movement_only = True
-
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.chassis_server = actionlib.SimpleActionServer(self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
         self.chassis_server.start()
         rospy.loginfo("[%s] server started" % self.chassis_action_name)
 
-        rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
+        # wait for action client
+        self.move_action_client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
+        self.move_action_client.wait_for_server()
+        rospy.loginfo("[%s] move_base action server connected" % self.chassis_action_name)
 
+        self.dwa_planner_dyn_client = dynamic_reconfigure.client.Client("/move_base/DWAPlannerROS", timeout=30, config_callback=self.callback)
+        self.dwa_planner_updated = False
+        rospy.loginfo("[%s] DWAPlannerROS dynamic reconfigure server connected" % self.chassis_action_name)
+
+        rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
 
     def chassis_callback(self, goal):
         goal_x = goal.goal_x
@@ -109,26 +103,29 @@ class ChassisPlanning:
 
         params["drive_forwards"] = drive_forwards
 
-        self.tf_listener.waitForTransform("/base_link", "/odom", rospy.Time(), rospy.Duration(5.0))
-
-        self.has_active_goal = True
-        # self.update_current_pose()
         rospy.loginfo("Sending parameters to chassis guidance: %s" % str(params))
         try:
             success = self.goto_pose(params)
             self.send_stop()
-            # success = self.send_goal(params)
         except BaseException as e:
             tb = traceback.format_exc()
             rospy.logerr("An error occurred while going to pose: %s" % str(tb))
             self.set_succeeded(False)
             return
 
-        self.has_active_goal = False
         if not success:
             rospy.logerr("Failed to go to pose")
 
         self.set_succeeded(success)
+
+    def send_stop(self):
+        rospy.loginfo("Chassis planner is sending stop")
+        self.send_cmd(0.0, 0.0)
+
+    def send_cmd(self, linear_vx, angular_wz):
+        self.twist_command.linear.x = linear_vx
+        self.twist_command.angular.z = angular_wz
+        self.cmd_vel_pub.publish(self.twist_command)
 
     def set_succeeded(self, success):
         self.result.success = success
@@ -148,14 +145,18 @@ class ChassisPlanning:
         else:
             return False
 
+    def callback(self, config):
+        self.dwa_planner_updated = True
+        rospy.loginfo("Config set to %s" % str(config))
+
+    def update_move_base_config(self, **params):
+        self.dwa_planner_dyn_client.update_configuration(params)
+
     def goto_pose(self, params):
         default_val = None  # float("nan")
         goal_x = params.get("goal_x", default_val)
         goal_y = params.get("goal_y", default_val)
         goal_angle = params.get("goal_angle", default_val)
-
-        goal_state = ChassisState(goal_x, goal_y, goal_angle)
-        rospy.loginfo("Current pose: %s. Goal pose: %s" % (self.state, goal_state))
 
         self.base_speed = params.get("base_speed", self.base_speed)
         self.base_ang_v = params.get("base_ang_v", self.base_ang_v)
@@ -163,87 +164,72 @@ class ChassisPlanning:
         self.angle_tolerance = params.get("angle_tolerance", self.angle_tolerance)
         drive_forwards = bool(params.get("drive_forwards"))
 
-        self.controller.max_linear_speed = self.base_speed
-        self.controller.min_linear_speed = self.min_speed
-        self.controller.max_angular_speed = self.base_ang_v
-        self.controller.min_angular_speed = self.min_ang_v
-        self.controller.linear_tolerance = self.pos_tolerance
-        self.controller.angular_tolerance = self.angle_tolerance
-        self.controller.reverse_direction = not drive_forwards
+        if goal_angle is None:
+            goal_angle = 0.0
 
-        rate = rospy.Rate(60.0)
-        prev_time = rospy.Time.now()
+        sign = 1 if drive_forwards else -1
 
-        while not self.controller.at_goal(self.state, goal_state):
-            rate.sleep()
+        max_vel_trans = self.base_speed
+        min_vel_trans = self.min_speed
+        max_vel_x = self.base_speed
+        min_vel_x = self.min_speed
+        max_vel_theta = self.base_ang_v
+        min_vel_theta = self.min_ang_v
+        yaw_goal_tolerance = self.angle_tolerance
+        xy_goal_tolerance = self.pos_tolerance
+        self.dwa_planner_updated = False
 
-            current_time = rospy.Time.now()
-            dt = (current_time - prev_time).to_sec()
-            prev_time = current_time
+        self.update_move_base_config(
+            max_vel_trans=max_vel_trans,
+            min_vel_trans=min_vel_trans,
+            max_vel_x=max_vel_x,
+            min_vel_x=min_vel_x,
+            max_vel_theta=max_vel_theta,
+            min_vel_theta=min_vel_theta,
+            yaw_goal_tolerance=yaw_goal_tolerance,
+            xy_goal_tolerance=xy_goal_tolerance,
+        )
 
-            command_state = self.controller.get_velocity(self.state, goal_state, dt)
-            self.send_cmd(command_state.vx, command_state.vt)
-            rospy.loginfo("cmd: %0.4f, %0.4f, error: %s" % (command_state.vx, command_state.vt, goal_state - self.state))
+        pose_base_link = geometry_msgs.msg.Pose()
+        pose_base_link.position.x = goal_x
+        pose_base_link.position.y = goal_y
+        if goal_angle is not None:
+            goal_quat = tf.transformations.quaternion_from_euler(0.0, 0.0, goal_angle)
+            pose_base_link.orientation.x = goal_quat[0]
+            pose_base_link.orientation.y = goal_quat[1]
+            pose_base_link.orientation.z = goal_quat[2]
+            pose_base_link.orientation.w = goal_quat[3]
 
-            if self.controller.is_stuck():
-                rospy.logwarn("Robot got stuck during go to pose routine!")
-                rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
-                return False
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose = pose_base_link
 
-            if self.check_cancelled():
-                rospy.loginfo("Go to pose routine cancelled")
-                return False
+        while not self.dwa_planner_updated:
+            rospy.sleep(0.1)
 
-        rospy.loginfo("goto_pose command completed successfully!")
-        rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
-        return True
+        rospy.loginfo("Send goal to move_base: %s" % goal)
+        # Sends the goal to the action server.
+        self.move_action_client.send_goal(goal)
 
-    def send_stop(self):
-        rospy.loginfo("Chassis planner is sending stop")
-        self.send_cmd(0.0, 0.0)
+        # Waits for the server to finish performing the action.
+        self.move_action_client.wait_for_result()
 
-    def send_cmd(self, linear_vx, angular_wz):
-        self.twist_command.linear.x = linear_vx
-        self.twist_command.angular.z = angular_wz
-        self.cmd_vel_pub.publish(self.twist_command)
+        # Get the result of executing the action
+        move_base_result = self.move_action_client.get_result()
 
-    def odom_callback(self, msg):
-        self.state.x = msg.pose.pose.position.x
-        self.state.y = msg.pose.pose.position.y
-        self.state.t = tf.transformations.euler_from_quaternion([
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w,
-        ])[2]
+        return bool(move_base_result)
 
-    def update_current_pose(self):
-        try:
-            trans, rot = self.tf_listener.lookupTransform("/odom", "/base_link", rospy.Time(0))
-            self.state.x = trans[0]
-            self.state.y = trans[1]
-            self.state.t = tf.transformations.euler_from_quaternion(rot)[2]
-
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            return
-
-    def run(self):
-        rate = rospy.Rate(60.0)
-        while not rospy.is_shutdown():
-            rate.sleep()
-            if not self.has_active_goal:
-                rospy.sleep(0.1)
-                continue
-            self.update_current_pose()
 
     def shutdown_hook(self):
-        if self.chassis_server.get_state() == actionlib.SimpleGoalState.ACTIVE:
-            self.chassis_server.cancel_goal()
+        if self.move_action_client.get_state() == actionlib.SimpleGoalState.ACTIVE:
+            self.move_action_client.cancel_goal()
+        if self.chassis_server.is_active():
+            self.set_succeeded(False)
 
 if __name__ == "__main__":
     try:
         node = ChassisPlanning()
-        # node.run()
         rospy.spin()
 
     except rospy.ROSInterruptException:
