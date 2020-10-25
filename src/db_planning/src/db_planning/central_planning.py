@@ -7,11 +7,12 @@ import cv2
 import math
 import rospy
 import datetime
+
 import actionlib
 import geometry_msgs
-from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-
+from sensor_msgs.msg import Image
+from std_srvs.srv import SetBool, SetBoolResponse
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 import db_planning.msg
@@ -60,10 +61,11 @@ class CentralPlanning:
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
 
         # create tag watching tf_listener
-        self.tag_name = rospy.get_param("~tag_name", "target")  # tag's TF name
-        self.base_start_name = rospy.get_param("~base_start_name", "base_start_link")
-        self.tag_tf_name = self.tag_name  # "/" + self.tag_name
-        self.base_start_tf_name = self.base_start_name  # "/" + self.base_start_name
+        self.tag_tf_name = rospy.get_param("~tag_name", "target")  # tag's TF name
+        self.base_start_tf_name = rospy.get_param("~base_start_name", "base_start_link")
+        self.main_workspace_tf = "map"
+        self.linear_base_tf = "linear_base_link"
+
         self.tf_listener = tf.TransformListener()
 
         self.saved_start_pos = None
@@ -88,6 +90,13 @@ class CentralPlanning:
         self.front_loader_action.wait_for_server()
         rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.front_loader_action_name))
 
+        self.active_service_name = "tag_conversion_active"
+        self.active_srv = None
+
+        rospy.loginfo("Waiting for service %s" % self.active_service_name)
+        self.active_srv = rospy.ServiceProxy(self.active_service_name, SetBool)
+        rospy.loginfo("%s service is ready" % self.active_service_name)
+
         rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
 
         self.sounds["sequence_finished"].play()
@@ -95,7 +104,17 @@ class CentralPlanning:
     ### CALLBACK FUNCTIONS ###
 
     def sequence_callback(self, goal):
-        # transform pose from robot frame to front loader frame
+        if self.active_srv is None:
+            rospy.logwarn("%s service not ready yet!" % self.active_service_name)
+            result.success = False
+            self.sequence_server.set_aborted(result)
+            return
+
+        if not self.set_active(True):
+            result.success = False
+            self.sequence_server.set_aborted(result)
+            return
+
         sequence_type = goal.sequence_type
         rospy.loginfo("Sequence requested: %s" % sequence_type)
         result = db_planning.msg.SequenceRequestResult()
@@ -144,8 +163,20 @@ class CentralPlanning:
             result.success = False
             self.sequence_server.set_aborted(result)
 
+        self.set_active(False)
+
         rospy.loginfo("%s sequence completed!" % sequence_type)
         self.sounds["sequence_finished"].play()
+
+    def set_active(self, state):
+        rospy.loginfo("%s setting active state to %s" % (self.node_name, state))
+        if self.active_srv is None:
+            rospy.logwarn("%s service not ready yet!" % self.active_service_name)
+            return False
+
+        self.active_srv(state)
+
+        return True
 
     def move_to_start_pose(self):
         if self.saved_start_pos is None or self.saved_start_quat is None:
@@ -159,7 +190,12 @@ class CentralPlanning:
         # Creates a goal to send to the action server.
         pose_base_link = self.get_sequence_start_pose()
 
-        chassis_goal = self.get_goal_msg(ChassisGoal, action)
+        chassis_goal = self.get_goal_msg(ChassisGoal, dict(
+            goal_x=pose_base_link.position.x,
+            goal_y=pose_base_link.position.y,
+            goal_angle=self.quat_to_z_angle(pose_base_link.orientation),
+            drive_forwards=1
+        ))
 
         self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
 
@@ -173,7 +209,7 @@ class CentralPlanning:
         if self.debug_sequence_planning:
             adj_sequence = self.insert_sequence.sequence
         else:
-            adj_sequence = self.adjust_sequence_into_odom(self.insert_sequence)
+            adj_sequence = self.adjust_sequence_into_main_tf(self.insert_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running insert action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
@@ -187,7 +223,7 @@ class CentralPlanning:
         if self.debug_sequence_planning:
             adj_sequence = self.extract_sequence.sequence
         else:
-            adj_sequence = self.adjust_sequence_into_odom(self.extract_sequence)
+            adj_sequence = self.adjust_sequence_into_main_tf(self.extract_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running extract action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
@@ -264,14 +300,23 @@ class CentralPlanning:
         # tfd_pose = self.tf_listener.transformPose(frame_id, tag_pose)
         # return tfd_pose
 
-    def adjust_sequence_into_odom(self, sequence):
+    def adjust_sequence_into_main_tf(self, sequence):
         # adjust all actions while the tag is in view. If it's not, throw an error
         adj_sequence = []
         for action in sequence.sequence:
-            adj_sequence.append(self.get_action_goal_in_odom(action))
+            adj_sequence.append(self.get_action_goal_in_main_tf(action))
         return adj_sequence
 
-    def get_action_goal_in_odom(self, action):
+    def quat_to_z_angle(self, orientation):
+        tfd_goal_angle = tf.transformations.euler_from_quaternion([
+            orientation.x,
+            orientation.y,
+            orientation.z,
+            orientation.w
+        ])
+        return tfd_goal_angle[2]
+
+    def get_action_goal_in_main_tf(self, action):
         # all action coordinates are relative to the base_start_link frame
         # and need to be transformed into the odom frame so goals can be sent.
 
@@ -308,11 +353,11 @@ class CentralPlanning:
         if not tf_required:
             return action
 
-        tfd_pose = self.tf_listener.transformPose("/odom", pose)
+        tfd_pose = self.tf_listener.transformPose(self.main_workspace_tf, pose)
 
         # goal_z=0.0 is when the gripper is grabbing the target. Offset defined in db_planning.launch (tag_to_start_pos)
         # This TF will translate goal_z to a Z height relative to the zero position of the linear slide
-        tfd_linear_pose = self.tf_listener.transformPose("/linear_base_link", pose)
+        tfd_linear_pose = self.tf_listener.transformPose(self.linear_base_tf, pose)
 
         tfd_action = {}
         tfd_action.update(action)
@@ -323,13 +368,7 @@ class CentralPlanning:
             tfd_action["goal_z"] = tfd_linear_pose.pose.position.z
 
         if not math.isnan(action["goal_angle"]):
-            tfd_goal_angle = tf.transformations.euler_from_quaternion([
-                tfd_pose.pose.orientation.x,
-                tfd_pose.pose.orientation.y,
-                tfd_pose.pose.orientation.z,
-                tfd_pose.pose.orientation.w
-            ])
-            tfd_action["goal_angle"] = tfd_goal_angle[2]
+            tfd_action["goal_angle"] = self.quat_to_z_angle(tfd_pose.pose.orientation)
             # if the original goal_angle is NaN, that value will be copied over
 
         rospy.loginfo("x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f -> x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f" % (
@@ -337,6 +376,15 @@ class CentralPlanning:
             tfd_action["goal_x"], tfd_action["goal_y"], tfd_action["goal_z"], tfd_action["goal_angle"],
         ))
         return tfd_action
+
+    def save_image_msg(self, image_msg):
+        cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+
+        timestamp = rospy.Time.now().to_sec()
+        date_str = datetime.datetime.fromtimestamp(timestamp).strftime(self.debug_image_date_format)
+        filename = date_str + ".png"
+        debug_image_path = os.path.join(self.debug_image_dir, filename)
+        cv2.imwrite(debug_image_path, cv2_img)
 
     def search_for_tag(self, save_image=False):
         try:
@@ -350,13 +398,7 @@ class CentralPlanning:
             rospy.loginfo("Tag is visible. Base starting pose: (%0.4f, %0.4f, %0.4f). Saving location" % tuple(self.saved_start_pos))
 
             if save_image:
-                cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-
-                timestamp = rospy.Time.now().to_sec()
-                date_str = datetime.datetime.fromtimestamp(timestamp).strftime(self.debug_image_date_format)
-                filename = date_str + ".png"
-                debug_image_path = os.path.join(self.debug_image_dir, filename)
-                cv2.imwrite(debug_image_path, cv2_img)
+                self.save_image_msg(image_msg)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
         except rospy.ROSException as e:
@@ -365,10 +407,9 @@ class CentralPlanning:
 
     def run(self):
         rospy.loginfo("Tag locator task started")
-        rate = rospy.Rate(10.0)
+        rate = rospy.Rate(0.2)
         while not rospy.is_shutdown():
             self.search_for_tag()
-            rospy.sleep(5.0)
 
             # if rospy.Time.now() - self.last_saved_time > rospy.Duration(300.0):
             #     rospy.loginfo("5 minutes elapsed. Saved tag position erased.")

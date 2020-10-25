@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="map_file" default="$(find db_config)/config/map_server/fake_map.yaml"/>
+    <arg name="publish_fake_tf" default="true"/>
     <node pkg="map_server" type="map_server" name="fake_map_server" args="$(arg map_file)" />
 
-    <node pkg="tf" type="static_transform_publisher" name="fake_odom_to_map" args="0.0 0.0 0.0 0 0 0 1 map odom 10" />
+    <node if="$(arg publish_fake_tf)" pkg="tf" type="static_transform_publisher" name="fake_odom_to_map" args="0.0 0.0 0.0 0 0 0 1 map odom 10" />
 </launch>
