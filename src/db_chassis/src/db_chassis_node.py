@@ -30,6 +30,9 @@ from db_parsing.msg import DodobotTilter
 
 from db_parsing.srv import DodobotPidSrv
 
+from geometric_estimator import GeometricEstimator
+from runge_kutta_estimator import RungeKuttaEstimator
+
 print(sys.version)
 
 
@@ -107,12 +110,30 @@ class DodobotChassis:
 
         self.tf_broadcaster = tf.TransformBroadcaster()
 
+        # Odometry estimators
+        # methods: geometric, runge-kutta
+        self.odom_estimate_method = rospy.get_param("~odom_estimate_method", "geometric")
+        self.odom_estimate_fn = None
+        if self.odom_estimate_method == "geometric":
+            self.odom_estimator = GeometricEstimator(self.wheel_distance_m)
+        elif self.odom_estimate_method == "runge-kutta":
+            self.odom_estimator = RungeKuttaEstimator(self.wheel_distance_m)
+        else:
+            raise ValueError("'odom_estimate_method' is not geometric or runge-kutta")
+
+        # self.comparison_estimators = {
+        #     "geometric": GeometricEstimator(self.wheel_distance_m),
+        #     # "runge-kutta": RungeKuttaEstimator(self.wheel_distance_m)
+        # }
+
+
         # Drive variables
         self.drive_sub_msg = DodobotDrive()
         self.drive_pub_msg = DodobotDrive()
 
         self.prev_left_ticks = None
         self.prev_right_ticks = None
+        self.prev_time = rospy.Time.now()
 
         # gripper variables
         self.parallel_gripper_msg = DodobotParallelGripper()
@@ -223,6 +244,12 @@ class DodobotChassis:
         self.odom_x = req.x
         self.odom_y = req.y
         self.odom_t = req.t
+
+        self.odom_estimator.reset(self.odom_x, self.odom_y, self.odom_t)
+
+        # for estimator in self.comparison_estimators.values():
+        #     estimator.reset(self.odom_x, self.odom_y, self.odom_t)
+
         rospy.loginfo("Resetting odom to x: %s, y: %s, a: %s" % (self.odom_x, self.odom_y, self.odom_t))
         return DodobotOdomResetResponse(True)
 
@@ -282,6 +309,7 @@ class DodobotChassis:
         if self.prev_left_ticks == None or self.prev_right_ticks == None:
             self.prev_left_ticks = self.drive_sub_msg.left_enc_pos
             self.prev_right_ticks = self.drive_sub_msg.right_enc_pos
+            self.prev_time = rospy.Time.now()
 
     def tilter_callback(self, tilter_sub_msg):
         self.camera_tilt_angle = self.tilt_command_to_angle_rad(tilter_sub_msg.position)
@@ -423,46 +451,52 @@ class DodobotChassis:
         return meters * self.m_to_tick_factor
 
     def compute_odometry(self):
-        # cache values from atomic drive_sub_msg to avoid potential clashes
+        now = rospy.Time.now()
+        dt = (now - self.prev_time).to_sec()
+        self.prev_time = now
+
         cur_left_ticks = self.drive_sub_msg.left_enc_pos
         cur_right_ticks = self.drive_sub_msg.right_enc_pos
-        left_enc_speed = self.drive_sub_msg.left_enc_speed
-        right_enc_speed = self.drive_sub_msg.right_enc_speed
-
         delta_left = self.ticks_to_m(cur_left_ticks - self.prev_left_ticks)
         delta_right = self.ticks_to_m(cur_right_ticks - self.prev_right_ticks)
-        delta_dist = (delta_right + delta_left) / 2
 
-        # if abs(delta_left) > 0.0001 or abs(delta_right) > 0.0001:
-        #     left_speed = self.ticks_to_m(left_enc_speed)
-        #     right_speed = self.ticks_to_m(right_enc_speed)
-        # else:
-        #     left_speed = 0.0
-        #     right_speed = 0.0
-
+        left_enc_speed = self.drive_sub_msg.left_enc_speed
+        right_enc_speed = self.drive_sub_msg.right_enc_speed
         left_speed = self.ticks_to_m(left_enc_speed)
         right_speed = self.ticks_to_m(right_enc_speed)
-
-        # angle = arc / radius
-        delta_angle = (delta_right - delta_left) / self.wheel_distance_m
-        self.odom_t += delta_angle
-
-        dx = delta_dist * math.cos(self.odom_t)
-        dy = delta_dist * math.sin(self.odom_t)
-
-        self.odom_x += dx
-        self.odom_y += dy
-
-        self.odom_speed = (left_speed + right_speed) / 2
-        self.odom_vx = self.odom_speed * math.cos(self.odom_t)
-        self.odom_vy = self.odom_speed * math.sin(self.odom_t)
-        self.odom_vt = (right_speed - left_speed) / self.wheel_distance_m
-
-        # print self.odom_x, self.odom_y, math.degrees(self.odom_t)
 
         self.prev_left_ticks = cur_left_ticks
         self.prev_right_ticks = cur_right_ticks
 
+        self.odom_estimator.update(
+            delta_left=delta_left,
+            delta_right=delta_right,
+            left_speed=left_speed,
+            right_speed=right_speed,
+            dt=dt,
+        )
+
+        # if len(self.comparison_estimators) > 0:
+        #     rospy.loginfo("main estimator: %s" % self.odom_estimator)
+        #     for name, estimator in self.comparison_estimators.items():
+        #         estimator.update(
+        #             delta_left=delta_left,
+        #             delta_right=delta_right,
+        #             left_speed=left_speed,
+        #             right_speed=right_speed,
+        #             dt=dt,
+        #         )
+        #         rospy.loginfo("%s: %s" % (name, estimator))
+
+        self.odom_x = self.odom_estimator.x
+        self.odom_y = self.odom_estimator.y
+        self.odom_t = self.odom_estimator.theta
+
+        self.odom_speed = self.odom_estimator.v
+        self.odom_vt = self.odom_estimator.w
+
+        self.odom_vx = self.odom_estimator.vx
+        self.odom_vy = self.odom_estimator.vy
 
 if __name__ == "__main__":
     try:
