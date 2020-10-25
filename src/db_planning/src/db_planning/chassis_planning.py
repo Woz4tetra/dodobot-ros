@@ -47,6 +47,9 @@ class ChassisPlanning:
         self.min_ang_v = 0.75  # rad/s, cold start minimum: 0.75
         self.min_speed = 0.025  # m/s
 
+        self.local_planner_name = "DWAPlannerROS"
+        # self.local_planner_name = "TrajectoryPlannerROS"
+
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.chassis_server = actionlib.SimpleActionServer(self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
         self.chassis_server.start()
@@ -57,8 +60,9 @@ class ChassisPlanning:
         self.move_action_client.wait_for_server()
         rospy.loginfo("[%s] move_base action server connected" % self.chassis_action_name)
 
-        self.dwa_planner_dyn_client = dynamic_reconfigure.client.Client("/move_base/DWAPlannerROS", timeout=30, config_callback=self.callback)
-        self.dwa_planner_updated = False
+        self.dyn_cfg_topic_name = "/move_base/" + self.local_planner_name
+        self.local_planner_dyn_client = dynamic_reconfigure.client.Client(self.dyn_cfg_topic_name, timeout=30, config_callback=self.local_planner_callback)
+        self.local_planner_updated = False
         rospy.loginfo("[%s] DWAPlannerROS dynamic reconfigure server connected" % self.chassis_action_name)
 
         rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
@@ -145,12 +149,12 @@ class ChassisPlanning:
         else:
             return False
 
-    def callback(self, config):
-        self.dwa_planner_updated = True
+    def local_planner_callback(self, config):
+        self.local_planner_updated = True
         rospy.loginfo("Config set to %s" % str(config))
 
     def update_move_base_config(self, **params):
-        self.dwa_planner_dyn_client.update_configuration(params)
+        self.local_planner_dyn_client.update_configuration(params)
 
     def goto_pose(self, params):
         default_val = None  # float("nan")
@@ -165,29 +169,34 @@ class ChassisPlanning:
         drive_forwards = bool(params.get("drive_forwards"))
 
         if goal_angle is None:
-            goal_angle = 0.0
+            goal_angle = 0.0  # TODO: compute resulting angle from current and goal
 
         sign = 1 if drive_forwards else -1
 
-        max_vel_trans = self.base_speed
-        min_vel_trans = self.min_speed
+        max_vel_trans = self.base_speed  # * sign
+        min_vel_trans = self.min_speed  # * sign
         max_vel_x = self.base_speed
-        min_vel_x = self.min_speed
+        if drive_forwards:
+            min_vel_x = 0.0
+        else:
+            min_vel_x = -self.base_speed
         max_vel_theta = self.base_ang_v
         min_vel_theta = self.min_ang_v
         yaw_goal_tolerance = self.angle_tolerance
         xy_goal_tolerance = self.pos_tolerance
-        self.dwa_planner_updated = False
+        forward_point_distance = 0.325 * sign
 
+        self.local_planner_updated = False
         self.update_move_base_config(
             max_vel_trans=max_vel_trans,
             min_vel_trans=min_vel_trans,
             max_vel_x=max_vel_x,
             min_vel_x=min_vel_x,
-            max_vel_theta=max_vel_theta,
-            min_vel_theta=min_vel_theta,
+            max_rot_vel=max_vel_theta,
+            min_rot_vel=min_vel_theta,
             yaw_goal_tolerance=yaw_goal_tolerance,
             xy_goal_tolerance=xy_goal_tolerance,
+            # forward_point_distance=forward_point_distance,
         )
 
         pose_base_link = geometry_msgs.msg.Pose()
@@ -205,7 +214,7 @@ class ChassisPlanning:
         goal.target_pose.header.stamp = rospy.Time.now()
         goal.target_pose.pose = pose_base_link
 
-        while not self.dwa_planner_updated:
+        while not self.local_planner_updated:
             rospy.sleep(0.1)
 
         rospy.loginfo("Send goal to move_base: %s" % goal)
