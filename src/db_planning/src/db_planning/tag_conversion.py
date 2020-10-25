@@ -36,7 +36,7 @@ class TagConversion:
         self.services_enabled = rospy.get_param("~services_enabled", True)
 
         self.tf_listener = tf.TransformListener(cache_time=rospy.Duration(120.0))
-        # self.tf_broadcaster = tf.TransformBroadcaster()
+        self.tf_broadcaster = tf.TransformBroadcaster()
 
         self.tag_odom_frame = "odom"
         self.publish_odom_frame = "odom"
@@ -56,7 +56,8 @@ class TagConversion:
 
         self.first_sighting = True
         self.tag_is_visible = False
-        self.is_active = False
+        # self.is_active = False
+        self.is_active = True
 
         self.active_clock_rate = rospy.Rate(30)
         self.inactive_clock_rate = rospy.Rate(1)
@@ -75,7 +76,7 @@ class TagConversion:
         self.active_service_name = "tag_conversion_active"
         self.active_srv = None
 
-        self.ekf_reset_service_name = "SetPose"
+        self.ekf_reset_service_name = "/set_pose"
         self.ekf_reset_srv = None
 
         if self.is_active:
@@ -158,7 +159,7 @@ class TagConversion:
         # transform found tag position to the starting point of tag_odom_frame
         # this will make the odometry values line up with chassis odom
 
-        trans, quat = assign_to_lists(tfd_pose.pose)
+        trans, quat = self.assign_to_lists(tfd_pose.pose)
         trans_m = tf.transformations.translation_matrix(trans)
         rot_m = tf.transformations.quaternion_matrix(quat)
         tag_matrix = np.dot(trans_m, rot_m)  # create full matrix
@@ -243,8 +244,8 @@ class TagConversion:
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
 
-        # trans, quat = assign_to_lists(msg.pose.pose)
-        trans, quat = assign_to_lists(tfd_pose.pose)
+        # trans, quat = self.assign_to_lists(msg.pose.pose)
+        trans, quat = self.assign_to_lists(tfd_pose.pose)
         now = rospy.Time.now()
 
         self.tf_broadcaster.sendTransform(
