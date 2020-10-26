@@ -14,6 +14,8 @@ from std_srvs.srv import Trigger, TriggerResponse
 from std_srvs.srv import SetBool, SetBoolResponse
 from robot_localization.srv import SetPose, SetPoseResponse
 
+from db_chassis.srv import DodobotOdomReset, DodobotOdomResetResponse
+
 
 class TagConversion:
     """
@@ -63,9 +65,16 @@ class TagConversion:
         self.inactive_clock_rate = rospy.Rate(1)
         self.clock_rate = self.inactive_clock_rate
 
-        self.tag_inital_trans = None
-        self.tag_inital_rot = None
+        self.tag_initial_trans = None
+        self.tag_initial_rot = None
         self.tag_initial_matrix = None
+
+        # self.odom_current_trans = None
+        # self.odom_current_rot = None
+
+        self.odom_initial_trans = None
+        self.odom_initial_rot = None
+        self.odom_initial_matrix = None
 
         self.tag_odom_trans = [0.0, 0.0, 0.0]
         self.tag_odom_quat = [0.0, 0.0, 0.0, 1.0]
@@ -78,6 +87,9 @@ class TagConversion:
 
         self.ekf_reset_service_name = "/set_pose"
         self.ekf_reset_srv = None
+
+        self.chassis_odom_reset_service_name = "dodobot_odom_reset"
+        self.chassis_odom_reset_srv = None
 
         if self.is_active:
             self.subscribe_to_topics()
@@ -95,37 +107,69 @@ class TagConversion:
             self.ekf_reset_srv = rospy.ServiceProxy(self.ekf_reset_service_name, SetPose)
             rospy.loginfo("%s service is ready" % self.ekf_reset_service_name)
 
+            rospy.loginfo("Waiting for service %s" % self.chassis_odom_reset_service_name)
+            self.chassis_odom_reset_srv = rospy.ServiceProxy(self.chassis_odom_reset_service_name, DodobotOdomReset)
+            rospy.loginfo("%s service is ready" % self.chassis_odom_reset_service_name)
+
         rospy.loginfo("%s is ready" % self.node_name)
 
     def subscribe_to_topics(self):
         rospy.loginfo("%s is subscribing to topics" % self.node_name)
         self.tag_sub = rospy.Subscriber("/tag_detections", AprilTagDetectionArray, self.tag_callback, queue_size=5)
         self.ekf_sub = rospy.Subscriber("odom/filtered", Odometry, self.filtered_odom_callback, queue_size=5)
+        # self.chassis_odom_sub = rospy.Subscriber("odom", Odometry, self.chassis_odom_callback, queue_size=5)
         self.odom_pub = rospy.Publisher("tag_odom", Odometry, queue_size=5)
 
     def unsubscribe_from_topics(self):
         rospy.loginfo("%s is pausing topic subscriptions" % self.node_name)
         del self.tag_sub
         del self.ekf_sub
+        # del self.chassis_odom_sub
         del self.odom_pub
 
     def odom_reset_callback(self, req):
-        rospy.loginfo("Resetting tag conversion odom")
-        result = self.reset_odom()
-        if result is None:
+        if self.reset_odom():
+            self.reset_ekf()
             return TriggerResponse(True, "")
         else:
             return TriggerResponse(False, str(result))
 
     def reset_odom(self):
-        try:
-            self.tag_inital_trans, self.tag_inital_rot = self.tf_listener.lookupTransform(self.tag_odom_frame, self.tag_rotated_frame, rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            return e
+        rospy.loginfo("Resetting tag conversion odom")
 
-        trans_m = tf.transformations.quaternion_matrix(self.tag_inital_rot)
-        rot_m = tf.transformations.translation_matrix(self.tag_inital_trans)
+        result = self.chassis_odom_reset_srv(0.0, 0.0, 0.0)
+        if not result.resp:
+            rospy.logwarn("Failed to reset chassis odom. Skipping tag reset")
+            return False
+
+        try:
+            # base_link and odom should be on top of each other now
+            self.tag_initial_trans, self.tag_initial_rot = self.tf_listener.lookupTransform(self.base_link_frame, self.tag_rotated_frame, rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            return False
+
+        # if self.odom_current_trans is None or self.odom_current_rot is None:
+        #     return False
+
+        # Flipped TF order to cancel out odom/filtered values when computing
+        # from odom TF
+        # self.odom_initial_trans = [-value for value in self.odom_current_trans]
+        # odom_current_euler = tf.transformations.euler_from_quaternion(self.odom_current_rot)
+        # euler_flipped = [-value for value in odom_current_euler]
+        # self.odom_initial_rot = tf.transformations.quaternion_from_euler(euler_flipped)
+
+        trans_m = tf.transformations.quaternion_matrix(self.tag_initial_rot)
+        rot_m = tf.transformations.translation_matrix(self.tag_initial_trans)
         self.tag_initial_matrix = np.dot(trans_m, rot_m)
+
+        self.odom_initial_rot = [0.0, 0.0, 0.0, 1.0]
+        self.odom_initial_trans = [0.0, 0.0, 0.0]
+        trans_m = tf.transformations.quaternion_matrix(self.odom_initial_rot)
+        rot_m = tf.transformations.translation_matrix(self.odom_initial_trans)
+        self.odom_initial_matrix = np.dot(trans_m, rot_m)
+        rospy.loginfo("Tag conversion odom reset successful")
+
+        return True
 
     def reset_ekf(self):
         if not self.services_enabled:
@@ -139,9 +183,11 @@ class TagConversion:
         reset_pose = PoseWithCovarianceStamped()
         reset_pose.header.frame_id = self.tag_odom_frame
         reset_pose.pose.covariance = self.tag_covariance
-        self.assign_to_pose(reset_pose.pose.pose, self.tag_inital_trans, self.tag_inital_rot)
+        self.assign_to_pose(reset_pose.pose.pose, self.odom_initial_trans, self.odom_initial_rot)
 
+        rospy.loginfo("Setting EKF pose to %s" % reset_pose.pose.pose)
         self.ekf_reset_srv(reset_pose)
+        rospy.loginfo("Set EKF pose successful!")
 
     def active_callback(self, req):
         self.is_active = req.data
@@ -155,15 +201,12 @@ class TagConversion:
 
         return SetBoolResponse(True, "")
 
-    def tf_to_odom_start(self, tfd_pose):
-        # transform found tag position to the starting point of tag_odom_frame
-        # this will make the odometry values line up with chassis odom
-
-        trans, quat = self.assign_to_lists(tfd_pose.pose)
+    def tf_to_start(self, pose, initial_matrix):
+        trans, quat = self.assign_to_lists(pose)
         trans_m = tf.transformations.translation_matrix(trans)
         rot_m = tf.transformations.quaternion_matrix(quat)
         tag_matrix = np.dot(trans_m, rot_m)  # create full matrix
-        tfd_matrix = np.dot(tag_matrix, self.tag_initial_matrix)  # tf tag pose relative to tag_odom_frame start
+        tfd_matrix = np.dot(tag_matrix, initial_matrix)  # tf tag pose relative to tag_odom_frame start
 
         tfd_trans = tf.transformations.translation_from_matrix(tfd_matrix)
         tfd_quat = tf.transformations.quaternion_from_matrix(tfd_matrix)
@@ -201,6 +244,9 @@ class TagConversion:
         ]
         return trans_xyz, quat_xyzw
 
+    # def chassis_odom_callback(self, msg):
+    #     self.odom_current_trans, self.odom_current_rot = self.assign_to_lists(msg.pose.pose)
+
     def publish_odom(self):
         if not self.is_active:
             return
@@ -209,7 +255,7 @@ class TagConversion:
             return
 
         if self.first_sighting:
-            if self.reset_odom() is not None:
+            if not self.reset_odom():
                 return
             self.reset_ekf()
             self.first_sighting = False
@@ -224,7 +270,9 @@ class TagConversion:
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
 
-        self.tag_odom_trans, self.tag_odom_quat = self.tf_to_odom_start(tfd_pose)
+        # transform found tag position to the starting point of tag_odom_frame
+        # this will make the odometry values line up with chassis odom
+        self.tag_odom_trans, self.tag_odom_quat = self.tf_to_start(tfd_pose.pose, self.tag_initial_matrix)
 
         now = rospy.Time.now()
 
@@ -237,21 +285,34 @@ class TagConversion:
         self.odom_pub.publish(odom_msg)
 
     def filtered_odom_callback(self, msg):
-        filtered_pose_stamped = PoseStamped()
-        filtered_pose_stamped.header = msg.header
-        try:
-            tfd_pose = self.tf_listener.transformPose(self.tag_odom_frame, filtered_pose_stamped)
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        if not self.is_active:
             return
 
-        # trans, quat = self.assign_to_lists(msg.pose.pose)
-        trans, quat = self.assign_to_lists(tfd_pose.pose)
+        if not self.tag_is_visible:
+            return
+
+        if self.first_sighting:
+            return
+
+        if self.tag_initial_matrix is None:
+            return
+
+        # filtered_pose_stamped = PoseStamped()
+        # filtered_pose_stamped.header = msg.header
+        # try:
+        #     tfd_pose = self.tf_listener.transformPose(self.tag_odom_frame, filtered_pose_stamped)
+        # except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        #     return
+        # trans, quat = self.tf_to_start(msg.pose.pose, self.odom_initial_matrix)
+
+        trans, quat = self.assign_to_lists(msg.pose.pose)
+        # trans, quat = self.assign_to_lists(tfd_pose.pose)
         now = rospy.Time.now()
 
         self.tf_broadcaster.sendTransform(
             trans, quat, now,
-            self.publish_odom_frame,
-            self.publish_map_frame
+            self.base_link_frame,
+            self.publish_odom_frame
         )
 
 
