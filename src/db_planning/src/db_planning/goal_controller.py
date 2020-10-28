@@ -32,8 +32,8 @@ class GoalController:
         self.prev_angle_error = 0.0
         self.dist_error = 0.0
         self.angle_error = 0.0
-        self.dist_timeout_timer = rospy.Time.now()
-        self.angle_timeout_timer = rospy.Time.now()
+        self.dist_timeout_timer = None
+        self.angle_timeout_timer = None
         self.move_timeout = rospy.Duration(10.0)
 
     def set_constants(self, kP, kA, kB):
@@ -54,19 +54,27 @@ class GoalController:
 
         self.dist_error = self.get_goal_distance(cur, goal)
         if goal.t is None:
-            return self.dist_error < self.linear_tolerance
+            is_at_goal = self.dist_error < self.linear_tolerance
         else:
             self.angle_error = abs(self.normalize_pi(cur.t - goal.t))
-            return self.dist_error < self.linear_tolerance and self.angle_error < self.angular_tolerance
+            is_at_goal = self.dist_error < self.linear_tolerance and self.angle_error < self.angular_tolerance
+
+        if is_at_goal:
+            self.dist_timeout_timer = None
+        return is_at_goal
 
     def is_stuck(self):
         now = rospy.Time.now()
+        if self.dist_timeout_timer is None:
+            self.dist_timeout_timer = now
         if abs(self.dist_error - self.prev_dist_error) < self.dist_timeout_tolerance:
             if now - self.dist_timeout_timer > self.move_timeout:
                 return True
         else:
             self.dist_timeout_timer = now
 
+        # if self.angle_timeout_timer is None:
+        #     self.angle_timeout_timer = now
         # if abs(self.angle_error - self.prev_angle_error) < self.angle_timeout_tolerance:
         #     if now - self.angle_timeout_timer > self.move_timeout:
         #         return True

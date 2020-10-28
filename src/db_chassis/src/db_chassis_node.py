@@ -16,6 +16,7 @@ from dynamic_reconfigure.server import Server
 from geometry_msgs.msg import Twist, TwistStamped
 from std_msgs.msg import Float32MultiArray
 from nav_msgs.msg import Odometry
+from std_srvs.srv import SetBool, SetBoolResponse
 
 from db_chassis.cfg import DodobotChassisConfig
 from db_chassis.srv import DodobotOdomReset, DodobotOdomResetResponse
@@ -52,6 +53,12 @@ class DodobotChassis:
         self.ticks_per_rotation = rospy.get_param("~ticks_per_rotation", 3840.0)
         self.drive_pub_name = rospy.get_param("~drive_pub_name", "drive_cmd")
         self.max_speed_tps = rospy.get_param("~max_speed_tps", 9000.0)
+
+        self.min_angular_speed = rospy.get_param("~min_angular_speed", 0.0)
+        self.max_angular_speed = rospy.get_param("~max_angular_speed", 0.0)
+        self.min_linear_speed = rospy.get_param("~min_linear_speed", 0.0)
+        self.max_linear_speed = rospy.get_param("~max_linear_speed", 0.0)
+        self.zero_speed_epsilon = rospy.get_param("~zero_speed_epsilon", 0.01)
 
         self.services_enabled = rospy.get_param("~services_enabled", True)
         self.publish_odom_tf = rospy.get_param("~publish_odom_tf", True)
@@ -161,6 +168,8 @@ class DodobotChassis:
         self.linear_speed_cmd = 0.0
         self.angular_speed_cmd = 0.0
 
+        self.flip_robot = False
+
         # linear variables
         self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
         self.stepper_R_per_tick = 1.0 / self.stepper_ticks_per_R
@@ -194,6 +203,9 @@ class DodobotChassis:
         self.odom_reset_service_name = "dodobot_odom_reset"
         self.odom_reset = None
 
+        self.flip_robot_service_name = "dodobot_flip_robot"
+        self.flip_robot_srv = None
+
         if self.services_enabled:
             rospy.loginfo("Waiting for service %s" % self.pid_service_name)
             rospy.wait_for_service(self.pid_service_name)
@@ -206,6 +218,10 @@ class DodobotChassis:
             rospy.loginfo("Setting up service %s" % self.odom_reset_service_name)
             self.odom_reset = rospy.Service(self.odom_reset_service_name, DodobotOdomReset, self.odom_reset_callback)
             rospy.loginfo("%s service is ready" % self.odom_reset_service_name)
+
+            rospy.loginfo("Setting up service %s" % self.flip_robot_service_name)
+            self.flip_robot_srv = rospy.Service(self.flip_robot_service_name, SetBool, self.flip_robot_callback)
+            rospy.loginfo("%s service is ready" % self.flip_robot_service_name)
 
     def dynamic_callback(self, config, level):
         if not self.services_enabled:
@@ -253,6 +269,15 @@ class DodobotChassis:
         rospy.loginfo("Resetting odom to x: %s, y: %s, a: %s" % (self.odom_x, self.odom_y, self.odom_t))
         return DodobotOdomResetResponse(True)
 
+    def flip_robot_callback(self, req):
+        if self.flip_robot == req.data:
+            return SetBoolResponse(False, "No change. Robot flip state: %s" % self.flip_robot)
+        self.flip_robot = req.data
+        self.odom_estimator.theta += math.pi
+        self.odom_estimator.theta %= 2.0 * math.pi
+
+        return SetBoolResponse(True, "")
+
     def angle_rad_to_tilt_servo_command(self, angle_rad):
         angle_rad = angle_rad + (math.pi * 2 if angle_rad <= 0.0 else 0)  # bound to 270...360 deg
         angle_deg = math.degrees(angle_rad)
@@ -264,9 +289,31 @@ class DodobotChassis:
         servo_command = (x1 - x0) / (y1 - y0) * (angle_deg - x0) + y0
         return int(servo_command)
 
+    def bound_speed(self, value, lower, upper, epsilon):
+        abs_value = abs(value)
+        if abs_value < lower:
+            if abs_value > epsilon:
+                value = math.copysign(lower, value)
+            else:
+                value = 0.0
+        if upper != 0.0 and abs_value > upper:
+            value = math.copysign(upper, value)
+        return value
+
     def twist_callback(self, twist_msg):
         linear_speed_mps = twist_msg.linear.x  # m/s
         angular_speed_radps = twist_msg.angular.z  # rad/s
+
+        linear_speed_mps = self.bound_speed(linear_speed_mps, self.min_linear_speed, self.max_linear_speed, self.zero_speed_epsilon)
+        angular_speed_radps = self.bound_speed(
+            angular_speed_radps,
+            self.min_angular_speed if linear_speed_mps == 0.0 else 0.0,
+            self.max_angular_speed,
+            self.zero_speed_epsilon if linear_speed_mps == 0.0 else 0.0)
+
+        if self.flip_robot:
+            linear_speed_mps *= -1.0
+            # angular_speed_radps *= -1.0
 
         self.linear_speed_cmd = linear_speed_mps
         self.angular_speed_cmd = angular_speed_radps
@@ -464,6 +511,12 @@ class DodobotChassis:
         right_enc_speed = self.drive_sub_msg.right_enc_speed
         left_speed = self.ticks_to_m(left_enc_speed)
         right_speed = self.ticks_to_m(right_enc_speed)
+
+        if self.flip_robot:
+            left_speed *= -1.0
+            right_speed *= -1.0
+            delta_left *= -1.0
+            delta_right *= -1.0
 
         self.prev_left_ticks = cur_left_ticks
         self.prev_right_ticks = cur_right_ticks
