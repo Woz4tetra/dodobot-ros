@@ -17,7 +17,13 @@ class ChassisState:
         return "(%s, %s)" % (self.vx, self.vt)
 
     def __add__(self, other):
-        return self.__class__(self.x + other.x, self.y + other.y, self.t + other.t)
+        if self.t is None:
+            return self.__class__(self.x + other.x, self.y + other.y, None)
+        else:
+            return self.__class__(self.x + other.x, self.y + other.y, self.t + other.t)
 
     def __sub__(self, other):
-        return self.__class__(self.x - other.x, self.y - other.y, self.t - other.t)
+        if self.t is None:
+            return self.__class__(self.x - other.x, self.y - other.y, None)
+        else:
+            return self.__class__(self.x - other.x, self.y - other.y, self.t - other.t)

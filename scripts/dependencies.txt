@@ -9,3 +9,4 @@ navigation_msgs
 joystick_drivers
 geometry2
 navigation
+teb_local_planner
