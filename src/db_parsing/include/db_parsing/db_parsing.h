@@ -142,6 +142,13 @@ private:
     bool readSerial();
     void writeSerial(string name, const char *formats, ...);
 
+    bool write_stop_flag;
+    int write_thread_rate;
+    queue<string> write_queue;
+    boost::thread* write_thread;
+    void write_packet_from_queue();
+    void write_thread_task();
+
     ros::Time write_timer;
 
     void setup();
