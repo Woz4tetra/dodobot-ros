@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <include file="$(find db_config)/launch/dodobot.launch">
-        <arg name="db_chassis_publish_odom_tf" value="false"/>
+        <!-- <arg name="db_chassis_publish_odom_tf" value="false"/> -->
+        <arg name="db_chassis_publish_odom_tf" value="true"/>
     </include>
     <include file="$(find db_config)/launch/realsense.launch">
-        <arg name="compute_pointcloud" value="false"/>
-        <!-- <arg name="hirez_mode"         value="true"/> -->
-        <arg name="hirez_mode"         value="false"/>
+        <arg name="compute_pointcloud" value="true"/>
+        <!-- <arg name="compute_pointcloud" value="false"/> -->
+        <arg name="hirez_mode"         value="true"/>
+        <!-- <arg name="hirez_mode"         value="false"/> -->
     </include>
-    <!-- <include file="$(find db_config)/launch/move_base.launch"/> -->
+    <include file="$(find db_config)/launch/move_base.launch"/>
     <!-- <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
         <arg name="database_path" value="rtabmap-***REMOVED***-9-9-2020.db"/>
@@ -16,8 +18,8 @@
     <include file="$(find db_config)/launch/fake_map.launch">
         <arg name="publish_fake_tf"         value="true"/>
     </include>
-    <include file="$(find db_config)/launch/apriltag.launch"/>
+    <!-- <include file="$(find db_config)/launch/apriltag.launch"/> -->
     <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
-    <include file="$(find db_planning)/launch/tag_conversion.launch"/>
+    <!-- <include file="$(find db_planning)/launch/tag_conversion.launch"/> -->
 
 </launch>

@@ -7,6 +7,7 @@ import cv2
 import math
 import rospy
 import datetime
+import rosservice
 
 import actionlib
 import geometry_msgs
@@ -104,16 +105,11 @@ class CentralPlanning:
     ### CALLBACK FUNCTIONS ###
 
     def sequence_callback(self, goal):
-        if self.active_srv is None:
-            rospy.logwarn("%s service not ready yet!" % self.active_service_name)
-            result.success = False
-            self.sequence_server.set_aborted(result)
-            return
-
         if not self.set_active(True):
-            result.success = False
-            self.sequence_server.set_aborted(result)
-            return
+            # result.success = False
+            # self.sequence_server.set_aborted(result)
+            # return
+            rospy.logwarn("Can't set tag conversion active to true!")
 
         sequence_type = goal.sequence_type
         rospy.loginfo("Sequence requested: %s" % sequence_type)
@@ -168,9 +164,19 @@ class CentralPlanning:
         rospy.loginfo("%s sequence completed!" % sequence_type)
         self.sounds["sequence_finished"].play()
 
+    def is_active_srv_ready(self):
+        if self.active_srv is None:
+            rospy.logwarn("%s service not ready yet!" % self.active_service_name)
+            return False
+        service_list = rosservice.get_service_list()
+        if self.active_service_name in service_list:
+            return True
+
+        return False
+
     def set_active(self, state):
         rospy.loginfo("%s setting active state to %s" % (self.node_name, state))
-        if self.active_srv is None:
+        if not self.is_active_srv_ready():
             rospy.logwarn("%s service not ready yet!" % self.active_service_name)
             return False
 
@@ -194,7 +200,11 @@ class CentralPlanning:
             goal_x=pose_base_link.position.x,
             goal_y=pose_base_link.position.y,
             goal_angle=self.quat_to_z_angle(pose_base_link.orientation),
-            drive_forwards=1
+            drive_forwards=1,
+            base_speed=float("nan"),
+            base_ang_v=float("nan"),
+            pos_tolerance=0.05,
+            angle_tolerance=0.02,
         ))
 
         self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
@@ -206,10 +216,7 @@ class CentralPlanning:
 
     def insert_action_sequence(self):
         self.insert_sequence.reload()
-        if self.debug_sequence_planning:
-            adj_sequence = self.insert_sequence.sequence
-        else:
-            adj_sequence = self.adjust_sequence_into_main_tf(self.insert_sequence)
+        adj_sequence = self.adjust_sequence_into_main_tf(self.insert_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running insert action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
@@ -220,10 +227,7 @@ class CentralPlanning:
 
     def extract_action_sequence(self):
         self.extract_sequence.reload()
-        if self.debug_sequence_planning:
-            adj_sequence = self.extract_sequence.sequence
-        else:
-            adj_sequence = self.adjust_sequence_into_main_tf(self.extract_sequence)
+        adj_sequence = self.adjust_sequence_into_main_tf(self.extract_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running extract action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)

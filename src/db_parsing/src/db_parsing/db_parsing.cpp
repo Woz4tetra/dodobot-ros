@@ -8,6 +8,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     nh.param<string>("serial_port", _serialPort, "");
     nh.param<int>("serial_baud", _serialBaud, 115200);
     nh.param<string>("drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
+    nh.param<int>("write_thread_rate", write_thread_rate, 60);
 
     ROS_INFO_STREAM("serial_port: " << _serialPort);
     ROS_INFO_STREAM("serial_baud: " << _serialBaud);
@@ -75,6 +76,9 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
+
+    write_stop_flag = false;
+    write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
 
     write_timer = ros::Time::now();
 
@@ -428,8 +432,9 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
     _writePacketNum++;
 
     ROS_DEBUG_STREAM("Writing: " << packet);
-    _serialRef.write(packet);
-    ros::Duration(0.0005).sleep();
+    // _serialRef.write(packet);
+    // ros::Duration(0.0005).sleep();
+    write_queue.push(packet);
 
     if (_writePacketNum % 100 == 0) {
         ros::Duration dt = ros::Time::now() - write_timer;
@@ -450,6 +455,31 @@ void DodobotParsing::setup()
     setReporting(true);
 }
 
+void DodobotParsing::write_packet_from_queue()
+{
+    if (write_queue.empty()) {
+        return;
+    }
+
+    string packet = write_queue.front();
+    write_queue.pop();
+    ROS_DEBUG_STREAM("Writing: " << packet);
+    // ROS_INFO_STREAM("Writing: " << packet);
+    _serialRef.write(packet);
+    // ros::Duration(0.0005).sleep();
+}
+
+void DodobotParsing::write_thread_task()
+{
+    ros::Rate clock_rate(write_thread_rate);  // Hz
+    while (!write_stop_flag)
+    {
+        write_packet_from_queue();
+        clock_rate.sleep();
+    }
+    ROS_INFO("Dodobot write thread task finished");
+}
+
 
 void DodobotParsing::loop()
 {
@@ -465,7 +495,12 @@ void DodobotParsing::loop()
 
 void DodobotParsing::stop()
 {
+    write_stop_flag = true;
     setActive(false);
+
+    while (!write_queue.empty()) {
+        write_packet_from_queue();
+    }
 
     // leave reporting for other modules
     // setReporting(false);
@@ -496,6 +531,8 @@ int DodobotParsing::run()
         }
     }
     stop();
+
+    write_thread->join();
 
     return exit_code;
 }
