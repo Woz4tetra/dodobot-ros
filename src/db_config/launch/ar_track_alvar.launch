@@ -1,16 +1,25 @@
 <launch>
+    <arg name="use_depth" default="true" />
+
     <arg name="marker_size" default="4.0" />
-    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_new_marker_error" default="0.05" />
     <arg name="max_track_error" default="0.0" />
 
-    <arg name="cam_image_topic" default="/camera/depth_registered/points" />
-    <!-- <arg name="cam_image_topic" default="/camera/color/image_rect_color" /> -->
+    <arg     if="$(arg use_depth)" name="cam_image_topic" default="/camera/depth_registered/points" />
+    <arg unless="$(arg use_depth)" name="cam_image_topic" default="/camera/color/image_raw" />
     <arg name="cam_info_topic" default="/camera/color/camera_info" />
 
-    <arg name="output_frame" default="/base_link" />
+    <arg name="output_frame" default="/map" />
     <arg name="med_filt_size" default="10" />
     <arg name="bundle_files" default="$(find db_config)/config/ar_track_alvar/MarkerData_Dodobot.xml" />
 
-    <node name="ar_track_alvar" pkg="ar_track_alvar" type="findMarkerBundles" respawn="false" output="screen" args="$(arg marker_size) $(arg max_new_marker_error) $(arg max_track_error) $(arg cam_image_topic) $(arg cam_info_topic) $(arg output_frame) $(arg med_filt_size) $(arg bundle_files)" />
-    <!-- <node name="ar_track_alvar" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="false" output="screen" args="$(arg marker_size) $(arg max_new_marker_error) $(arg max_track_error) $(arg cam_image_topic) $(arg cam_info_topic) $(arg output_frame) $(arg bundle_files)" /> -->
+    <group ns="ar_tag">
+        <node     if="$(arg use_depth)" name="ar_track_alvar" pkg="ar_track_alvar" type="findMarkerBundles" respawn="false" output="screen" args="$(arg marker_size) $(arg max_new_marker_error) $(arg max_track_error) $(arg cam_image_topic) $(arg cam_info_topic) $(arg output_frame) $(arg med_filt_size) $(arg bundle_files)" />
+        <node unless="$(arg use_depth)" name="ar_track_alvar" pkg="ar_track_alvar" type="findMarkerBundlesNoKinect" respawn="false" output="screen" args="$(arg marker_size) $(arg max_new_marker_error) $(arg max_track_error) $(arg cam_image_topic) $(arg cam_info_topic) $(arg output_frame) $(arg bundle_files)" />
+    </group>
+
+    <!-- <node pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 target target_rotated 30" /> -->
+    <node unless="$(arg use_depth)" pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 ar_marker_242 target_rotated 30" />
+    <node     if="$(arg use_depth)" pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="-0.0275 -0.0275 0.0 0.0 0.707 0.0 0.707 ar_marker_242 target_rotated 30" />
+    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.018 -0.11132121 0 0 0 1 target_rotated base_start_link 30" />
 </launch>

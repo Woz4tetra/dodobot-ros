@@ -392,7 +392,7 @@ class CentralPlanning:
 
     def search_for_tag(self, save_image=False):
         try:
-            image_msg = rospy.wait_for_message(self.tag_detections_topic, Image, timeout=10.0)
+            # image_msg = rospy.wait_for_message(self.tag_detections_topic, Image, timeout=10.0)
 
             tag_trans, tag_rot = self.tf_listener.lookupTransform("map", self.tag_tf_name, rospy.Time(0))
             start_trans, start_rot = self.tf_listener.lookupTransform("map", self.base_start_tf_name, rospy.Time(0))
@@ -401,8 +401,8 @@ class CentralPlanning:
             self.last_saved_time = rospy.Time.now()
             rospy.loginfo("Tag is visible. Base starting pose: (%0.4f, %0.4f, %0.4f). Saving location" % tuple(self.saved_start_pos))
 
-            if save_image:
-                self.save_image_msg(image_msg)
+            # if save_image:
+            #     self.save_image_msg(image_msg)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
         except rospy.ROSException as e:

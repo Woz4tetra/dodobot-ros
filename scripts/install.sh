@@ -39,5 +39,10 @@ cd ${ROS_WS}/src
 chmod +x ${BASE_DIR}/set_bashrc.sh
 bash ${BASE_DIR}/set_bashrc.sh ${BASE_DIR}
 
+# disable serial console on /dev/ttyTHS1
+sudo systemctl stop nvgetty
+sudo systemctl disable nvgetty
+sudo udevadm trigger
+
 cd ${ROS_WS}
 catkin_make
