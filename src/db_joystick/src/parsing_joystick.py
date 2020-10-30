@@ -27,7 +27,7 @@ class ParsingJoystick:
         )
 
         self.enabled = not rospy.get_param("joystick/enabled", True)
-        if not self.enabled:
+        if self.enabled:  # enabled for dodobot-py
             rospy.loginfo("Joystick is not enabled. Exiting node")
             return
 

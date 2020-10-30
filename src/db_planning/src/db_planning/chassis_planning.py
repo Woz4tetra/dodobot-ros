@@ -64,7 +64,7 @@ class ChassisPlanning:
 
         self.controller = GoalController()
         # self.controller.set_constants(3.5, 8.0, -1.5)
-        self.controller.set_constants(3.5, 32.0, -1.5)
+        self.controller.set_constants(3.5, 20.0, -1.0)
         self.controller.forward_movement_only = False
 
         # # wait for action client

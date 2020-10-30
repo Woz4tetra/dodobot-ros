@@ -84,8 +84,8 @@ class DodobotChassis:
 
         self.camera_tilt_angle = self.tilter_upper_angle
 
-        self.gripper_open_cmd = rospy.get_param("~gripper_open_cmd", 50)
-        self.gripper_closed_cmd = rospy.get_param("~gripper_closed_cmd", 157)
+        self.gripper_open_cmd = rospy.get_param("~gripper_open_cmd", 50)  # 50
+        self.gripper_closed_cmd = rospy.get_param("~gripper_closed_cmd", 162)  # 157
         self.gripper_open_angle = rospy.get_param("~gripper_open_angle", 344.89282)
         self.gripper_closed_angle = rospy.get_param("~gripper_closed_angle", 302.560457)
 

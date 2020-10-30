@@ -9,7 +9,4 @@
         <node name="db_planning_chassis"      pkg="db_planning" type="chassis_planning.py" output="screen" required="true"></node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
     </group>
-
-    <node pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 target target_rotated 30" />
-    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.018 -0.11132121 0 0 0 1 target_rotated base_start_link 30" />
 </launch>

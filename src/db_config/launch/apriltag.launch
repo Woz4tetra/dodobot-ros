@@ -5,7 +5,7 @@
 
     <arg name="throttle_rate" default="15" />
 
-    <arg name="image_topic" default="/camera/color/image_rect_color" />
+    <arg name="image_topic" default="/camera/color/image_raw" />
     <arg name="info_topic" default="/camera/color/camera_info" />
 
     <arg name="image_throttle_topic" default="$(arg image_topic)_throttle" />
@@ -30,4 +30,7 @@
         <param name="remove_duplicates" type="bool" value="false" />
         <param name="publish_tag_detections_image" type="bool" value="true" />
     </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 target target_rotated 30" />
+    <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.018 -0.11132121 0 0 0 1 target_rotated base_start_link 30" />
 </launch>
