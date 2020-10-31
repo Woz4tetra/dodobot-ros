@@ -16,10 +16,11 @@ from dynamic_reconfigure.server import Server
 from geometry_msgs.msg import Twist, TwistStamped
 from std_msgs.msg import Float32MultiArray
 from nav_msgs.msg import Odometry
-from std_srvs.srv import SetBool, SetBoolResponse
 
 from db_chassis.cfg import DodobotChassisConfig
 from db_chassis.srv import DodobotOdomReset, DodobotOdomResetResponse
+from db_chassis.msg import LinearPosition
+from db_chassis.msg import LinearVelocity
 
 from db_parsing.msg import DodobotBumper
 from db_parsing.msg import DodobotDrive
@@ -33,8 +34,6 @@ from db_parsing.srv import DodobotPidSrv
 
 from geometric_estimator import GeometricEstimator
 from runge_kutta_estimator import RungeKuttaEstimator
-
-print(sys.version)
 
 
 class DodobotChassis:
@@ -168,12 +167,15 @@ class DodobotChassis:
         self.linear_speed_cmd = 0.0
         self.angular_speed_cmd = 0.0
 
-        self.flip_robot = False
-
         # linear variables
         self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
         self.stepper_R_per_tick = 1.0 / self.stepper_ticks_per_R
         self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
+        self.step_linear_m_to_ticks = 1.0 / self.step_ticks_to_linear_m
+
+        # velocity and acceleration commands at the microcontroller side are
+        # 4 orders of magnitude larger for some reason...
+        self.step_linear_m_to_speed_ticks = self.step_linear_m_to_ticks * 1E4
         self.zero_quat = tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
 
         # Odometry message
@@ -186,6 +188,8 @@ class DodobotChassis:
         self.drive_pub = rospy.Publisher(self.drive_pub_name, DodobotDrive, queue_size=100)
         self.gripper_pub = rospy.Publisher("gripper_cmd", DodobotGripper, queue_size=100)
         self.parallel_gripper_pub = rospy.Publisher("parallel_gripper", DodobotParallelGripper, queue_size=100)
+        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
+        self.linear_pos_pub = rospy.Publisher("linear_pos", LinearPosition, queue_size=100)
 
         # Subscribers
         self.twist_sub = rospy.Subscriber("cmd_vel", Twist, self.twist_callback, queue_size=5)
@@ -194,6 +198,8 @@ class DodobotChassis:
         self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
         self.gripper_sub = rospy.Subscriber("gripper", DodobotGripper, self.gripper_callback, queue_size=100)
         self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper_cmd", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
+        self.linear_pos_sub = rospy.Subscriber("linear_pos_cmd", LinearPosition, self.linear_pos_callback, queue_size=100)
+        self.linear_vel_sub = rospy.Subscriber("linear_vel_cmd", LinearVelocity, self.linear_vel_callback, queue_size=100)
 
         # Services
         self.pid_service_name = "dodobot_pid"
@@ -202,9 +208,6 @@ class DodobotChassis:
 
         self.odom_reset_service_name = "dodobot_odom_reset"
         self.odom_reset = None
-
-        self.flip_robot_service_name = "dodobot_flip_robot"
-        self.flip_robot_srv = None
 
         if self.services_enabled:
             rospy.loginfo("Waiting for service %s" % self.pid_service_name)
@@ -218,10 +221,6 @@ class DodobotChassis:
             rospy.loginfo("Setting up service %s" % self.odom_reset_service_name)
             self.odom_reset = rospy.Service(self.odom_reset_service_name, DodobotOdomReset, self.odom_reset_callback)
             rospy.loginfo("%s service is ready" % self.odom_reset_service_name)
-
-            rospy.loginfo("Setting up service %s" % self.flip_robot_service_name)
-            self.flip_robot_srv = rospy.Service(self.flip_robot_service_name, SetBool, self.flip_robot_callback)
-            rospy.loginfo("%s service is ready" % self.flip_robot_service_name)
 
     def dynamic_callback(self, config, level):
         if not self.services_enabled:
@@ -269,15 +268,6 @@ class DodobotChassis:
         rospy.loginfo("Resetting odom to x: %s, y: %s, a: %s" % (self.odom_x, self.odom_y, self.odom_t))
         return DodobotOdomResetResponse(True)
 
-    def flip_robot_callback(self, req):
-        if self.flip_robot == req.data:
-            return SetBoolResponse(False, "No change. Robot flip state: %s" % self.flip_robot)
-        self.flip_robot = req.data
-        self.odom_estimator.theta += math.pi
-        self.odom_estimator.theta %= 2.0 * math.pi
-
-        return SetBoolResponse(True, "")
-
     def angle_rad_to_tilt_servo_command(self, angle_rad):
         angle_rad = angle_rad + (math.pi * 2 if angle_rad <= 0.0 else 0)  # bound to 270...360 deg
         angle_deg = math.degrees(angle_rad)
@@ -310,10 +300,6 @@ class DodobotChassis:
             self.min_angular_speed if linear_speed_mps == 0.0 else 0.0,
             self.max_angular_speed,
             self.zero_speed_epsilon if linear_speed_mps == 0.0 else 0.0)
-
-        if self.flip_robot:
-            linear_speed_mps *= -1.0
-            # angular_speed_radps *= -1.0
 
         self.linear_speed_cmd = linear_speed_mps
         self.angular_speed_cmd = angular_speed_radps
@@ -372,6 +358,41 @@ class DodobotChassis:
             self.linear_frame,
             self.linear_base_frame,
         )
+
+        msg = LinearPosition()
+        msg.position = stepper_z_pos
+        self.linear_pos_pub.publish(msg)
+
+    def linear_pos_callback(self, msg):
+        linear_msg = DodobotLinear()
+
+        linear_msg.command_type = 0
+        linear_msg.command_value = int(msg.position * self.step_linear_m_to_ticks)
+
+        if math.isnan(msg.max_speed):
+            linear_msg.max_speed = -1
+        else:
+            linear_msg.max_speed = int(msg.max_speed * self.step_linear_m_to_speed_ticks)
+
+        if math.isnan(msg.acceleration):
+            linear_msg.acceleration = -1
+        else:
+            linear_msg.acceleration = int(msg.acceleration * self.step_linear_m_to_speed_ticks)
+
+        self.linear_pub.publish(linear_msg)
+
+    def linear_vel_callback(self, msg):
+        linear_msg = DodobotLinear()
+        linear_msg.command_type = 1
+        linear_msg.command_value = int(msg.velocity * self.step_linear_m_to_speed_ticks)
+        linear_msg.max_speed = linear_msg.command_value
+
+        if math.isnan(msg.acceleration):
+            linear_msg.acceleration = -1
+        else:
+            linear_msg.acceleration = int(msg.acceleration * self.step_linear_m_to_speed_ticks)
+
+        self.linear_pub.publish(linear_msg)
 
     def parallel_gripper_callback(self, parallel_gripper_msg):
         angle = self.parallel_dist_to_angle(parallel_gripper_msg.distance)
@@ -511,12 +532,6 @@ class DodobotChassis:
         right_enc_speed = self.drive_sub_msg.right_enc_speed
         left_speed = self.ticks_to_m(left_enc_speed)
         right_speed = self.ticks_to_m(right_enc_speed)
-
-        if self.flip_robot:
-            left_speed *= -1.0
-            right_speed *= -1.0
-            delta_left *= -1.0
-            delta_right *= -1.0
 
         self.prev_left_ticks = cur_left_ticks
         self.prev_right_ticks = cur_right_ticks

@@ -315,10 +315,14 @@ void DodobotParsing::processSerialPacket(string category)
     if (category.compare("txrx") == 0) {
         CHECK_SEGMENT; unsigned long long packet_num = (unsigned long long)stol(_currentBufferSegment);
         CHECK_SEGMENT; int error_code = stoi(_currentBufferSegment);
-        // CHECK_SEGMENT; string message = _currentBufferSegment;
 
         if (error_code != 0) {
-            logPacketErrorCode(error_code, packet_num);
+            if (getNextSegment()) {
+                logPacketErrorCode(error_code, packet_num, _currentBufferSegment);
+            }
+            else {
+                logPacketErrorCode(error_code, packet_num);
+            }
         }
     }
     else if (category.compare("state") == 0)
@@ -719,6 +723,11 @@ void DodobotParsing::resendPidKsTimed() {
     }
 }
 
+void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num, string message) {
+    logPacketErrorCode(error_code, packet_num);
+    ROS_WARN_STREAM("txrx message:" << message);
+}
+
 void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packet_num)
 {
     ROS_WARN("Packet %llu returned an error!", packet_num);
@@ -793,6 +802,19 @@ void DodobotParsing::parseLinearEvent()
 {
     CHECK_SEGMENT; linear_event_msg.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
     CHECK_SEGMENT; linear_event_msg.event_num = (int)stoi(_currentBufferSegment);
+
+    switch (linear_event_msg.event_num) {
+        case 1:  ROS_INFO("Linear event: ACTIVE_TRUE"); break;
+        case 2:  ROS_INFO("Linear event: ACTIVE_FALSE"); break;
+        case 3:  ROS_INFO("Linear event: HOMING_STARTED"); break;
+        case 4:  ROS_INFO("Linear event: HOMING_FINISHED"); break;
+        case 5:  ROS_INFO("Linear event: MOVE_STARTED"); break;
+        case 6:  ROS_INFO("Linear event: MOVE_FINISHED"); break;
+        case 7:  ROS_WARN("Linear event: POSITION_ERROR"); break;
+        case 8:  ROS_WARN("Linear event: NOT_HOMED"); break;
+        case 9:  ROS_WARN("Linear event: NOT_ACTIVE"); break;
+        default: break;
+    }
 
     linear_event_pub.publish(linear_event_msg);
 }

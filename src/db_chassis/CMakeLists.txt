@@ -12,6 +12,12 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
 
+add_message_files(
+    FILES
+    LinearPosition.msg
+    LinearVelocity.msg
+)
+
 add_service_files(
     FILES
     DodobotOdomReset.srv
