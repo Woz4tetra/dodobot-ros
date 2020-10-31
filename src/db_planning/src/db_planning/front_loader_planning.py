@@ -10,7 +10,7 @@ from geometry_msgs.msg import Pose, TransformStamped
 
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper, DodobotParallelGripper
-
+from db_chassis.msg import LinearPosition
 
 class FrontLoaderPlanner:
     """Class definition for front_loader_planning ROS node.
@@ -48,32 +48,17 @@ class FrontLoaderPlanner:
 
         self.result = FrontLoaderResult()
 
-        self.move_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
+        self.move_pub = rospy.Publisher("linear_pos_cmd", LinearPosition, queue_size=100)
         self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
 
-        self.linear_sub = rospy.Subscriber("linear", DodobotLinear, self.linear_callback, queue_size=100)
         self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
         self.events = Queue.Queue()
 
         self.is_goal_set = False
 
-        self.has_error = False
-        self.is_homed = False
-        self.is_active = False
-
         self.linear_event_topic = "linear_events"
         self.linear_event_sub = rospy.Subscriber(self.linear_event_topic, DodobotLinearEvent, self.linear_event_callback, queue_size=100)
-        self.linear_event_timeout = 20.0
-
-        self.stepper_ticks_per_R_no_gearbox = rospy.get_param("~stepper_ticks_per_R_no_gearbox", 200.0)
-        self.microsteps = rospy.get_param("~microsteps", 8.0)
-        self.stepper_gearbox_ratio = rospy.get_param("~stepper_gearbox_ratio", 26.0 + 103.0 / 121.0)
-        self.belt_pulley_radius_m = rospy.get_param("~belt_pulley_radius_m", 0.0121)
-
-        self.stepper_ticks_per_R = self.stepper_ticks_per_R_no_gearbox * self.microsteps * self.stepper_gearbox_ratio
-        self.stepper_R_per_tick = 1.0 / self.stepper_ticks_per_R
-        self.step_ticks_to_linear_m = self.stepper_R_per_tick * self.belt_pulley_radius_m * 2 * math.pi
-        self.step_linear_m_to_ticks = 1.0 / self.step_ticks_to_linear_m
+        self.linear_event_timeout = 10.0
 
         self.gripper_max_dist = 0.08
         self.gripper_dist = self.gripper_max_dist
@@ -176,7 +161,7 @@ class FrontLoaderPlanner:
 
         return pose.position.z
 
-    def send_move_cmd(self, cmd, max_speed=None, acceleration=None):
+    def send_move_cmd(self, cmd, max_speed=float("nan"), acceleration=float("nan")):
         """Sends move command to self.move_pub. On completion, return true. On timeout, return false.
 
         Args:
@@ -186,31 +171,12 @@ class FrontLoaderPlanner:
             (Bool): True if command was successful. False otherwise.
         """
 
-        if self.has_error:
-            rospy.logerr("Can't send move command. Linear reports an error!")
-            return False
-        if not self.is_homed:
-            rospy.logerr("Can't send move command. Linear is not homed!")
-            return False
-        if not self.is_active:
-            rospy.logerr("Can't send move command. Linear is not active!")
-            return False
+        msg = LinearPosition()
+        msg.position = cmd
+        msg.max_speed = max_speed
+        msg.acceleration = acceleration
 
-        msg = DodobotLinear()
-        msg.command_type = 0
-        msg.command_value = int(cmd * self.step_linear_m_to_ticks)
-
-        if math.isnan(max_speed):
-            msg.max_speed = -1
-        else:
-            msg.max_speed = int(max_speed * self.step_linear_m_to_ticks)
-
-        if math.isnan(acceleration):
-            msg.acceleration = -1
-        else:
-            msg.acceleration = int(acceleration * self.step_linear_m_to_ticks)
-
-        rospy.loginfo("Publishing command: %s\t%s\t%s" % (msg.command_value, msg.max_speed, msg.acceleration))
+        rospy.loginfo("Publishing command: %s\t%s\t%s" % (msg.position, msg.max_speed, msg.acceleration))
 
         self.move_pub.publish(msg)
 
@@ -266,11 +232,6 @@ class FrontLoaderPlanner:
             elif event_str in self.FAILED_GOAL_EVENTS:
                 rospy.logerr("Move command failed: %s" % event_str)
                 return False
-
-    def linear_callback(self, msg):
-        self.has_error = msg.has_error
-        self.is_homed = msg.is_homed
-        self.is_active = msg.is_active
 
     def to_event_str(self, event_num):
         if event_num in self.LINEAR_EVENTS:

@@ -13,7 +13,7 @@ from std_msgs.msg import Float64, Bool
 
 from db_parsing.msg import DodobotLinear
 from db_parsing.msg import DodobotParallelGripper
-
+from db_chassis.msg import LinearVelocity
 
 MAX_INT32 = 0x7fffffff
 
@@ -27,7 +27,7 @@ class ParsingJoystick:
         )
 
         self.enabled = not rospy.get_param("joystick/enabled", True)
-        if self.enabled:  # enabled for dodobot-py
+        if not self.enabled:  # enabled for dodobot-py
             rospy.loginfo("Joystick is not enabled. Exiting node")
             return
 
@@ -42,7 +42,7 @@ class ParsingJoystick:
 
         self.linear_scale = rospy.get_param("~linear_scale", 1.0)
         self.angular_scale = rospy.get_param("~angular_scale", 1.0)
-        self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 31250000 * 8)
+        self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 0.04424059137543106)
 
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
@@ -51,6 +51,7 @@ class ParsingJoystick:
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
         self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
+        self.linear_vel_pub = rospy.Publisher("linear_vel_cmd", LinearVelocity, queue_size=100)
         self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
 
         # subscription topics
@@ -69,8 +70,8 @@ class ParsingJoystick:
 
         self.cmd_vel_timeout = rospy.Time.now()
 
-        self.linear_vel_command = 0
-        self.prev_linear_vel_command = 0
+        self.linear_vel_command = 0.0
+        self.prev_linear_vel_command = 0.0
 
     def joy_to_speed(self, scale_factor, value):
         if abs(value) < self.deadzone_joy_val:
@@ -102,17 +103,15 @@ class ParsingJoystick:
             return rospy.Time.now() - self.cmd_vel_timeout < rospy.Duration(0.5)
 
     def set_linear(self, value):
-        self.linear_vel_command = int(self.stepper_max_speed * value)
+        self.linear_vel_command = self.stepper_max_speed * value
         if self.linear_vel_command != self.prev_linear_vel_command:
             self.prev_linear_vel_command = self.linear_vel_command
-            msg = DodobotLinear()
+            msg = LinearVelocity()
 
-            msg.command_type = 1  # velocity command
-            msg.command_value = self.linear_vel_command
-            msg.max_speed = -1
-            msg.acceleration = -1
+            msg.velocity = self.linear_vel_command
+            msg.acceleration = float("nan")
 
-            self.linear_pub.publish(msg)
+            self.linear_vel_pub.publish(msg)
 
     def home_linear(self):
         msg = DodobotLinear()

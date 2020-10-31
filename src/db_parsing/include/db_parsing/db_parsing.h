@@ -165,6 +165,7 @@ private:
     void writeSpeed(float speedA, float speedB);
     void writeK(PidKs* constants);
     void logPacketErrorCode(int error_code, unsigned long long packet_num);
+    void logPacketErrorCode(int error_code, unsigned long long packet_num, string message);
 
     void parseEncoder();
     double convertTicksToCm(long ticks);
