@@ -37,7 +37,7 @@ min_vel_y: 0.0
 max_vel_theta: 2.8  # 3.3  # 7.0
 
 # The absolute value of the minimum rotational velocity for the robot in rad/s
-min_vel_theta: 0.1  # 0.5
+min_vel_theta: 0.15  # 0.5
 
 
 ## Goal Tolerance Parameters ##
@@ -46,7 +46,7 @@ min_vel_theta: 0.1  # 0.5
 yaw_goal_tolerance: 0.05
 
 # The tolerance in meters for the controller in the x & y distance when achieving a goal
-xy_goal_tolerance: 0.05
+xy_goal_tolerance: 0.1
 
 # If goal tolerance is latched, if the robot ever reaches the goal xy location
 # it will simply rotate in place, even if it ends up outside the goal
