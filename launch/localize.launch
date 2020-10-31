@@ -4,7 +4,8 @@
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
-        <arg name="database_path" value="rtabmap-3-maxwells-grn-9-9-2020.db"/>
+        <!-- <arg name="database_path" value="rtabmap-3-maxwells-grn-9-9-2020.db"/> -->
+        <arg name="database_path" value="rtabmap-3-maxwells-grn-10-30-2020.db"/>
         <!-- <arg name="database_path" value="rtabmap-formlabs-101a.db"/> -->
         <!-- <arg name="database_path" value="rtabmap-formlabs-101a-edited.db"/> -->
     </include>

@@ -1,9 +1,9 @@
 
-# base_global_planner: "global_planner/GlobalPlanner" # alternatives: navfn/NavfnROS, global_planner/GlobalPlanner, carrot_planner/CarrotPlanner, navigation_experimental/goal_passer
-base_global_planner: "goal_passer/GoalPasser"
-# base_local_planner: "dwa_local_planner/DWAPlannerROS"
+base_global_planner: "global_planner/GlobalPlanner" # alternatives: navfn/NavfnROS, global_planner/GlobalPlanner, carrot_planner/CarrotPlanner, navigation_experimental/goal_passer
+# base_global_planner: "goal_passer/GoalPasser"
+base_local_planner: "dwa_local_planner/DWAPlannerROS"
 # base_local_planner: "base_local_planner/TrajectoryPlannerROS"
-base_local_planner: "teb_local_planner/TebLocalPlannerROS"
+# base_local_planner: "teb_local_planner/TebLocalPlannerROS"
 # recovery_behaviors:
 #   - name: 'super_conservative_reset1'
 #     type: 'clear_costmap_recovery/ClearCostmapRecovery'
@@ -78,7 +78,7 @@ oscillation_distance: 0.25
 # The rate in Hz at which to run the global planning loop. If the frequency is
 # set to 0.0, the global planner will only run when a new goal is received or
 # the local planner reports that its path is blocked.
-planner_frequency: 0.0  # 1.0
+planner_frequency: 1.0  # 1.0
 
 
 # How many times to allow for planning retries before executing recovery
