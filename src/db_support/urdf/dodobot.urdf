@@ -1,7 +1,11 @@
 <robot name="dodobot">
+  <material name="white">
+    <color rgba="1 1 1 1"/>
+  </material>
+
   <link name="base_link">
     <visual>
-      <origin rpy="0 0 0" xyz="0.15 0 0.35"/>
+      <origin rpy="0 0 1.5707" xyz="-0.04943 0.0 0.0"/>
       <geometry>
         <mesh filename="package://db_support/meshes/chassis.stl"/>
       </geometry>
@@ -16,10 +20,12 @@
 
   <link name="tilt_base_link">
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <!-- <origin rpy="1.5707 0 1.5707" xyz="0.01457 0.0027 0.0136"/> -->
+      <origin rpy="1.5707 0 1.5707" xyz="0.0456 0 0"/>
       <geometry>
         <mesh filename="package://db_support/meshes/camera.stl"/>
       </geometry>
+      <material name="white"/>
     </visual>
   </link>
 </robot>
