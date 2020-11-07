@@ -1,0 +1,10 @@
+<launch>
+    <include file="$(find db_support)/launch/db_support.launch">
+        <arg name="gui" value="true" />
+    </include>
+
+    <arg name="rvizconfig" default="$(find urdf_tutorial)/rviz/urdf.rviz" />
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+
+</launch>
