@@ -1,5 +1,7 @@
 ### Common costmap parameters ###
-robot_radius: 0.17
+# robot_radius: 0.17
+footprint: [[-0.12, -0.1556], [0.12, -0.1556], [-0.12, 0.1894], [0.12, 0.1894]]
+footprint_padding: 0.02
 obstacle_range: 4.0
 raytrace_range: 8.0
 obstacle_layer:
