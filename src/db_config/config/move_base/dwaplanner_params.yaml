@@ -120,4 +120,4 @@ oscillation_reset_dist: 0.05
 
 # Defines whether or not to eat up the plan as the robot moves along the path.
 # If set to true, points will fall off the end of the plan once the robot moves 1 meter past them.
-prune_plan: false
+prune_plan: true
