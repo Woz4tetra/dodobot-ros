@@ -1,0 +1,25 @@
+<robot name="dodobot">
+  <link name="base_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0.15 0 0.35"/>
+      <geometry>
+        <mesh filename="package://db_support/meshes/chassis.stl"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="base_link_to_camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="tilt_base_link"/>
+    <origin xyz="0.03016488 0.0 0.24785032"/>
+  </joint>
+
+  <link name="tilt_base_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://db_support/meshes/camera.stl"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>

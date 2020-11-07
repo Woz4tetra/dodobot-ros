@@ -2,5 +2,8 @@
 <launch>
     <include file="$(find db_config)/launch/dodobot.launch"/>
     <include file="$(find db_config)/launch/realsense.launch"/>
-    <include file="$(find db_config)/launch/rtabmap.launch"/>
+    <include file="$(find db_config)/launch/rtabmap.launch">
+        <arg name="database_path" value="rtabmap-3-maxwells-grn-10-30-2020.db"/>
+        <arg name="create_new_db" value="false"/>
+    </include>
 </launch>
