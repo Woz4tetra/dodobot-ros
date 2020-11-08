@@ -1,6 +1,9 @@
 <launch>
     <!-- Console launch prefix -->
-    <arg name="launch_prefix" default=""/>
+    <arg name="debug" default="false"/>
+    <arg     if="$(arg debug)" name="launch_prefix" default="gnome-terminal -- gdb --args"/>
+    <arg unless="$(arg debug)" name="launch_prefix" default=""/>
+
     <arg name="use_compressed" default="false"/>
     <arg     if="$(arg use_compressed)" name="image" default="/camera/color/image_raw_decompressed" />
     <arg unless="$(arg use_compressed)" name="image" default="/camera/color/image_raw" />
@@ -22,7 +25,7 @@
     <node pkg="darknet_ros" type="darknet_ros" name="darknet_ros" output="screen" launch-prefix="$(arg launch_prefix)">
         <param name="weights_path"          value="$(arg yolo_weights_path)" />
         <param name="config_path"           value="$(arg yolo_config_path)" />
-        <param name="image_view/enable_opencv"           value="false" />
+        <param name="image_view/enable_opencv"           value="$(arg use_compressed)" />
         <remap from="camera/rgb/image_raw"  to="$(arg image)" />
     </node>
 
