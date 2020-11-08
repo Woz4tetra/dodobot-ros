@@ -1,12 +1,20 @@
 <launch>
+
     <arg name="model" default="$(find db_support)/urdf/dodobot.urdf"/>
     <arg name="gui" default="false" />
 
-    <param name="robot_description" command="$(find xacro)/xacro.py $(arg model)" />
+    <param name="robot_description" command="$(find xacro)/xacro $(arg model)" />
     <param name="use_gui" value="$(arg gui)"/>
+    <rosparam param="source_list" subst_value="True">
+    [
+        "/dodobot/linear_joint_state",
+        "/dodobot/tilter_joint_state"
+    ]
+    </rosparam>
 
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
     <node pkg="tf" type="static_transform_publisher" name="camera_to_rotate" args="0.02784 0 0.01587 0 0 0 1 camera_rotate_link camera_link 33" />
+    <node pkg="tf" type="static_transform_publisher" name="base_link_to_footprint" args="0 0 0.0312 0 0 0 1 base_link wheel_center_link 33" />
 </launch>

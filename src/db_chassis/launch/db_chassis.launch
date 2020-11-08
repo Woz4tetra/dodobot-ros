@@ -17,6 +17,7 @@
 
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <param name="odom_estimate_method" value="runge-kutta"/>
+            <!-- <param name="odom_estimate_method" value="geometric"/> -->
             <param name="publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
             <param name="use_sensor_msg_time" value="$(arg db_chassis_use_sensor_msg_time)"/>
             <param name="odom_parent_frame" value="$(arg db_chassis_odom_frame)"/>

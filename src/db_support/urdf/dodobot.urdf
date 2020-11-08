@@ -7,7 +7,7 @@
     <color rgba="0 0.369 0.722 1"/>
   </material>
 
-  <link name="base_link">
+  <link name="wheel_center_link">
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
@@ -21,7 +21,7 @@
   </link>
 
   <joint name="base_link_to_tilt_base_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="wheel_center_link"/>
     <child link="tilt_base_link"/>
     <origin xyz="0.04796 0.0 0.24785"/>
   </joint>
@@ -48,7 +48,7 @@
   </link>
 
   <joint name="linear_base_to_base_link" type="fixed">
-    <parent link="base_link"/>
+    <parent link="wheel_center_link"/>
     <child link="linear_base_link"/>
     <origin xyz="0.06046488 0.0 0.01825032"/>
   </joint>
