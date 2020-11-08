@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <include file="$(find db_config)/launch/dodobot.launch"/>
+    <include file="$(find db_config)/launch/dodobot.launch">
+        <arg name="db_chassis_publish_odom_tf" value="true"/>
+    </include>
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
-        <arg name="database_path" value="rtabmap-3-maxwells-grn-10-30-2020.db"/>
-        <arg name="create_new_db" value="false"/>
+        <arg name="database_path" value="rtabmap-11-07-2020.db"/>
+        <arg name="create_new_db" value="true"/>
     </include>
 </launch>

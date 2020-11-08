@@ -16,6 +16,7 @@ from dynamic_reconfigure.server import Server
 from geometry_msgs.msg import Twist, TwistStamped
 from std_msgs.msg import Float32MultiArray
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 
 from db_chassis.cfg import DodobotChassisConfig
 from db_chassis.srv import DodobotOdomReset, DodobotOdomResetResponse
@@ -137,15 +138,20 @@ class DodobotChassis:
         self.drive_sub_msg = DodobotDrive()
         self.drive_pub_msg = DodobotDrive()
 
+        self.drive_sub_msg_dt_sum = 0.0
+        self.drive_sub_msg_dt_sum_count = 0
+
         self.prev_left_ticks = None
         self.prev_right_ticks = None
-        self.prev_time = rospy.Time.now()
+        self.prev_drive_msg_time = rospy.Time.now()
+        self.prev_odom_time = rospy.Time.now()
 
         # gripper variables
         self.parallel_gripper_msg = DodobotParallelGripper()
         self.gripper_msg = DodobotGripper()
 
         # odometry state
+        self.odom_timestamp = rospy.Time.now()
         self.odom_x = 0.0
         self.odom_y = 0.0
         self.odom_t = 0.0
@@ -182,6 +188,23 @@ class DodobotChassis:
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = self.odom_parent_frame
         self.odom_msg.child_frame_id = self.child_frame
+
+        # JointState messages
+        self.linear_joint = JointState()
+        self.linear_joint.header.frame_id = "base_link"
+        self.linear_joint.name = ["linear_to_linear_base_link"]
+        self.linear_joint.position = [0.0]
+        self.linear_joint.velocity = []
+        self.linear_joint.effort = []
+        self.linear_joint_pub = rospy.Publisher("linear_joint_state", JointState, queue_size=10)
+
+        self.tilter_joint = JointState()
+        self.tilter_joint.header.frame_id = "base_link"
+        self.tilter_joint.name = ["tilt_base_to_camera_rotate_joint"]
+        self.tilter_joint.position = [0.0]
+        self.tilter_joint.velocity = []
+        self.tilter_joint.effort = []
+        self.tilter_joint_pub = rospy.Publisher("tilter_joint_state", JointState, queue_size=10)
 
         # Publishers
         self.odom_pub = rospy.Publisher("odom", Odometry, queue_size=5)
@@ -337,27 +360,41 @@ class DodobotChassis:
         return self.servo_to_angle(command, self.tilter_upper_command, self.tilter_lower_command, self.tilter_lower_angle, self.tilter_upper_angle)
 
     def drive_callback(self, drive_sub_msg):
+        dt = (drive_sub_msg.header.stamp - self.prev_drive_msg_time).to_sec()
+        self.drive_sub_msg_dt_sum += dt
+        self.drive_sub_msg_dt_sum_count += 1
+        if self.drive_sub_msg_dt_sum_count > 100:
+            rospy.loginfo("drive dt avg: %s" % (
+                    self.drive_sub_msg_dt_sum / self.drive_sub_msg_dt_sum_count
+                )
+            )
+            self.drive_sub_msg_dt_sum = 0.0
+            self.drive_sub_msg_dt_sum_count = 0
+        self.prev_drive_msg_time = drive_sub_msg.header.stamp
         self.drive_sub_msg = drive_sub_msg
 
         if self.prev_left_ticks == None or self.prev_right_ticks == None:
             self.prev_left_ticks = self.drive_sub_msg.left_enc_pos
             self.prev_right_ticks = self.drive_sub_msg.right_enc_pos
-            self.prev_time = rospy.Time.now()
 
     def tilter_callback(self, tilter_sub_msg):
         self.camera_tilt_angle = self.tilt_command_to_angle_rad(tilter_sub_msg.position)
+        self.tilter_joint.position[0] = -self.camera_tilt_angle
 
     def linear_callback(self, linear_sub_msg):
         stepper_z_pos = linear_sub_msg.position * self.step_ticks_to_linear_m
 
         now = rospy.Time.now()
-        self.tf_broadcaster.sendTransform(
-            (0.0, 0.0, stepper_z_pos),
-            self.zero_quat,
-            now,
-            self.linear_frame,
-            self.linear_base_frame,
-        )
+        # self.tf_broadcaster.sendTransform(
+        #     (0.0, 0.0, stepper_z_pos),
+        #     self.zero_quat,
+        #     now,
+        #     self.linear_frame,
+        #     self.linear_base_frame,
+        # )
+
+        self.linear_joint.position[0] = stepper_z_pos
+        self.linear_joint.header.stamp = now
 
         msg = LinearPosition()
         msg.position = stepper_z_pos
@@ -440,15 +477,16 @@ class DodobotChassis:
         clock_rate = rospy.Rate(60)
 
         # prev_report_time = rospy.Time.now()
-        while not rospy.is_shutdown():
-            try:
+        try:
+            while not rospy.is_shutdown():
                 # wait for encoders to be initialized
                 if self.prev_left_ticks == None or self.prev_right_ticks == None:
                     continue
 
                 self.compute_odometry()
                 self.publish_chassis_data()
-                self.publish_camera_tfs()
+                self.publish_joint_states()
+                # self.publish_camera_tfs()
 
                 # if rospy.Time.now() - prev_report_time > rospy.Duration(0.25):
                 #     rospy.loginfo("odom; speed: %s\tangular: %s" % (self.odom_speed, self.odom_vt))
@@ -457,11 +495,14 @@ class DodobotChassis:
                 #     rospy.loginfo("measure; l: %s\tr: %s\n" % (self.drive_sub_msg.left_enc_speed, self.drive_sub_msg.right_enc_speed))
                 #
                 #     prev_report_time = rospy.Time.now()
-            except BaseException, e:
-                traceback.print_exc()
-                rospy.signal_shutdown(str(e))
+                clock_rate.sleep()
+        except BaseException, e:
+            traceback.print_exc()
+            rospy.signal_shutdown(str(e))
 
-            clock_rate.sleep()
+    def publish_joint_states(self):
+        self.linear_joint_pub.publish(self.linear_joint)
+        self.tilter_joint_pub.publish(self.tilter_joint)
 
     def publish_camera_tfs(self):
         now = rospy.Time.now()
@@ -478,7 +519,14 @@ class DodobotChassis:
         if self.use_sensor_msg_time:
             now = self.drive_sub_msg.header.stamp
         else:
-            now = rospy.Time.now()
+            now = self.odom_timestamp
+
+        # rospy.loginfo("drive t: %s, odom t: %s, dt: %s" % (
+        #     self.drive_sub_msg.header.stamp.to_sec(),
+        #     now.to_sec(),
+        #     (now - self.drive_sub_msg.header.stamp).to_sec()
+        #     )
+        # )
 
         odom_quaternion = tf.transformations.quaternion_from_euler(0.0, 0.0, self.odom_t)
         if self.publish_odom_tf:
@@ -520,8 +568,9 @@ class DodobotChassis:
 
     def compute_odometry(self):
         now = rospy.Time.now()
-        dt = (now - self.prev_time).to_sec()
-        self.prev_time = now
+        self.odom_timestamp = now
+        dt = (now - self.prev_odom_time).to_sec()
+        self.prev_odom_time = now
 
         cur_left_ticks = self.drive_sub_msg.left_enc_pos
         cur_right_ticks = self.drive_sub_msg.right_enc_pos

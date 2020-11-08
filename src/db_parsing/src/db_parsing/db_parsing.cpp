@@ -9,6 +9,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     nh.param<int>("serial_baud", _serialBaud, 115200);
     nh.param<string>("drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
     nh.param<int>("write_thread_rate", write_thread_rate, 60);
+    nh.param<bool>("use_sensor_msg_time", use_sensor_msg_time, true);
 
     ROS_INFO_STREAM("serial_port: " << _serialPort);
     ROS_INFO_STREAM("serial_baud: " << _serialBaud);
@@ -746,7 +747,14 @@ void DodobotParsing::logPacketErrorCode(int error_code, unsigned long long packe
 
 void DodobotParsing::parseDrive()
 {
-    CHECK_SEGMENT; drive_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        drive_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        drive_msg.header.stamp = ros::Time::now();
+    }
+
     CHECK_SEGMENT; drive_msg.left_enc_pos = stol(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.right_enc_pos = stol(_currentBufferSegment);
     CHECK_SEGMENT; drive_msg.left_enc_speed = stof(_currentBufferSegment);
@@ -761,7 +769,13 @@ void DodobotParsing::parseDrive()
 
 void DodobotParsing::parseBumper()
 {
-    CHECK_SEGMENT; bumper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        bumper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        bumper_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; bumper_msg.left = stol(_currentBufferSegment);
     CHECK_SEGMENT; bumper_msg.right = stol(_currentBufferSegment);
 
@@ -770,7 +784,13 @@ void DodobotParsing::parseBumper()
 
 void DodobotParsing::parseFSR()
 {
-    CHECK_SEGMENT; fsr_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        fsr_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        fsr_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; fsr_msg.left = (uint16_t)stoi(_currentBufferSegment);
     CHECK_SEGMENT; fsr_msg.right = (uint16_t)stoi(_currentBufferSegment);
 
@@ -779,7 +799,13 @@ void DodobotParsing::parseFSR()
 
 void DodobotParsing::parseGripper()
 {
-    CHECK_SEGMENT; gripper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        gripper_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        gripper_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; gripper_position = (int)stoi(_currentBufferSegment);
 
     gripper_msg.position = gripper_position;
@@ -789,7 +815,13 @@ void DodobotParsing::parseGripper()
 
 void DodobotParsing::parseLinear()
 {
-    CHECK_SEGMENT; linear_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        linear_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        linear_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; linear_msg.position = (int32_t)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.has_error = (bool)stoi(_currentBufferSegment);
     CHECK_SEGMENT; linear_msg.is_homed = (bool)stoi(_currentBufferSegment);
@@ -800,7 +832,13 @@ void DodobotParsing::parseLinear()
 
 void DodobotParsing::parseLinearEvent()
 {
-    CHECK_SEGMENT; linear_event_msg.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        linear_event_msg.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        linear_event_msg.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; linear_event_msg.event_num = (int)stoi(_currentBufferSegment);
 
     switch (linear_event_msg.event_num) {
@@ -821,7 +859,13 @@ void DodobotParsing::parseLinearEvent()
 
 void DodobotParsing::parseBattery()
 {
-    CHECK_SEGMENT; battery_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        battery_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        battery_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; battery_msg.current = stof(_currentBufferSegment);
     CHECK_SEGMENT; // battery_msg doesn't have a slot for power
     CHECK_SEGMENT; battery_msg.voltage = stof(_currentBufferSegment);
@@ -839,7 +883,13 @@ void DodobotParsing::parseIR()
 
 void DodobotParsing::parseTilter()
 {
-    CHECK_SEGMENT; tilter_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    CHECK_SEGMENT;
+    if (use_sensor_msg_time) {
+        tilter_msg.header.stamp = getDeviceTime((uint32_t)stol(_currentBufferSegment));
+    }
+    else {
+        tilter_msg.header.stamp = ros::Time::now();
+    }
     CHECK_SEGMENT; tilter_msg.position = (int)stoi(_currentBufferSegment);
 
     tilter_pub.publish(tilter_msg);

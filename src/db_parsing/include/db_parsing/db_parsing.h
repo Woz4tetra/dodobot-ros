@@ -71,6 +71,7 @@ private:
     uint32_t offsetTimeMs;
     size_t _recvCharIndex;
     char* _recvCharBuffer;
+    bool use_sensor_msg_time;
 
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
