@@ -19,7 +19,7 @@ Vis/InlierDistance: 0.1   # [%s = 0] Maximum distance for feature correspondence
 
 Mem/RehearsalSimilarity: 0.3   # Rehearsal similarity.
 
-Reg/Force3DoF: false   # Force 3 degrees-of-freedom transform (3Dof: x,y and yaw). Parameters z, roll and pitch will be set to 0.
+Reg/Force3DoF: true   # Force 3 degrees-of-freedom transform (3Dof: x,y and yaw). Parameters z, roll and pitch will be set to 0.
 
 GridGlobal/MinSize:  20.0   # Minimum map size (m).
 

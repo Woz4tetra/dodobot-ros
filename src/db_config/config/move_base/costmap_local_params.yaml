@@ -6,11 +6,11 @@ width: 3.0
 height: 3.0
 origin_x: -1.5
 origin_y: -1.5
-resolution: 0.05
+resolution: 0.025
 # static_map: false
 rolling_window: true
 cost_scaling_factor: 2.5
-inflation_radius: 0.1
+inflation_radius: 0.05
 
 plugins:
     - {name: static,                    type: "costmap_2d::StaticLayer"}

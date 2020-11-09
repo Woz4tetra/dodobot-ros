@@ -26,8 +26,8 @@
 
         <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="screen" args="$(arg rtabmap_args)">
             <rosparam file="$(find db_config)/config/rtabmap/rtabmap_common.yaml" command="load"/>
-            <rosparam     if="$(arg localization)" file="$(find db_config)/config/rtabmap/rtabmap_mapping.yaml" command="load"/>
-            <rosparam unless="$(arg localization)" file="$(find db_config)/config/rtabmap/rtabmap_localization.yaml" command="load"/>
+            <rosparam     if="$(arg localization)" file="$(find db_config)/config/rtabmap/rtabmap_localization.yaml" command="load"/>
+            <rosparam unless="$(arg localization)" file="$(find db_config)/config/rtabmap/rtabmap_mapping.yaml" command="load"/>
 
             <param name="database_path"       type="string" value="$(arg database_path)"/>
             <param name="frame_id" type="string" value="base_link"/>

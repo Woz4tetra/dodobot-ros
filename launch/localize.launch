@@ -4,7 +4,7 @@
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
-        <arg name="database_path" value="rtabmap-10-30-2020.db"/>
+        <arg name="database_path" value="rtabmap-11-08-2020.db"/>
     </include>
     <!-- <include file="$(find db_config)/launch/move_base.launch"/> -->
 </launch>

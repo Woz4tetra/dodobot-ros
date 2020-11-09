@@ -360,17 +360,18 @@ class DodobotChassis:
         return self.servo_to_angle(command, self.tilter_upper_command, self.tilter_lower_command, self.tilter_lower_angle, self.tilter_upper_angle)
 
     def drive_callback(self, drive_sub_msg):
-        dt = (drive_sub_msg.header.stamp - self.prev_drive_msg_time).to_sec()
-        self.drive_sub_msg_dt_sum += dt
-        self.drive_sub_msg_dt_sum_count += 1
-        if self.drive_sub_msg_dt_sum_count > 100:
-            rospy.loginfo("drive dt avg: %s" % (
-                    self.drive_sub_msg_dt_sum / self.drive_sub_msg_dt_sum_count
-                )
-            )
-            self.drive_sub_msg_dt_sum = 0.0
-            self.drive_sub_msg_dt_sum_count = 0
-        self.prev_drive_msg_time = drive_sub_msg.header.stamp
+        # dt = (drive_sub_msg.header.stamp - self.prev_drive_msg_time).to_sec()
+        # self.drive_sub_msg_dt_sum += dt
+        # self.drive_sub_msg_dt_sum_count += 1
+        # if self.drive_sub_msg_dt_sum_count > 100:
+        #     rospy.loginfo("drive dt avg: %s" % (
+        #             self.drive_sub_msg_dt_sum / self.drive_sub_msg_dt_sum_count
+        #         )
+        #     )
+        #     self.drive_sub_msg_dt_sum = 0.0
+        #     self.drive_sub_msg_dt_sum_count = 0
+        # self.prev_drive_msg_time = drive_sub_msg.header.stamp
+        
         self.drive_sub_msg = drive_sub_msg
 
         if self.prev_left_ticks == None or self.prev_right_ticks == None:
