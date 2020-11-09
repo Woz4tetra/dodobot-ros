@@ -1,0 +1,4 @@
+# RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters.
+
+Mem/IncrementalMemory: false
+Mem/InitWMWithAllNodes: true

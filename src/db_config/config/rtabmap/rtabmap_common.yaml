@@ -1,0 +1,32 @@
+# RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters.
+
+Rtabmap/DetectionRate: 0.75   # Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate.
+Rtabmap/TimeThr: 0   # Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time.
+
+RGBD/ProximityBySpace: true   # Detection over locations (in Working Memory) near in space.
+RGBD/OptimizeFromGraphEnd: false   # Optimize graph from the newest node. If false, the graph is optimized from the oldest node of the current graph (this adds an overhead computation to detect to oldest node of the current graph, but it can be useful to preserve the map referential from the oldest node). Warning when set to false: when some nodes are transferred, the first referential of the local map may change, resulting in momentary changes in robot/map position (which are annoying in teleoperation).
+RGBD/LinearUpdate: 0.1   # Minimum linear displacement (m) to update the map. Rehearsal is done prior to this, so weights are still updated.
+RGBD/AngularUpdate: 0.01   # Minimum angular displacement (rad) to update the map. Rehearsal is done prior to this, so weights are still updated.
+RGBD/ProximityPathMaxNeighbors: 0   # Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans.
+
+
+Kp/MaxDepth: 4.0   # Filter extracted keypoints by depth (0=inf).
+Kp/DetectorStrategy: 8   # 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE.
+Reg/Strategy: 0   # 0=Vis, 1=Icp, 2=VisIcp
+
+Vis/MinInliers: 15   # Minimum feature correspondences to compute/accept the transformation.
+Vis/InlierDistance: 0.1   # [%s = 0] Maximum distance for feature correspondences. Used by 3D->3D estimation approach.
+
+Mem/RehearsalSimilarity: 0.3   # Rehearsal similarity.
+
+Reg/Force3DoF: false   # Force 3 degrees-of-freedom transform (3Dof: x,y and yaw). Parameters z, roll and pitch will be set to 0.
+
+GridGlobal/MinSize:  20.0   # Minimum map size (m).
+
+Grid/CellSize:  0.025   # Resolution of the occupancy grid.
+Grid/RangeMin:  0.02   # Minimum range from sensor.
+Grid/RangeMax:  4.0   # Maximum range from sensor. 0=inf.
+Grid/3D: false   # A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and /"%s/" is false.
+Grid/MaxGroundHeight:  0.005   # Maximum ground height (0=disabled). Should be set if /"%s/" is false.
+Grid/RayTracing: true   # Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If %s=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored.
+Grid/MaxObstacleHeight:  0.35   # Maximum obstacles height (0=disabled).
