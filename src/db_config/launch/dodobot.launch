@@ -8,9 +8,10 @@
     </include>
 
     <include file="$(find db_joystick)/launch/parsing_joystick.launch"/>
+    <include file="$(find db_parsing)/launch/db_parsing.launch"/>
 
-    <!-- <include file="$(find db_parsing)/launch/db_parsing.launch"/> -->
     <include file="$(find db_config)/launch/static_transforms.launch"/>
-    <include file="$(find db_support)/launch/db_support.launch"/>
+    <!-- <include file="$(find db_support)/launch/db_support.launch"/> -->
+    
     <!-- <include file="$(find db_config)/launch/cmd_vel_mux.launch"/> -->
 </launch>
