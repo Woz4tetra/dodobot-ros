@@ -7,7 +7,7 @@
     <arg name="db_chassis_odom_frame" default="odom"/>
 
     <group ns="dodobot" >
-        <node name="db_chassis" pkg="db_chassis" type="db_chassis_node.py" output="screen" required="true">
+        <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="screen" required="true">
             <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
 
             <param name="min_angular_speed" value="0.7"/>
@@ -16,7 +16,7 @@
             <param name="max_linear_speed" value="0.33"/>
 
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
-            <param name="odom_estimate_method" value="runge-kutta"/>
+            <!-- <param name="odom_estimate_method" value="runge-kutta"/> -->
             <!-- <param name="odom_estimate_method" value="geometric"/> -->
             <param name="publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
             <param name="use_sensor_msg_time" value="$(arg db_chassis_use_sensor_msg_time)"/>
