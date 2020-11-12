@@ -28,6 +28,7 @@ Grid/CellSize:  0.025   # Resolution of the occupancy grid.
 Grid/RangeMin:  0.02   # Minimum range from sensor.
 Grid/RangeMax:  4.0   # Maximum range from sensor. 0=inf.
 Grid/3D: false   # A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and /"%s/" is false.
-Grid/MaxGroundHeight:  0.005   # Maximum ground height (0=disabled). Should be set if /"%s/" is false.
+Grid/MaxGroundHeight:  0.0   # Maximum ground height (0=disabled). Should be set if /"%s/" is false.
+Grid/MinGroundHeight: 0.01  # Minimum ground height (0=disabled).
 Grid/RayTracing: true   # Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If %s=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored.
 Grid/MaxObstacleHeight:  0.35   # Maximum obstacles height (0=disabled).

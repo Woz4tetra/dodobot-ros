@@ -7,7 +7,7 @@
     <arg     if="$(arg create_new_db)" name="rtabmap_args"  default="--delete_db_on_start"/>
     <arg unless="$(arg create_new_db)" name="rtabmap_args"  default=""/>
 
-    <include file="$(find db_config)/launch/rgbd_msgs.launch"/>
+    <!-- <include file="$(find db_config)/launch/rgbd_msgs.launch"/> -->
 
     <group ns="rtabmap">
         <!-- <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="screen">
@@ -31,19 +31,22 @@
 
             <param name="database_path"       type="string" value="$(arg database_path)"/>
             <param name="frame_id" type="string" value="base_link"/>
-            <param name="odom_frame_id" type="string" value="odom"/>
+            <!-- <param name="odom_frame_id" type="string" value="odom"/> -->
             <param name="odom_tf_angular_variance" type="double" value="1.0"/>
             <param name="odom_tf_linear_variance" type="double" value="0.05"/>
             <param name="tf_delay" type="double" value="0.03"/>  <!-- Rate at which the TF from /map to /odom is published -->
 
             <param name="subscribe_depth" type="bool" value="true"/>
             <param name="subscribe_rgb" type="bool" value="true"/>
-            <param name="approx_sync" type="bool" value="false"/>
-            <param name="wait_for_transform_duration" type="double" value="0.3"/>
+            <param name="approx_sync" type="bool" value="true"/>
+            <param name="wait_for_transform_duration" type="double" value="0.1"/>
+            <!-- <param name="odom_sensor_sync" type="bool" value="true"/> -->
+
+            <remap from="odom" to="/dodobot/odom"/>
 
             <remap from="rgb/image"       to="/camera/color/image_raw"/>
             <remap from="depth/image"     to="/camera/aligned_depth_to_color/image_raw"/>
-            <!-- <remap from="depth/image"     to="/camera/depth_registered/sw_registered/image_rect_raw"/> -->
+            <!-- <remap from="depth/image"     to="/camera/depth/image_rect_raw"/> -->
             <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
 
             <!-- When sending goals on /rtabmap/goal topic, use actionlib to communicate with move_base -->
