@@ -48,7 +48,7 @@
         <arg name="depth_fps"                value="30"/>
         <arg name="infra_fps"                value="30"/>
         <arg name="color_fps"                value="15" if="$(arg hirez_mode)"/>
-        <arg name="color_fps"                value="30" unless="$(arg hirez_mode)"/>
+        <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/>
         <arg name="gyro_fps"                 value="400"/>
         <arg name="accel_fps"                value="250"/>
         <arg name="enable_gyro"              value="false"/>

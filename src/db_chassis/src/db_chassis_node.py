@@ -371,7 +371,7 @@ class DodobotChassis:
         #     self.drive_sub_msg_dt_sum = 0.0
         #     self.drive_sub_msg_dt_sum_count = 0
         # self.prev_drive_msg_time = drive_sub_msg.header.stamp
-        
+
         self.drive_sub_msg = drive_sub_msg
 
         if self.prev_left_ticks == None or self.prev_right_ticks == None:
