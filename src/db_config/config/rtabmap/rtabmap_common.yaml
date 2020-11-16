@@ -2,21 +2,21 @@
 
 Rtabmap/DetectionRate: 1.5   # Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate.
 Rtabmap/TimeThr: 0   # Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time.
+Rtabmap/LoopThr: 0.06  # 0.11, Loop closing threshold
 
 RGBD/ProximityBySpace: true   # Detection over locations (in Working Memory) near in space.
-RGBD/OptimizeFromGraphEnd: false   # Optimize graph from the newest node. If false, the graph is optimized from the oldest node of the current graph (this adds an overhead computation to detect to oldest node of the current graph, but it can be useful to preserve the map referential from the oldest node). Warning when set to false: when some nodes are transferred, the first referential of the local map may change, resulting in momentary changes in robot/map position (which are annoying in teleoperation).
+RGBD/OptimizeFromGraphEnd: true   # Optimize graph from the newest node. If false, the graph is optimized from the oldest node of the current graph (this adds an overhead computation to detect to oldest node of the current graph, but it can be useful to preserve the map referential from the oldest node). Warning when set to false: when some nodes are transferred, the first referential of the local map may change, resulting in momentary changes in robot/map position (which are annoying in teleoperation).
 RGBD/LinearUpdate: 0.1   # Minimum linear displacement (m) to update the map. Rehearsal is done prior to this, so weights are still updated.
 RGBD/AngularUpdate: 0.2   # Minimum angular displacement (rad) to update the map. Rehearsal is done prior to this, so weights are still updated.
 RGBD/ProximityPathMaxNeighbors: 0   # Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans.
 
-
-Kp/MaxDepth: 4.0   # Filter extracted keypoints by depth (0=inf).
+Kp/MaxDepth: 8.0   # Filter extracted keypoints by depth (0=inf).
 Kp/DetectorStrategy: 8   # 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE.
 Reg/Strategy: 0   # 0=Vis, 1=Icp, 2=VisIcp
 
-Vis/MaxDepth: 4.0   # Max depth of the features (0 means no limit).
-Vis/MinInliers: 15   # Minimum feature correspondences to compute/accept the transformation.
-Vis/InlierDistance: 0.1   # [%s = 0] Maximum distance for feature correspondences. Used by 3D->3D estimation approach.
+Vis/MaxDepth: 8.0   # Max depth of the features (0 means no limit).
+Vis/MinInliers: 13   # Minimum feature correspondences to compute/accept the transformation.
+Vis/InlierDistance: 2.0   # [%s = 0] Maximum distance for feature correspondences. Used by 3D->3D estimation approach.
 
 Mem/RehearsalSimilarity: 0.3   # Rehearsal similarity.
 
