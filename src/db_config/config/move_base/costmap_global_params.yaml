@@ -5,7 +5,7 @@ publish_frequency: 0.5
 resolution: 0.025
 # static_map: true
 rolling_window: false
-cost_scaling_factor: 5.0
+cost_scaling_factor: 3.0
 infration_radius: 0.05
 # width: 5.0
 # height: 5.0
