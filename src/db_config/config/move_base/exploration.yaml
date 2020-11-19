@@ -4,11 +4,13 @@
 robot_base_frame: base_link  # base_link
 
 # Specifies topic of source nav_msgs/OccupancyGrid. Mandatory.
-costmap_topic: /move_base/costmap  # costmap
+# costmap_topic: /move_base/global_costmap/costmap  # costmap
+costmap_topic: /map
 
 # Specifies topic of source map_msgs/OccupancyGridUpdate. Not necessary if
 # source of map is always publishing full updates, i.e. does not provide this topic.
-costmap_updates_topic: /move_base/costmap_updates  # costmap_updates
+# costmap_updates_topic: /move_base/global_costmap/costmap_updates  # costmap_updates
+costmap_updates_topic: /map_updates
 
 # Specifies whether or not publish visualized frontiers.
 visualize: true  # false
@@ -18,7 +20,7 @@ planner_frequency: 1.0  # 1.0
 
 # Time in seconds. When robot do not make any progress for progress_timeout,
 # current goal will be abandoned.
-progress_timeout: 30.0  # 30.0
+progress_timeout: 10.0  # 30.0
 
 # Used for weighting frontiers. This multiplicative parameter affects frontier
 # potential component of the frontier weight (distance to frontier).
@@ -38,4 +40,4 @@ transform_tolerance: 0.3
 
 # Minimum size of the frontier to consider the frontier as the exploration goal.
 # In meters.
-min_frontier_size: 0.5
+min_frontier_size: 0.75
