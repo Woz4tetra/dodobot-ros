@@ -1,4 +1,5 @@
 # RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters.
 
+RGBD/ProximityBySpace: false   # Detection over locations (in Working Memory) near in space.
 Mem/IncrementalMemory: false
 Mem/InitWMWithAllNodes: true

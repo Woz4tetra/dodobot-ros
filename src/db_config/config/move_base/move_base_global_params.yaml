@@ -23,17 +23,25 @@ recovery_behaviors:
     type: 'rotate_recovery/RotateRecovery'
 
 super_conservative_reset1:
-  reset_distance: 3.0
+    reset_distance: 3.0
+    layer_names: ["obstacle_layer"]
 conservative_reset1:
-  reset_distance: 1.5
+    reset_distance: 1.5
+    layer_names: ["obstacle_layer"]
 aggressive_reset1:
-  reset_distance: 0.0
+    reset_distance: 0.0
+    layer_names: ["obstacle_layer"]
 super_conservative_reset2:
-  reset_distance: 3.0
+    reset_distance: 3.0
+    layer_names: ["obstacle_layer"]
 conservative_reset2:
-  reset_distance: 1.5
+    reset_distance: 1.5
+    layer_names: ["obstacle_layer"]
 aggressive_reset2:
-  reset_distance: 0.0
+    reset_distance: 0.0
+    layer_names: ["obstacle_layer"]
+# clearing_rotation1:
+# clearing_rotation2:
 
 # The rate in Hz at which to run the control loop and send velocity commands
 # to the base.

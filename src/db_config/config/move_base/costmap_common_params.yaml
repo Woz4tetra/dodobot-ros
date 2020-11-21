@@ -1,9 +1,9 @@
 ### Common costmap parameters ###
 # robot_radius: 0.17
 footprint: [[-0.1556, -0.12], [-0.1556, 0.12], [0.1894, 0.12], [0.1894, -0.12]]
-footprint_padding: 0.02
-obstacle_range: 1.0
-raytrace_range: 3.0
+footprint_padding: 0.01
+# obstacle_range: 2.0
+# raytrace_range: 4.0
 obstacle_layer:
     enabled: true
     max_obstacle_height: 0.35
@@ -20,11 +20,11 @@ obstacle_layer:
         marking: true
         clearing: true
 
-        obstacle_range: 1.0
-        raytrace_range: 3.0
+        obstacle_range: 2.0
+        raytrace_range: 4.0
         max_obstacle_height: 0.35
-        min_obstacle_height: 0.1
-        inflation_radius: 0.1
+        min_obstacle_height: 0.05
+        inflation_radius: 0.01
         track_unknown_space: false
         combination_method: 1
 

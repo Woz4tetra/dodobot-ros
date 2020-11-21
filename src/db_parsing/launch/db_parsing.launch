@@ -11,6 +11,9 @@
         <param name="serial_baud" type="int" value="115200"/>
         <param name="drive_cmd_topic" type="string" value="$(arg drive_cmd_topic)"/>
         <param name="use_sensor_msg_time" type="bool" value="false"/>
+        <param name="display_img_topic" type="string" value="display_image"/>
+        <param name="jpeg_image_quality" type="int" value="35"/>
+        <param name="starter_image_path" type="string" value="$(find db_parsing)/launch/dodobot.jpeg"/>
 
         <node type="db_parsing_node" name="db_parsing_node" pkg="db_parsing" required="true" output="screen"/>
     </group>

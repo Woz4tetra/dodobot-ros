@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="hirez_mode"         default="false"/>
+    <arg name="depth_registered_processing" default="true"/>
+    <arg name="sw_registered_processing" default="true"/>
     <arg name="compute_pointcloud" default="true"/>
     <arg name="pointcloud_use_hw" default="false"/>
 
@@ -8,6 +10,25 @@
     <node unless="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense/realsense_slam_config.yaml" />
 
     <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" />
+
+
+    <group ns="camera">
+        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
+                args="load depth_image_proc/point_cloud_xyzrgb realsense2_camera_manager" respawn="false">
+            <remap from="rgb/image_rect_color"        to="color/image_raw" />
+            <remap from="rgb/camera_info"             to="color/camera_info" />
+            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
+            <!-- <remap from="depth_registered/points"     to="points" /> -->
+        </node>
+
+        <node if="$(eval depth_registered_processing and sw_registered_processing)" pkg="nodelet" type="nodelet" name="register_depth"
+            args="load depth_image_proc/register realsense2_camera_manager false" respawn="false">
+            <remap from="rgb/camera_info"             to="color/camera_info" />
+            <remap from="depth/camera_info"           to="depth/camera_info" />
+            <remap from="depth/image_rect"            to="depth/image_rect_raw" />
+            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
+        </node>
+    </group>
 
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
         <arg name="tf_prefix"                value="camera"/>
@@ -22,7 +43,7 @@
         <arg name="pointcloud_texture_stream" value="RS2_STREAM_COLOR"/>
         <arg name="pointcloud_texture_index"  value="0"/>
         <arg name="enable_sync"              value="true"/>
-        <arg name="align_depth"              value="$(eval compute_pointcloud and not pointcloud_use_hw)"/>
+        <arg name="align_depth"              value="$(eval depth_registered_processing and not sw_registered_processing)"/>
 
         <arg name="fisheye_width"            value="640"/>
         <arg name="fisheye_height"           value="480"/>
@@ -30,12 +51,16 @@
 
         <arg name="depth_width"              value="640"/>
         <arg name="depth_height"             value="480"/>
+        <!-- <arg name="depth_width"              value="848"/> -->
+        <!-- <arg name="depth_height"             value="480"/> -->
         <arg name="enable_depth"             value="true"/>
 
         <arg name="color_width"              value="1920" if="$(arg hirez_mode)"/>
         <arg name="color_height"             value="1080" if="$(arg hirez_mode)"/>
         <arg name="color_width"              value="640"  unless="$(arg hirez_mode)"/>
         <arg name="color_height"             value="480"  unless="$(arg hirez_mode)"/>
+        <!-- <arg name="color_width"              value="960"  unless="$(arg hirez_mode)"/> -->
+        <!-- <arg name="color_height"             value="540"  unless="$(arg hirez_mode)"/> -->
         <arg name="enable_color"             value="true"/>
 
         <arg name="infra_width"              value="848"/>
@@ -55,7 +80,7 @@
         <arg name="enable_accel"             value="false"/>
 
         <arg name="publish_tf"               value="true"/>
-        <arg name="tf_publish_rate"          value="10"/>
+        <!-- <arg name="tf_publish_rate"          value="10"/> -->
 
         <arg     if="$(eval compute_pointcloud and pointcloud_use_hw)" name="filters" value="pointcloud"/>
         <arg unless="$(arg compute_pointcloud)" name="filters" value=""/>
@@ -71,14 +96,5 @@
     </include>
 
 
-    <group ns="camera">
-        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
-                args="load depth_image_proc/point_cloud_xyzrgb realsense2_camera_manager" respawn="false">
-            <remap from="rgb/image_rect_color"        to="color/image_raw" />
-            <remap from="rgb/camera_info"             to="color/camera_info" />
-            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
-            <!-- <remap from="depth_registered/points"     to="points" /> -->
-        </node>
-    </group>
 
 </launch>

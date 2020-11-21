@@ -6,6 +6,7 @@ navigation
 teb-local-planner
 rtabmap-ros
 realsense2-camera
+image-geometry
 )
 
 package_list=""
