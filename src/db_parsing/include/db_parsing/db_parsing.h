@@ -14,6 +14,14 @@
 #include "sensor_msgs/BatteryState.h"
 #include "serial/serial.h"
 
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgcodecs.hpp>
+// #include <opencv2/imgproc/imgproc.hpp>
+// #include <opencv2/highgui/highgui.hpp>
+#include "sensor_msgs/Image.h"
+
 #include "db_parsing/DodobotDrive.h"
 #include "db_parsing/DodobotBumper.h"
 #include "db_parsing/DodobotGripper.h"
@@ -75,6 +83,8 @@ typedef union float_union
     unsigned char byte[8];
 } float_union;
 
+
+#define SERIAL_BUFFER_SIZE 0x4000
 
 class ReadyTimeoutExceptionClass : public exception {
     virtual const char* what() const throw() { return "Timeout reached. Never got ready signal from serial device"; }
@@ -144,8 +154,14 @@ private:
     void writeDriveChassis(float speedA, float speedB);
 
     string display_img_topic;
-    // vector<char> display_img_buf;
-    // void imgCallback(const sensor_msgs::ImageConstPtr& msg);
+    string starter_image_path;
+    vector<unsigned char> display_img_buf;
+    ros::Subscriber image_sub;
+    vector<int> jpeg_params;
+    int jpeg_image_quality;
+    int image_resize_width, image_resize_height;
+    void imgCallback(const sensor_msgs::ImageConstPtr& msg);
+    void writeImage(const cv::Mat& image);
 
     ros::Publisher bumper_pub;
     db_parsing::DodobotBumper bumper_msg;
@@ -210,8 +226,6 @@ private:
     string formatPacketToPrint(char* packet, uint32_t length);
 
     void parseEncoder();
-    double convertTicksToCm(long ticks);
-
     void parseINA();
     void parseIR();
 public:

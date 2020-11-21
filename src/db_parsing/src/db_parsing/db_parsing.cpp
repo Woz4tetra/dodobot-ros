@@ -11,6 +11,10 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     nh.param<int>("write_thread_rate", write_thread_rate, 60);
     nh.param<bool>("use_sensor_msg_time", use_sensor_msg_time, true);
     nh.param<string>("display_img_topic", display_img_topic, "image");
+    nh.param<int>("jpeg_image_quality", jpeg_image_quality, 50);
+    nh.param<int>("image_resize_width", image_resize_width, 160);
+    nh.param<int>("image_resize_height", image_resize_height, 128 - 20);
+    nh.param<string>("starter_image_path", starter_image_path, "./dodobot.jpeg");
 
     ROS_INFO_STREAM("serial_port: " << _serialPort);
     ROS_INFO_STREAM("serial_baud: " << _serialBaud);
@@ -32,12 +36,12 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     _currentSegmentNum = -1;
     _readPacketNum = -1;
     _writePacketNum = 0;
-    _currentBufferSegment = new char[0x100];
+    _currentBufferSegment = new char[SERIAL_BUFFER_SIZE];
     _recvCharIndex = 0;
     _readPacketLen = 0;
-    _recvCharBuffer = new char[0x800];
+    _recvCharBuffer = new char[SERIAL_BUFFER_SIZE];
     _writeCharIndex = 0;
-    _writeCharBuffer = new char[0x800];
+    _writeCharBuffer = new char[SERIAL_BUFFER_SIZE];
 
     readyState = new StructReadyState;
     readyState->robot_name = "";
@@ -78,7 +82,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     tilter_sub = nh.subscribe<db_parsing::DodobotTilter>("tilter_cmd", 50, &DodobotParsing::tilterCallback, this);
     linear_sub = nh.subscribe<db_parsing::DodobotLinear>("linear_cmd", 50, &DodobotParsing::linearCallback, this);
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
-    // image_sub = nh.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
+    image_sub = nh.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
 
@@ -86,6 +90,9 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
 
     write_timer = ros::Time::now();
+
+    jpeg_params.push_back(cv::IMWRITE_JPEG_QUALITY);
+    jpeg_params.push_back(jpeg_image_quality);
 
     ROS_INFO("Dodobot serial bridge init done");
 }
@@ -155,7 +162,7 @@ void DodobotParsing::checkReady()
 
     if (readyState->is_ready) {
         setStartTime(readyState->time_ms);
-        ROS_INFO_STREAM("Serial device is ready. Rover name is " << readyState->robot_name);
+        ROS_INFO_STREAM("Serial device is ready. Robot name is " << readyState->robot_name);
     }
     else {
         ROS_ERROR("Failed to receive ready signal!");
@@ -282,7 +289,7 @@ bool DodobotParsing::readSerial()
     // \t + at least 1 category char
     // 2 chars for checksum
     if (_readPacketLen < 5) {
-        ROS_ERROR_STREAM("Received packet has an invalid number of characters! " << _recvCharBuffer);
+        ROS_ERROR_STREAM("Received packet has an invalid number of characters! " << formatPacketToPrint(_recvCharBuffer, _readPacketLen));
         _readPacketNum++;
         return false;
     }
@@ -294,14 +301,17 @@ bool DodobotParsing::readSerial()
         calc_checksum += (uint8_t)_recvCharBuffer[index];
     }
 
-    char recv_checksum_array[2];
-    memcpy(recv_checksum_array, _recvCharBuffer + _readPacketLen - 2, 2);
+    char recv_checksum_array[3];  // extra character for null
+    recv_checksum_array[0] = _recvCharBuffer[_readPacketLen - 2];
+    recv_checksum_array[1] = _recvCharBuffer[_readPacketLen - 1];
+    // memcpy(recv_checksum_array, _recvCharBuffer + _readPacketLen - 2, 2);
+    recv_checksum_array[2] = '\0';
     uint8_t recv_checksum = strtol(recv_checksum_array, NULL, 16);
 
     if (calc_checksum != recv_checksum) {
         // checksum failed
-        ROS_ERROR("Checksum failed! recv %d != calc %d", calc_checksum, recv_checksum);
-        ROS_ERROR_STREAM("Buffer: " << _recvCharBuffer);
+        ROS_ERROR("Checksum failed! recv %02x != calc %02x", recv_checksum, calc_checksum);
+        ROS_ERROR_STREAM("Buffer: " << formatPacketToPrint(_recvCharBuffer, _readPacketLen));
         _readPacketNum++;
         return false;
     }
@@ -459,9 +469,9 @@ void DodobotParsing::processSerialPacket(string category)
     }
     else if (category.compare("ready") == 0) {
         CHECK_SEGMENT(4); readyState->time_ms = segment_as_uint32();
-        CHECK_SEGMENT(4); readyState->robot_name = string(_currentBufferSegment);
+        CHECK_SEGMENT(-1); readyState->robot_name = string(_currentBufferSegment);
         readyState->is_ready = true;
-        ROS_INFO_STREAM("Received ready signal! Rover name: " << _currentBufferSegment);
+        ROS_INFO_STREAM("Received ready signal! Rover name: " << readyState->robot_name);
     }
 }
 
@@ -510,6 +520,14 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
             _writeCharBuffer[_writeCharIndex++] = u16_union.byte[0];
             sprintf(_writeCharBuffer + _writeCharIndex, "%s", s);
             _writeCharIndex += strlen(s);
+        }
+        else if (*formats == 'x') {
+            char *s = va_arg(args, char*);
+            u16_union.byte[1] = s[0];
+            u16_union.byte[0] = s[1];
+            for (size_t i = 0; i < 2 + u16_union.integer; i++) {
+                _writeCharBuffer[_writeCharIndex++] = s[i];
+            }
         }
         else if (*formats == 'f') {
             f_union.floating_point = (float)va_arg(args, double);
@@ -568,6 +586,12 @@ void DodobotParsing::setup()
     // tell the microcontroller to start
     setActive(true);
     setReporting(true);
+
+    // Send starter image
+    ros::Duration(0.25).sleep();
+    cv::Mat starter_image;
+    starter_image = cv::imread(starter_image_path, cv::IMREAD_COLOR);
+    writeImage(starter_image);
 }
 
 void DodobotParsing::write_packet_from_queue()
@@ -817,7 +841,7 @@ void DodobotParsing::writeK(PidKs* constants) {
     _serialRef.write("\n");
 }
 
-/*void imgCallback(const sensor_msgs::ImageConstPtr& msg)
+void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
 {
     cv_bridge::CvImagePtr cv_ptr;
     try
@@ -829,10 +853,33 @@ void DodobotParsing::writeK(PidKs* constants) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-    cv::imencode(".jpg", cv_ptr->image, display_img_buf);
-    std::string send_str(display_img_buf.begin(), display_img_buf.end());
-    writeSerial("img", "s", send_str);
-}*/
+    writeImage(cv_ptr->image);
+}
+void DodobotParsing::writeImage(const cv::Mat& image)
+{
+    cv::Mat resized;
+    cv::resize(image, resized, cv::Size(image_resize_width, image_resize_height));
+
+    cv::imencode(".jpg", resized, display_img_buf, jpeg_params);
+
+    size_t img_size = display_img_buf.size();
+    if (img_size == 0) {
+        ROS_WARN("Image is too small, len: %lu. Skipping image", img_size);
+        return;
+    }
+    if (img_size > SERIAL_BUFFER_SIZE) {
+        ROS_WARN("Image is too large, len: %lu. Skipping image", img_size);
+        return;
+    }
+    uint16_union u16_union;
+    u16_union.integer = img_size;
+    display_img_buf.insert(display_img_buf.begin(), u16_union.byte[0]);
+    display_img_buf.insert(display_img_buf.begin(), u16_union.byte[1]);
+    auto *enc_msg = reinterpret_cast<char*>(display_img_buf.data());
+
+    ROS_INFO("sending image: %d", (int)img_size);
+    writeSerial("img", "x", enc_msg);
+}
 
 void DodobotParsing::resendPidKs() {
     writeK(pidConstants);
@@ -877,73 +924,167 @@ string DodobotParsing::formatPacketToPrint(char* packet, uint32_t length)
     {
         switch (packet[i]) {
             case 0: str += "\\x00"; break;
-        case 1: str += "\\x01"; break;
-        case 2: str += "\\x02"; break;
-        case 3: str += "\\x03"; break;
-        case 4: str += "\\x04"; break;
-        case 5: str += "\\x05"; break;
-        case 6: str += "\\x06"; break;
-        case 7: str += "\\x07"; break;
-        case 8: str += "\\x08"; break;
-        case 9: str += "\\t"; break;
-        case 10: str += "\\n"; break;
-        case 11: str += "\\x0b"; break;
-        case 12: str += "\\x0c"; break;
-        case 13: str += "\\r"; break;
-        case 14: str += "\\x0e"; break;
-        case 15: str += "\\x0f"; break;
-        case 16: str += "\\x10"; break;
-        case 17: str += "\\x11"; break;
-        case 18: str += "\\x12"; break;
-        case 19: str += "\\x13"; break;
-        case 20: str += "\\x14"; break;
-        case 21: str += "\\x15"; break;
-        case 22: str += "\\x16"; break;
-        case 23: str += "\\x17"; break;
-        case 24: str += "\\x18"; break;
-        case 25: str += "\\x19"; break;
-        case 26: str += "\\x1a"; break;
-        case 27: str += "\\x1b"; break;
-        case 28: str += "\\x1c"; break;
-        case 29: str += "\\x1d"; break;
-        case 30: str += "\\x1e"; break;
-        case 31: str += "\\x1f"; break;
-        case 92: str += "\\"; break;
-        case 127: str += "\\x7f"; break;
-        case 128: str += "\\x80"; break;
-        case 129: str += "\\x81"; break;
-        case 130: str += "\\x82"; break;
-        case 131: str += "\\x83"; break;
-        case 132: str += "\\x84"; break;
-        case 133: str += "\\x85"; break;
-        case 134: str += "\\x86"; break;
-        case 135: str += "\\x87"; break;
-        case 136: str += "\\x88"; break;
-        case 137: str += "\\x89"; break;
-        case 138: str += "\\x8a"; break;
-        case 139: str += "\\x8b"; break;
-        case 140: str += "\\x8c"; break;
-        case 141: str += "\\x8d"; break;
-        case 142: str += "\\x8e"; break;
-        case 143: str += "\\x8f"; break;
-        case 144: str += "\\x90"; break;
-        case 145: str += "\\x91"; break;
-        case 146: str += "\\x92"; break;
-        case 147: str += "\\x93"; break;
-        case 148: str += "\\x94"; break;
-        case 149: str += "\\x95"; break;
-        case 150: str += "\\x96"; break;
-        case 151: str += "\\x97"; break;
-        case 152: str += "\\x98"; break;
-        case 153: str += "\\x99"; break;
-        case 154: str += "\\x9a"; break;
-        case 155: str += "\\x9b"; break;
-        case 156: str += "\\x9c"; break;
-        case 157: str += "\\x9d"; break;
-        case 158: str += "\\x9e"; break;
-        case 159: str += "\\x9f"; break;
-        case 160: str += "\\xa0"; break;
-        case 173: str += "\\xad"; break;
+            case 1: str += "\\x01"; break;
+            case 2: str += "\\x02"; break;
+            case 3: str += "\\x03"; break;
+            case 4: str += "\\x04"; break;
+            case 5: str += "\\x05"; break;
+            case 6: str += "\\x06"; break;
+            case 7: str += "\\x07"; break;
+            case 8: str += "\\x08"; break;
+            case 9: str += "\\t"; break;
+            case 10: str += "\\n"; break;
+            case 11: str += "\\x0b"; break;
+            case 12: str += "\\x0c"; break;
+            case 13: str += "\\r"; break;
+            case 14: str += "\\x0e"; break;
+            case 15: str += "\\x0f"; break;
+            case 16: str += "\\x10"; break;
+            case 17: str += "\\x11"; break;
+            case 18: str += "\\x12"; break;
+            case 19: str += "\\x13"; break;
+            case 20: str += "\\x14"; break;
+            case 21: str += "\\x15"; break;
+            case 22: str += "\\x16"; break;
+            case 23: str += "\\x17"; break;
+            case 24: str += "\\x18"; break;
+            case 25: str += "\\x19"; break;
+            case 26: str += "\\x1a"; break;
+            case 27: str += "\\x1b"; break;
+            case 28: str += "\\x1c"; break;
+            case 29: str += "\\x1d"; break;
+            case 30: str += "\\x1e"; break;
+            case 31: str += "\\x1f"; break;
+            case 92: str += "\\\\"; break;
+            case 127: str += "\\x7f"; break;
+            case 128: str += "\\x80"; break;
+            case 129: str += "\\x81"; break;
+            case 130: str += "\\x82"; break;
+            case 131: str += "\\x83"; break;
+            case 132: str += "\\x84"; break;
+            case 133: str += "\\x85"; break;
+            case 134: str += "\\x86"; break;
+            case 135: str += "\\x87"; break;
+            case 136: str += "\\x88"; break;
+            case 137: str += "\\x89"; break;
+            case 138: str += "\\x8a"; break;
+            case 139: str += "\\x8b"; break;
+            case 140: str += "\\x8c"; break;
+            case 141: str += "\\x8d"; break;
+            case 142: str += "\\x8e"; break;
+            case 143: str += "\\x8f"; break;
+            case 144: str += "\\x90"; break;
+            case 145: str += "\\x91"; break;
+            case 146: str += "\\x92"; break;
+            case 147: str += "\\x93"; break;
+            case 148: str += "\\x94"; break;
+            case 149: str += "\\x95"; break;
+            case 150: str += "\\x96"; break;
+            case 151: str += "\\x97"; break;
+            case 152: str += "\\x98"; break;
+            case 153: str += "\\x99"; break;
+            case 154: str += "\\x9a"; break;
+            case 155: str += "\\x9b"; break;
+            case 156: str += "\\x9c"; break;
+            case 157: str += "\\x9d"; break;
+            case 158: str += "\\x9e"; break;
+            case 159: str += "\\x9f"; break;
+            case 160: str += "\\xa0"; break;
+            case 161: str += "\\xa1"; break;
+            case 162: str += "\\xa2"; break;
+            case 163: str += "\\xa3"; break;
+            case 164: str += "\\xa4"; break;
+            case 165: str += "\\xa5"; break;
+            case 166: str += "\\xa6"; break;
+            case 167: str += "\\xa7"; break;
+            case 168: str += "\\xa8"; break;
+            case 169: str += "\\xa9"; break;
+            case 170: str += "\\xaa"; break;
+            case 171: str += "\\xab"; break;
+            case 172: str += "\\xac"; break;
+            case 173: str += "\\xad"; break;
+            case 174: str += "\\xae"; break;
+            case 175: str += "\\xaf"; break;
+            case 176: str += "\\xb0"; break;
+            case 177: str += "\\xb1"; break;
+            case 178: str += "\\xb2"; break;
+            case 179: str += "\\xb3"; break;
+            case 180: str += "\\xb4"; break;
+            case 181: str += "\\xb5"; break;
+            case 182: str += "\\xb6"; break;
+            case 183: str += "\\xb7"; break;
+            case 184: str += "\\xb8"; break;
+            case 185: str += "\\xb9"; break;
+            case 186: str += "\\xba"; break;
+            case 187: str += "\\xbb"; break;
+            case 188: str += "\\xbc"; break;
+            case 189: str += "\\xbd"; break;
+            case 190: str += "\\xbe"; break;
+            case 191: str += "\\xbf"; break;
+            case 192: str += "\\xc0"; break;
+            case 193: str += "\\xc1"; break;
+            case 194: str += "\\xc2"; break;
+            case 195: str += "\\xc3"; break;
+            case 196: str += "\\xc4"; break;
+            case 197: str += "\\xc5"; break;
+            case 198: str += "\\xc6"; break;
+            case 199: str += "\\xc7"; break;
+            case 200: str += "\\xc8"; break;
+            case 201: str += "\\xc9"; break;
+            case 202: str += "\\xca"; break;
+            case 203: str += "\\xcb"; break;
+            case 204: str += "\\xcc"; break;
+            case 205: str += "\\xcd"; break;
+            case 206: str += "\\xce"; break;
+            case 207: str += "\\xcf"; break;
+            case 208: str += "\\xd0"; break;
+            case 209: str += "\\xd1"; break;
+            case 210: str += "\\xd2"; break;
+            case 211: str += "\\xd3"; break;
+            case 212: str += "\\xd4"; break;
+            case 213: str += "\\xd5"; break;
+            case 214: str += "\\xd6"; break;
+            case 215: str += "\\xd7"; break;
+            case 216: str += "\\xd8"; break;
+            case 217: str += "\\xd9"; break;
+            case 218: str += "\\xda"; break;
+            case 219: str += "\\xdb"; break;
+            case 220: str += "\\xdc"; break;
+            case 221: str += "\\xdd"; break;
+            case 222: str += "\\xde"; break;
+            case 223: str += "\\xdf"; break;
+            case 224: str += "\\xe0"; break;
+            case 225: str += "\\xe1"; break;
+            case 226: str += "\\xe2"; break;
+            case 227: str += "\\xe3"; break;
+            case 228: str += "\\xe4"; break;
+            case 229: str += "\\xe5"; break;
+            case 230: str += "\\xe6"; break;
+            case 231: str += "\\xe7"; break;
+            case 232: str += "\\xe8"; break;
+            case 233: str += "\\xe9"; break;
+            case 234: str += "\\xea"; break;
+            case 235: str += "\\xeb"; break;
+            case 236: str += "\\xec"; break;
+            case 237: str += "\\xed"; break;
+            case 238: str += "\\xee"; break;
+            case 239: str += "\\xef"; break;
+            case 240: str += "\\xf0"; break;
+            case 241: str += "\\xf1"; break;
+            case 242: str += "\\xf2"; break;
+            case 243: str += "\\xf3"; break;
+            case 244: str += "\\xf4"; break;
+            case 245: str += "\\xf5"; break;
+            case 246: str += "\\xf6"; break;
+            case 247: str += "\\xf7"; break;
+            case 248: str += "\\xf8"; break;
+            case 249: str += "\\xf9"; break;
+            case 250: str += "\\xfa"; break;
+            case 251: str += "\\xfb"; break;
+            case 252: str += "\\xfc"; break;
+            case 253: str += "\\xfd"; break;
+            case 254: str += "\\xfe"; break;
+            case 255: str += "\\xff"; break;
             default: str += packet[i];
         }
     }

@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
     serial
     std_msgs
     message_generation
+    image_transport
+    cv_bridge
 )
 roslaunch_add_file_check(launch)
 
