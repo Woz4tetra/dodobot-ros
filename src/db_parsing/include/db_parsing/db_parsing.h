@@ -27,7 +27,7 @@
 
 using namespace std;
 
-#define CHECK_SEGMENT  if (!getNextSegment()) {  ROS_ERROR_STREAM("Not enough segments supplied for #" << getSegmentNum() + 1 << ". Buffer: " << _serialBuffer);  return;  }
+#define CHECK_SEGMENT(PARAM)  if (!getNextSegment(PARAM)) {  ROS_ERROR_STREAM("Not enough segments supplied for #" << getSegmentNum() + 1 << ". Buffer: " << formatPacketToPrint(_recvCharBuffer, _readPacketLen));  return;  }
 
 char PACKET_START_0 = '\x12';
 char PACKET_START_1 = '\x34';
@@ -50,6 +50,32 @@ struct PidKs {
     float kp_A, ki_A, kd_A, kp_B, ki_B, kd_B, speed_kA, speed_kB;
 };
 
+
+typedef union uint16_union
+{
+    uint16_t integer;
+    unsigned char byte[2];
+} uint16_union;
+
+typedef union uint32_union
+{
+    uint32_t integer;
+    unsigned char byte[4];
+} uint32_union;
+
+typedef union int32_union
+{
+    int32_t integer;
+    unsigned char byte[4];
+} int32_union;
+
+typedef union float_union
+{
+    float floating_point;
+    unsigned char byte[8];
+} float_union;
+
+
 class ReadyTimeoutExceptionClass : public exception {
     virtual const char* what() const throw() { return "Timeout reached. Never got ready signal from serial device"; }
 } ReadyTimeoutException;
@@ -60,17 +86,19 @@ private:
 
     string _serialPort;
     int _serialBaud;
-    string _serialBuffer;
     int _serialBufferIndex;
-    string _currentBufferSegment;
+    char* _currentBufferSegment;
     int _currentSegmentNum;
     serial::Serial _serialRef;
-    unsigned long long _readPacketNum;
-    unsigned long long _writePacketNum;
+    uint32_t _readPacketNum;
+    uint32_t _writePacketNum;
     ros::Time deviceStartTime;
     uint32_t offsetTimeMs;
     size_t _recvCharIndex;
+    size_t _readPacketLen;
     char* _recvCharBuffer;
+    size_t _writeCharIndex;
+    char* _writeCharBuffer;
     bool use_sensor_msg_time;
 
     ros::Publisher gripper_pub;
@@ -115,6 +143,10 @@ private:
     void driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg);
     void writeDriveChassis(float speedA, float speedB);
 
+    string display_img_topic;
+    // vector<char> display_img_buf;
+    // void imgCallback(const sensor_msgs::ImageConstPtr& msg);
+
     ros::Publisher bumper_pub;
     db_parsing::DodobotBumper bumper_msg;
     void parseBumper();
@@ -135,11 +167,18 @@ private:
     void checkReady();
     void setStartTime(uint32_t time_ms);
     ros::Time getDeviceTime(uint32_t time_ms);
+    bool getNextSegment(int length);
     bool getNextSegment();
     int getSegmentNum();
     bool waitForPacketStart();
     void processSerialPacket(string category);
 
+    uint16_t segment_as_uint16();
+    uint32_t segment_as_uint32();
+    int32_t segment_as_int32();
+    float segment_as_float();
+
+    bool readline();
     bool readSerial();
     void writeSerial(string name, const char *formats, ...);
 
@@ -165,8 +204,10 @@ private:
     // void writeCurrentState();
     void writeSpeed(float speedA, float speedB);
     void writeK(PidKs* constants);
-    void logPacketErrorCode(int error_code, unsigned long long packet_num);
-    void logPacketErrorCode(int error_code, unsigned long long packet_num, string message);
+    void logPacketErrorCode(int error_code, uint32_t packet_num);
+    void logPacketErrorCode(int error_code, uint32_t packet_num, string message);
+
+    string formatPacketToPrint(char* packet, uint32_t length);
 
     void parseEncoder();
     double convertTicksToCm(long ticks);
