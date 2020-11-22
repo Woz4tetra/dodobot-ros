@@ -13,10 +13,12 @@
             <remap from="rgb/camera_info" to="/camera/color/camera_info"/>
 
             <param name="Odom/Holonomic" type="string" value="false"/>
-            <param name="Odom/Strategy" value="1"/>
-            <param name="Vis/CorType" value="1"/>
-            <param name="OdomF2M/MaxSize" type="string" value="1000"/>
-            <param name="Vis/MaxFeatures" type="string" value="600"/>
+            <param name="Odom/GuessMotion" type="string" value="true"/>
+            <param name="Odom/Strategy" value="1"/>  <!-- Frame-to-Frame odometry -->
+            <param name="Vis/CorType" value="1"/>  <!-- Optical Flow -->
+            <param name="OdomF2M/MaxSize" value="1000"/>
+            <param name="Vis/EstimationType" value="1"/>  <!-- 2D->3D PnP -->
+            <param name="Vis/MaxFeatures" value="600"/>
             <param name="Odom/ResetCountdown"           value="3" />
         </node>
     </group>

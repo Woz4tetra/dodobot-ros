@@ -585,10 +585,11 @@ void DodobotChassis::publish_chassis_data()
         now = drive_sub_msg.header.stamp;
     }
 
-    tf2::Quaternion odom_quaternion;
-    odom_quaternion.setRPY(0.0, 0.0, odom_state->theta);
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, odom_state->theta);
+
     geometry_msgs::Quaternion quat_msg;
-    tf2::convert(quat_msg, odom_quaternion);
+    tf2::convert(q, quat_msg);
 
     if (publish_odom_tf)
     {
@@ -599,8 +600,6 @@ void DodobotChassis::publish_chassis_data()
         transformStamped.transform.translation.x = odom_state->x;
         transformStamped.transform.translation.y = odom_state->y;
         transformStamped.transform.translation.z = 0.0;
-        tf2::Quaternion q;
-        q.setRPY(0, 0, odom_state->theta);
         transformStamped.transform.rotation.x = q.x();
         transformStamped.transform.rotation.y = q.y();
         transformStamped.transform.rotation.z = q.z();
