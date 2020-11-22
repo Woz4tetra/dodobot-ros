@@ -3,6 +3,7 @@
 #include <exception>
 #include <iostream>
 #include <ctime>
+#include <math.h>
 
 #include "ros/ros.h"
 #include "ros/console.h"
@@ -13,6 +14,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/JointState.h>
 #include <dynamic_reconfigure/server.h>
 
 #include "db_parsing/DodobotPidSrv.h"
@@ -124,7 +126,6 @@ private:
     double max_speed_mps;
     double wheel_distance_m;
 
-    double camera_tilt_angle;
     double tilter_upper_angle;
     double tilter_lower_angle;
 
@@ -143,6 +144,10 @@ private:
     double linear_speed_cmd;
     double angular_speed_cmd;
 
+    // State variables
+    double camera_tilt_angle;
+    double stepper_z_pos;
+
     ros::Time odom_timestamp;
     ros::Time prev_odom_time;
     int64_t prev_left_ticks;
@@ -156,6 +161,8 @@ private:
     ros::Publisher parallel_gripper_pub;
     ros::Publisher linear_pub;
     ros::Publisher linear_pos_pub;
+    ros::Publisher linear_joint_pub;
+    ros::Publisher tilter_joint_pub;
 
     // Subscribers
     ros::Subscriber twist_sub;
@@ -187,8 +194,6 @@ private:
     OdomState* odom_state;
     nav_msgs::Odometry odom_msg;
 
-    void compute_parallel_dist_to_angle_lookup();
-
     // Dynamic reconfigure
     dynamic_reconfigure::Server<db_chassis::DodobotChassisConfig> dyn_cfg;
     dynamic_reconfigure::Server<db_chassis::DodobotChassisConfig>::CallbackType dyn_cfg_wrapped_callback;
@@ -207,8 +212,29 @@ private:
     void loop();
     void stop();
 
-    // Compute odometry
+    // Joint states
+    sensor_msgs::JointState linear_joint;
+    sensor_msgs::JointState tilter_joint;
+    void publish_joint_states();
+
+    // Data handling/conversion
+    size_t num_dist_samples;
+    vector<double> angle_samples;
+    vector<double> dist_samples;
+    double angle_to_parallel_dist(double angle_rad);
+    double parallel_dist_to_angle(double parallel_dist);
+    void compute_parallel_dist_to_angle_lookup();
+
+    double servo_to_angle(int command, int max_command, int min_command, double min_angle, double max_angle);
+    int angle_to_servo(double angle, int max_command, int min_command, double min_angle, double max_angle);
+    double tilt_command_to_angle_rad(int command);
+
+    double bound_speed(double value, double lower, double upper, double epsilon);
+
     double ticks_to_m(int64_t ticks);
+    int64_t m_to_ticks(double dist_m);
+
+    // Compute odometry
     void odom_estimator_update(double delta_left, double delta_right, double left_speed, double right_speed, double dt);
     void compute_odometry();
     void publish_chassis_data();

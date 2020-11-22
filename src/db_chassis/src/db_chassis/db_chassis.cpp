@@ -93,6 +93,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     // 4 orders of magnitude larger for some reason...
     step_linear_m_to_speed_ticks = step_linear_m_to_ticks * 1E4;
 
+    stepper_z_pos = 0.0;
+
     tf2::Quaternion zero_quat;
     zero_quat.setRPY(0.0, 0.0, 0.0);
 
@@ -120,27 +122,44 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
         0.0, 0.0, 0.0, 0.0, 1e-3, 0.0,
         0.0, 0.0, 0.0, 0.0, 0.0, 1e-3
     ] */
+    /* [
+         0,  1,  2,  3,  4,  5,
+         6,  7,  8,  9, 10, 11,
+        12, 13, 14, 15, 16, 17,
+        18, 19, 20, 21, 22, 23,
+        24, 25, 26, 27, 28, 29,
+        30, 31, 32, 33, 34, 35
+    ] */
+    // odom_msg.pose.covariance.resize(36);
     odom_msg.pose.covariance[0] = 1e-3;
     odom_msg.pose.covariance[7] = 1e-3;
     odom_msg.pose.covariance[14] = 1e-3;
     odom_msg.pose.covariance[21] = 1e-3;
-    odom_msg.pose.covariance[29] = 1e-3;
-    odom_msg.pose.covariance[36] = 1e-3;
+    odom_msg.pose.covariance[28] = 1e-3;
+    odom_msg.pose.covariance[35] = 1e-3;
 
     // cmd_vel command values
     linear_speed_cmd = 0.0;
     angular_speed_cmd = 0.0;
 
     // JointState messages
+    linear_joint.header.frame_id = "base_link";
+    linear_joint.name.push_back("linear_to_linear_base_link");
+    linear_joint.position.push_back(0.0);
+
+    tilter_joint.header.frame_id = "base_link";
+    tilter_joint.name.push_back("tilt_base_to_camera_rotate_joint");
+    tilter_joint.position.push_back(0.0);
 
     // Publishers
-
     odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 50);
     drive_pub = nh.advertise<db_parsing::DodobotDrive>(drive_pub_name, 50);
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper_cmd", 50);
     parallel_gripper_pub = nh.advertise<db_parsing::DodobotParallelGripper>("parallel_gripper", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear_cmd", 50);
     linear_pos_pub = nh.advertise<db_chassis::LinearPosition>("linear_pos", 50);
+    linear_joint_pub = nh.advertise<sensor_msgs::JointState>("linear_joint_state", 10);
+    tilter_joint_pub = nh.advertise<sensor_msgs::JointState>("tilter_joint_state", 10);
 
     // Subscribers
     twist_sub = nh.subscribe<geometry_msgs::Twist>("cmd_vel", 50, &DodobotChassis::twist_callback, this);
@@ -181,6 +200,7 @@ void DodobotChassis::loop()
 {
     compute_odometry();
     publish_chassis_data();
+    publish_joint_states();
 }
 
 void DodobotChassis::stop()
@@ -214,11 +234,6 @@ int DodobotChassis::run()
     stop();
 
     return exit_code;
-}
-
-void DodobotChassis::compute_parallel_dist_to_angle_lookup()
-{
-
 }
 
 void DodobotChassis::dynamic_callback(db_chassis::DodobotChassisConfig &config, uint32_t level)
@@ -258,7 +273,45 @@ bool DodobotChassis::odom_reset_callback(db_chassis::DodobotOdomReset::Request &
 
 void DodobotChassis::twist_callback(geometry_msgs::Twist msg)
 {
+    double linear_speed_mps = msg.linear.x;  // m/s
+    double angular_speed_radps = msg.angular.z;  // rad/s
 
+    linear_speed_mps = bound_speed(linear_speed_mps, min_linear_speed, max_linear_speed, zero_speed_epsilon);
+    angular_speed_radps = bound_speed(
+        angular_speed_radps,
+        (linear_speed_mps == 0.0) ? min_angular_speed : 0.0,
+        max_angular_speed,
+        (linear_speed_mps == 0.0) ? zero_speed_epsilon : 0.0);
+
+    linear_speed_cmd = linear_speed_mps;
+    angular_speed_cmd = angular_speed_radps;
+
+    // arc = angle * radius
+    // rotation speed at the wheels
+    double rotational_speed_mps = angular_speed_radps * wheel_distance_m / 2.0;
+
+    int64_t left_command = m_to_ticks(linear_speed_mps - rotational_speed_mps);
+    int64_t right_command = m_to_ticks(linear_speed_mps + rotational_speed_mps);
+
+    int64_t larger_cmd = max(left_command, right_command);
+    if (abs(larger_cmd) > max_speed_tps)
+    {
+        int64_t abs_left = abs(left_command);
+        int64_t abs_right = abs(right_command);
+        if (abs_left > abs_right) {
+            left_command = (int64_t)copysign(max_speed_tps, left_command);
+            right_command = (int64_t)copysign(max_speed_tps * (double)abs_right / (double)abs_left, right_command);
+        }
+        else {
+            left_command = (int64_t)copysign(max_speed_tps * (double)abs_left / (double)abs_right, left_command);
+            right_command = (int64_t)copysign(max_speed_tps, right_command);
+        }
+    }
+
+    drive_pub_msg.left_setpoint = left_command;
+    drive_pub_msg.right_setpoint = right_command;
+
+    drive_pub.publish(drive_pub_msg);
 }
 
 void DodobotChassis::drive_callback(db_parsing::DodobotDrive msg) {
@@ -267,41 +320,199 @@ void DodobotChassis::drive_callback(db_parsing::DodobotDrive msg) {
 
 void DodobotChassis::tilter_callback(db_parsing::DodobotTilter msg)
 {
-
+    camera_tilt_angle = tilt_command_to_angle_rad(msg.position);
+    tilter_joint.position[0] = -camera_tilt_angle;
 }
 
 void DodobotChassis::linear_callback(db_parsing::DodobotLinear msg)
 {
+    stepper_z_pos = msg.position * step_ticks_to_linear_m;
 
+    ros::Time now = ros::Time::now();
+
+    linear_joint.position[0] = stepper_z_pos;
+    linear_joint.header.stamp = now;
+
+    db_chassis::LinearPosition linear_msg;
+    linear_msg.position = stepper_z_pos;
+    linear_pos_pub.publish(linear_msg);
 }
 
 void DodobotChassis::gripper_callback(db_parsing::DodobotGripper msg)
 {
+    double angle = servo_to_angle(msg.position,
+        gripper_closed_cmd, gripper_open_cmd,
+        gripper_closed_angle, gripper_open_angle
+    );
+    double parallel_dist = angle_to_parallel_dist(angle);
+    parallel_gripper_msg.header.stamp = ros::Time::now();
+    parallel_gripper_msg.distance = parallel_dist;
 
+    parallel_gripper_pub.publish(parallel_gripper_msg);
 }
 
 void DodobotChassis::parallel_gripper_callback(db_parsing::DodobotParallelGripper msg)
 {
+    double angle = parallel_dist_to_angle(msg.distance);
+    int servo_pos = angle_to_servo(angle,
+        gripper_closed_cmd, gripper_open_cmd,
+        gripper_closed_angle, gripper_open_angle
+    );
 
+    gripper_msg.header.stamp = ros::Time::now();
+    gripper_msg.position = servo_pos;
+    gripper_msg.force_threshold = -1;  // TODO: add force calculations
+
+    gripper_pub.publish(gripper_msg);
 }
 
 void DodobotChassis::linear_pos_callback(db_chassis::LinearPosition msg)
 {
+    db_parsing::DodobotLinear linear_msg;
 
+    linear_msg.command_type = 0;
+    linear_msg.command_value = (int)(msg.position * step_linear_m_to_ticks);
+
+    if (isnan(msg.max_speed)) {
+        linear_msg.max_speed = -1;
+    }
+    else {
+        linear_msg.max_speed = (int)(msg.max_speed * step_linear_m_to_speed_ticks);
+    }
+
+    if (isnan(msg.acceleration)) {
+        linear_msg.acceleration = -1;
+    }
+    else {
+        linear_msg.acceleration = (int)(msg.acceleration * step_linear_m_to_speed_ticks);
+    }
+
+    linear_pub.publish(linear_msg);
 }
 
 void DodobotChassis::linear_vel_callback(db_chassis::LinearVelocity msg)
 {
+    db_parsing::DodobotLinear linear_msg;
+    linear_msg.command_type = 1;
+    linear_msg.command_value = (int)(msg.velocity * step_linear_m_to_speed_ticks);
+    linear_msg.max_speed = linear_msg.command_value;
+
+    if (isnan(msg.acceleration)) {
+        linear_msg.acceleration = -1;
+    }
+    else {
+        linear_msg.acceleration = (int)(msg.acceleration * step_linear_m_to_speed_ticks);
+    }
+
+    linear_pub.publish(linear_msg);
+}
+
+void DodobotChassis::publish_joint_states()
+{
+    linear_joint_pub.publish(linear_joint);
+    tilter_joint_pub.publish(tilter_joint);
+}
+
+//
+// Data handling/conversion
+//
+
+double DodobotChassis::angle_to_parallel_dist(double angle_rad)
+{
+    double angle_adj = angle_rad - M_PI * 2.0 + M_PI / 2.0;
+    double hinge_pin_x = rotation_offset_x * cos(angle_adj) - rotation_offset_y * sin(angle_adj);
+    double parallel_dist = 2.0 * (hinge_pin_x - hinge_pin_to_pad_plane - pad_extension_offset + central_axis_dist);
+    return parallel_dist;
+}
+
+
+double DodobotChassis::parallel_dist_to_angle(double parallel_dist)
+{
+    for (size_t i = 0; i < num_dist_samples - 1; i++) {
+        double low_dist = dist_samples[i + 1];
+        double high_dist = dist_samples[i];
+        if (low_dist <= parallel_dist && parallel_dist < high_dist) {
+            double low_angle = angle_samples[i + 1];
+            double high_angle = angle_samples[i];
+
+            return (high_angle - low_angle) / (high_dist - low_dist) * (parallel_dist - low_dist) + low_angle;
+        }
+    }
+    ROS_WARN("Requested parallel dist '%f' exceeds interpolation range %f...%f",
+        parallel_dist,
+        dist_samples.front(),
+        dist_samples.back()
+    );
+    return gripper_open_angle;
+}
+
+void DodobotChassis::compute_parallel_dist_to_angle_lookup()
+{
+    num_dist_samples = 100;
+    dist_samples.resize(num_dist_samples);
+    angle_samples.resize(num_dist_samples);
+
+    double angle_buffer = 20.0 * M_PI / 180.0;
+    double angle_sample_start = gripper_closed_angle - angle_buffer;
+    double angle_sample_stop = gripper_open_angle + angle_buffer;
+
+    size_t counter = 0;
+    double angle = angle_sample_start;
+    double interval = (angle_sample_stop - angle_sample_start) / num_dist_samples;
+    while (angle < angle_sample_stop && counter < num_dist_samples) {
+        double dist = angle_to_parallel_dist(angle);
+        dist_samples[counter] = dist;
+        angle_samples[counter] = angle;
+        angle += interval;
+        counter++;
+    }
+}
+
+
+double DodobotChassis::servo_to_angle(int command, int max_command, int min_command, double min_angle, double max_angle) {
+    return (max_angle - min_angle) / (double)(max_command - min_command) * ((double)(command) - min_command) + min_angle;
+}
+
+int DodobotChassis::angle_to_servo(double angle, int max_command, int min_command, double min_angle, double max_angle) {
+    return (int)((double)(max_command - min_command) / (max_angle - min_angle) * ((double)angle - min_angle) + (double)min_command);
+}
+
+double DodobotChassis::tilt_command_to_angle_rad(int command) {
+    servo_to_angle(command,
+        tilter_upper_command, tilter_lower_command,
+        tilter_lower_angle, tilter_upper_angle
+    );
+}
+
+double DodobotChassis::bound_speed(double value, double lower, double upper, double epsilon)
+{
+    double abs_value = abs(value);
+    if (abs_value < lower) {
+        if (abs_value > epsilon) {
+            value = copysign(lower, value);
+        }
+        else {
+            value = 0.0;
+        }
+    }
+    if (upper != 0.0 && abs_value > upper) {
+        value = copysign(upper, value);
+    }
+    return value;
+}
+
+double DodobotChassis::ticks_to_m(int64_t ticks) {
+    return (double)(ticks) * tick_to_m_factor;
+}
+
+int64_t DodobotChassis::m_to_ticks(double dist_m) {
+    return (int64_t)(dist_m * m_to_tick_factor);
 
 }
 
 //
 // Compute odometry
 //
-
-double DodobotChassis::ticks_to_m(int64_t ticks) {
-    return (double)(ticks) * tick_to_m_factor;
-}
 
 void DodobotChassis::odom_estimator_update(double delta_left, double delta_right, double left_speed, double right_speed, double dt)
 {
