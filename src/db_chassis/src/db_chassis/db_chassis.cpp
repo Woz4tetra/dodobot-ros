@@ -308,6 +308,7 @@ void DodobotChassis::twist_callback(geometry_msgs::Twist msg)
         }
     }
 
+    drive_pub_msg.header.stamp = ros::Time::now();
     drive_pub_msg.left_setpoint = left_command;
     drive_pub_msg.right_setpoint = right_command;
 

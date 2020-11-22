@@ -57,10 +57,10 @@
 
         <arg name="color_width"              value="1920" if="$(arg hirez_mode)"/>
         <arg name="color_height"             value="1080" if="$(arg hirez_mode)"/>
-        <arg name="color_width"              value="640"  unless="$(arg hirez_mode)"/>
-        <arg name="color_height"             value="480"  unless="$(arg hirez_mode)"/>
-        <!-- <arg name="color_width"              value="960"  unless="$(arg hirez_mode)"/> -->
-        <!-- <arg name="color_height"             value="540"  unless="$(arg hirez_mode)"/> -->
+        <!-- <arg name="color_width"              value="640"  unless="$(arg hirez_mode)"/> -->
+        <!-- <arg name="color_height"             value="480"  unless="$(arg hirez_mode)"/> -->
+        <arg name="color_width"              value="960"  unless="$(arg hirez_mode)"/>
+        <arg name="color_height"             value="540"  unless="$(arg hirez_mode)"/>
         <arg name="enable_color"             value="true"/>
 
         <arg name="infra_width"              value="848"/>
@@ -73,7 +73,7 @@
         <arg name="depth_fps"                value="30"/>
         <arg name="infra_fps"                value="30"/>
         <arg name="color_fps"                value="15" if="$(arg hirez_mode)"/>
-        <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/>
+        <arg name="color_fps"                value="30" unless="$(arg hirez_mode)"/>
         <arg name="gyro_fps"                 value="400"/>
         <arg name="accel_fps"                value="250"/>
         <arg name="enable_gyro"              value="false"/>
