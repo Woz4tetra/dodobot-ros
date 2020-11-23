@@ -53,18 +53,22 @@
     <build_depend>std_msgs</build_depend>
     <build_depend>roslaunch</build_depend>
     <build_depend>sensor_msgs</build_depend>
-    <build_depend>dynamic_reconfigure</build_depend>
+    <build_depend>message_runtime</build_depend>
+    <build_depend>db_parsing</build_depend>
 
     <build_export_depend>roscpp</build_export_depend>
     <build_export_depend>std_msgs</build_export_depend>
     <build_export_depend>roslaunch</build_export_depend>
     <build_export_depend>sensor_msgs</build_export_depend>
-    <build_export_depend>tf2</build_export_depend>
+    <build_export_depend>message_runtime</build_export_depend>
+    <build_export_depend>db_parsing</build_export_depend>
 
     <exec_depend>roscpp</exec_depend>
     <exec_depend>std_msgs</exec_depend>
     <exec_depend>roslaunch</exec_depend>
     <exec_depend>sensor_msgs</exec_depend>
+    <exec_depend>message_runtime</exec_depend>
+    <exec_depend>db_parsing</exec_depend>
 
     <!-- The export tag contains other, unspecified, tags -->
     <export>

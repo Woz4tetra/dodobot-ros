@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     sensor_msgs
     roslaunch
+    message_generation
+    db_parsing
 )
 roslaunch_add_file_check(launch)
 
@@ -101,8 +103,8 @@ roslaunch_add_file_check(launch)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES db_parsing
-    CATKIN_DEPENDS roscpp roslaunch sensor_msgs
+    LIBRARIES
+    CATKIN_DEPENDS roscpp roslaunch sensor_msgs message_runtime db_parsing
     # DEPENDS system_lib
 )
 

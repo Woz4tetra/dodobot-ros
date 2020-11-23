@@ -20,12 +20,12 @@ class DodobotBumper {
 private:
     ros::NodeHandle nh;  // ROS node handle
 
-    ros::Publisher laser_scan_pub;
+    ros::Publisher scan_pub;
 
     // launch parameters
     string bumper_scan_topic;
     string bumper_frame;
-    unsigned int scan_count;
+    int scan_count;
     double range_max;
     vector<double> left_bumper_x_points;
     vector<double> left_bumper_y_points;
@@ -46,9 +46,12 @@ private:
     double get_min_value(vector<double>* points);
     double get_max_value(vector<double>* points);
 
-    point get_line_intersection(point l1_a, point l1_b, point l2_a, point l2_b);
+    double cross(point p1, point p2);
+    double dot(point p1, point p2);
+
+    point get_line_intersection(point l11, point l12, point l21, point l22);
     double to_points_vector(vector<double>* input_x, vector<double>* input_y, vector<point>* output);
-    double get_scan_dist(point p, double max_range);
+    double get_scan_dist(point p);
     void apply_scan(bool left, bool right);
 
 public:
