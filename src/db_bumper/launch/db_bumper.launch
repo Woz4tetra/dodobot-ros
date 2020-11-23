@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <group ns="dodobot" >
+        <node name="db_bumper" pkg="db_bumper" type="db_bumper_node" output="screen" required="true">
+            <!-- <param name="bumper_scan_topic" value="bumper_occupancy"/> -->
+            <!-- <param name="bumper_frame" value="bumper"/> -->
+            <!-- <param name="scan_count" value="25"/> -->
+            <!-- <param name="range_max" value="100.0"/> -->
+            <rosparam param="left_bumper_x_points">[0.0, 0.0, 0.0, 0.0]</rosparam>
+            <rosparam param="left_bumper_y_points">[0.0, 0.0, 0.0, 0.0]</rosparam>
+            <rosparam param="right_bumper_x_points">[0.0, 0.0, 0.0, 0.0]</rosparam>
+            <rosparam param="right_bumper_y_points">[0.0, 0.0, 0.0, 0.0]</rosparam>
+        </node>
+    </group>
+</launch>
