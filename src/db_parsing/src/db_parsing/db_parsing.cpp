@@ -1,7 +1,7 @@
 #include <db_parsing/db_parsing.h>
 
 
-DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
+DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),image_transport(nh)
 {
     string drive_cmd_topic_name = "";
 
@@ -82,7 +82,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle)
     tilter_sub = nh.subscribe<db_parsing::DodobotTilter>("tilter_cmd", 50, &DodobotParsing::tilterCallback, this);
     linear_sub = nh.subscribe<db_parsing::DodobotLinear>("linear_cmd", 50, &DodobotParsing::linearCallback, this);
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
-    image_sub = nh.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
+    image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
 

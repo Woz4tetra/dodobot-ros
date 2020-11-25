@@ -154,9 +154,10 @@ private:
     void writeDriveChassis(float speedA, float speedB);
 
     string display_img_topic;
+    image_transport::Subscriber image_sub;
+    image_transport::ImageTransport image_transport;
     string starter_image_path;
     vector<unsigned char> display_img_buf;
-    ros::Subscriber image_sub;
     vector<int> jpeg_params;
     int jpeg_image_quality;
     int image_resize_width, image_resize_height;

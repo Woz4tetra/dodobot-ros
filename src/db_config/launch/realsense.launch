@@ -48,12 +48,14 @@
         <arg name="fisheye_width"            value="640"/>
         <arg name="fisheye_height"           value="480"/>
         <arg name="enable_fisheye"           value="false"/>
+        <arg name="fisheye_fps"              value="30"/>
 
         <arg name="depth_width"              value="640"/>
         <arg name="depth_height"             value="480"/>
         <!-- <arg name="depth_width"              value="848"/> -->
         <!-- <arg name="depth_height"             value="480"/> -->
         <arg name="enable_depth"             value="true"/>
+        <arg name="depth_fps"                value="30"/>
 
         <arg name="color_width"              value="1920" if="$(arg hirez_mode)"/>
         <arg name="color_height"             value="1080" if="$(arg hirez_mode)"/>
@@ -62,22 +64,21 @@
         <arg name="color_width"              value="960"  unless="$(arg hirez_mode)"/>
         <arg name="color_height"             value="540"  unless="$(arg hirez_mode)"/>
         <arg name="enable_color"             value="true"/>
+        <arg name="color_fps"                value="15" if="$(arg hirez_mode)"/>
+        <arg name="color_fps"                value="30" unless="$(arg hirez_mode)"/>
+        <!-- <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/> -->
 
         <arg name="infra_width"              value="848"/>
         <arg name="infra_height"             value="480"/>
         <arg name="enable_infra"            value="false"/>
         <arg name="enable_infra1"            value="false"/>
         <arg name="enable_infra2"            value="false"/>
-
-        <arg name="fisheye_fps"              value="30"/>
-        <arg name="depth_fps"                value="30"/>
         <arg name="infra_fps"                value="30"/>
-        <arg name="color_fps"                value="15" if="$(arg hirez_mode)"/>
-        <arg name="color_fps"                value="30" unless="$(arg hirez_mode)"/>
-        <arg name="gyro_fps"                 value="400"/>
-        <arg name="accel_fps"                value="250"/>
+
         <arg name="enable_gyro"              value="false"/>
         <arg name="enable_accel"             value="false"/>
+        <arg name="gyro_fps"                 value="400"/>
+        <arg name="accel_fps"                value="250"/>
 
         <arg name="publish_tf"               value="true"/>
         <!-- <arg name="tf_publish_rate"          value="10"/> -->

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <group ns="camera" >
+        <node name="db_object_detection" pkg="db_object_detection" type="db_object_detection_node" output="screen" required="true">
+            <param name="img_topic" value="color/image_raw"/>
+        </node>
+    </group>
+</launch>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="compressed" default="true"/>
+    <group ns="camera">
+        <node if="$(arg compressed)" pkg="image_transport" type="republish" name="rgb_compress" args="raw in:=color/image_raw compressed out:=display_image"/>
+
+        <node name="db_object_detection_ui" pkg="db_object_detection" type="db_object_detection_ui_node" output="screen" required="true">
+            <param     if="$(arg compressed)" name="img_topic" value="display_image"/>
+            <param unless="$(arg compressed)" name="img_topic" value="color/image_raw"/>
+        </node>
+    </group>
+</launch>
