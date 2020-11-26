@@ -44,23 +44,28 @@
         <param name="overlay_alpha" value="$(arg overlay_alpha)"/>
     </node> -->
 
+    <arg name="image_throttle_rate" default="15.0"/>
+
+    <node type="throttle" name="detect_image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+        args="messages /camera/color/image_raw $(arg image_throttle_rate) /camera/color/detect_image_raw_throttled"/>
+
     <!-- <arg name="model_name" default="ssd-mobilenet-v2"/> -->
-    <arg name="model_name" default="ssd-inception-v2"/>
-    <!-- <arg name="model_name" default=""/> -->
-    <!-- <arg name="model_path" default="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/train_test"/> -->
-    <arg name="model_path" default=""/>
+    <!-- <arg name="model_name" default="ssd-inception-v2"/> -->
+    <arg name="model_name" default=""/>
+    <arg name="model_path" default="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/fruit_2/ssd-mobilenet.onnx"/>
+    <!-- <arg name="model_path" default=""/> -->
     <arg name="prototxt_path" default=""/>
-    <!-- <arg name="class_labels_path" default="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/train_test/labels.txt"/> -->
-    <arg name="class_labels_path" default=""/>
-    <arg name="input_blob" default=""/>
-    <arg name="output_cvg" default=""/>
-    <arg name="output_bbox" default=""/>
+    <arg name="class_labels_path" default="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/fruit_2/labels.txt"/>
+    <!-- <arg name="class_labels_path" default=""/> -->
+    <arg name="input_blob" default="input_0"/>
+    <arg name="output_cvg" default="scores"/>
+    <arg name="output_bbox" default="boxes"/>
     <arg name="overlay_flags" default="box,labels,conf"/>
     <arg name="mean_pixel_value" default="0.0"/>
     <arg name="threshold" default="0.5"/>
 
     <node pkg="ros_deep_learning" type="detectnet" name="detectnet" output="screen">
-        <remap from="/detectnet/image_in" to="/camera/color/image_raw"/>
+        <remap from="/detectnet/image_in" to="/camera/color/detect_image_raw_throttled"/>
         <param name="model_name" value="$(arg model_name)"/>
         <param name="model_path" value="$(arg model_path)"/>
         <param name="prototxt_path" value="$(arg prototxt_path)"/>
