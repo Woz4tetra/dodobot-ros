@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="map_name" default="rtabmap.db"/>
+    <arg name="new_db" default="true"/>
     <include file="$(find db_config)/launch/dodobot.launch">
         <arg name="db_chassis_publish_odom_tf" value="true"/>
     </include>
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="database_path" value="$(arg map_name)"/>
-        <arg name="create_new_db" value="true"/>
+        <arg name="create_new_db" value="$(arg new_db)"/>
     </include>
 </launch>
