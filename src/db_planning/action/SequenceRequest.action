@@ -1,4 +1,5 @@
 string sequence_type
+string sequence_goal
 ---
 bool success
 ---

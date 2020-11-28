@@ -1,15 +1,17 @@
 #!/usr/bin/python
 
-import rospy
-import tf
 import math
 import Queue
+
+import rospy
 import actionlib
 
 from geometry_msgs.msg import Pose, TransformStamped
 
+from std_srvs.srv import Trigger, TriggerResponse
+
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
-from db_parsing.msg import DodobotLinear, DodobotLinearEvent, DodobotGripper, DodobotParallelGripper
+from db_parsing.msg import DodobotLinear, DodobotLinearEvent
 from db_chassis.msg import LinearPosition
 
 class FrontLoaderPlanner:
@@ -42,16 +44,9 @@ class FrontLoaderPlanner:
 
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
 
-        self.front_loader_server = actionlib.SimpleActionServer(self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback, auto_start=False)
-        self.front_loader_server.start()
-        rospy.loginfo("[%s] server started" % self.front_loader_action_name)
-
         self.result = FrontLoaderResult()
 
         self.move_pub = rospy.Publisher("linear_pos_cmd", LinearPosition, queue_size=100)
-        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
-
-        self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
         self.events = Queue.Queue()
 
         self.is_goal_set = False
@@ -60,112 +55,63 @@ class FrontLoaderPlanner:
         self.linear_event_sub = rospy.Subscriber(self.linear_event_topic, DodobotLinearEvent, self.linear_event_callback, queue_size=100)
         self.linear_event_timeout = 10.0
 
-        self.gripper_max_dist = 0.08
-        self.gripper_dist = self.gripper_max_dist
-        self.parallel_gripper_msg = DodobotParallelGripper()
+        self.linear_topic = "linear"
+        self.linear_sub = rospy.Subscriber(self.linear_topic, DodobotLinear, self.linear_callback, queue_size=100)
+
+        self.is_homed = False
+        self.is_active = False
+        self.has_error = False
+
+        self.front_loader_ready_service_name = "front_loader_ready_service"
+        rospy.loginfo("Setting up service %s" % self.front_loader_ready_service_name)
+        self.front_loader_ready_srv = rospy.Service(self.front_loader_ready_service_name, Trigger, self.front_loader_ready_callback)
+        rospy.loginfo("%s service is ready" % self.front_loader_ready_service_name)
+
+        self.front_loader_server = actionlib.SimpleActionServer(self.front_loader_action_name, FrontLoaderAction, self.front_loader_callback, auto_start=False)
+        self.front_loader_server.start()
+        rospy.loginfo("[%s] server started" % self.front_loader_action_name)
 
         rospy.loginfo("[%s] --- Dodobot front loader planning is up! ---" % self.front_loader_action_name)
 
     ### CALLBACK FUNCTIONS ###
 
-    def parallel_gripper_callback(self, msg):
-        self.gripper_dist = msg.distance
+    def front_loader_ready_callback(self, req):
+        if self.is_homed and self.is_active and not self.has_error:
+            return TriggerResponse(True, "Ready!")
+        else:
+            return TriggerResponse(False, "homed: %s, active %s, has_error: %s" % (self.is_homed, self.is_active, self.has_error))
 
     def linear_event_callback(self, msg):
         if self.is_goal_set:
             event_str = self.to_event_str(msg.event_num)
             self.events.put(event_str)
 
+    def linear_callback(self, msg):
+        self.is_homed = msg.is_homed
+        self.is_active = msg.is_active
+        self.has_error = msg.has_error
+
     def front_loader_callback(self, goal):
         move_cmd = goal.goal_z
         max_speed = goal.z_speed
         acceleration = goal.z_accel
-        grip_dist = goal.grip_dist
-        grip_threshold = goal.grip_threshold
-        # transform pose from robot frame to front loader frame
-        # pose_base_link = req.pose
 
-        # perform IK to get command
-        # move_cmd = self.inverse_kinematics(pose_base_link)
-        if math.isnan(move_cmd) and math.isnan(grip_dist):
+        if math.isnan(move_cmd):
             rospy.loginfo("No action required from front loader. Skipping.")
             self.result.success = True
             self.front_loader_server.set_succeeded(self.result)
             return
 
-        # send command
-        if not math.isnan(grip_dist):
-            success = self.send_grab_cmd(grip_dist, grip_threshold)
-
-            if not success:
-                self.result.success = success
-                self.front_loader_server.set_succeeded(self.result)
-                return
-
-        if not math.isnan(move_cmd):
-            success = self.send_move_cmd(move_cmd, max_speed, acceleration)
-
-            if not success:
-                self.result.success = success
-                self.front_loader_server.set_succeeded(self.result)
-                return
+        success = self.send_move_cmd(move_cmd, max_speed, acceleration)
 
         # send response
-        self.result.success = True
+        self.result.success = success
         self.front_loader_server.set_succeeded(self.result)
-
-
-    ### HELPER FUNCTIONS ###
-
-    def transform_pose(self, pose):
-        """Transforms a pose from the base_link frame to the front_loader frame.
-
-        Args:
-            pose (Pose): Pose in the base_link frame
-
-        Returns:
-            (Pose): Pose in the front_loader frame.
-        """
-
-        # http://docs.ros.org/jade/api/tf/html/python/tf_python.html
-
-        # initialize transformer
-        t = tf.Transformer(True, rospy.Duration(10.0))
-
-        # create temp transform
-        m = TransformStamped()
-        m.header.frame_id = 'base_link'
-        m.child_frame_id = 'desired_front_loader_pos'
-        m.transform.translation = pose.position
-        m.transform.rotation = pose.orientation
-
-        # lookup transform from existing tree
-        t.setTransform(m)
-        (pos, quat) = t.lookupTransform('front_loader', 'desired_front_loader_pos', rospy.Time(0))
-
-        # return transformed pose
-        pose_front_loader = Pose()
-        pose_front_loader.position = pos
-        pose_front_loader.orientation = quat
-        return pose_front_loader
-
-    def inverse_kinematics(self, pose):
-        """Given a pose in the front_loader frame, determine the command to send the servo.
-
-        Args:
-            pose (Pose): The desired pose in the front_loader frame.
-
-        Returns:
-            (Integer): Corresponding servo command to send.
-        """
-
-        return pose.position.z
 
     def send_move_cmd(self, cmd, max_speed=float("nan"), acceleration=float("nan")):
         """Sends move command to self.move_pub. On completion, return true. On timeout, return false.
 
         Args:
-            cmd (Integer): Servo command received from self.inverse_kinematics
 
         Returns:
             (Bool): True if command was successful. False otherwise.
@@ -176,7 +122,7 @@ class FrontLoaderPlanner:
         msg.max_speed = max_speed
         msg.acceleration = acceleration
 
-        rospy.loginfo("Publishing command: %s\t%s\t%s" % (msg.position, msg.max_speed, msg.acceleration))
+        rospy.loginfo("Publishing front loader command: %s\t%s\t%s" % (msg.position, msg.max_speed, msg.acceleration))
 
         self.move_pub.publish(msg)
 
@@ -188,21 +134,10 @@ class FrontLoaderPlanner:
 
         return success
 
-    def send_grab_cmd(self, distance, force_threshold):
-        self.parallel_gripper_msg.distance = distance
-        self.parallel_gripper_msg.force_threshold = force_threshold
-        self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
-
-        return self.wait_for_gripper()
-
-    def wait_for_gripper(self):
-        return True
-
     def wait_for_linear(self):
+        rate = rospy.Rate(15.0)
         while True:
-            if rospy.is_shutdown():
-                return
-            if self.front_loader_server.is_preempt_requested():
+            if rospy.is_shutdown() or self.front_loader_server.is_preempt_requested():
                 rospy.loginfo("%s: Preempted" % self.front_loader_action_name)
                 self.front_loader_server.set_preempted()
                 return False
@@ -232,13 +167,13 @@ class FrontLoaderPlanner:
             elif event_str in self.FAILED_GOAL_EVENTS:
                 rospy.logerr("Move command failed: %s" % event_str)
                 return False
+            rate.sleep()
 
     def to_event_str(self, event_num):
         if event_num in self.LINEAR_EVENTS:
             return self.LINEAR_EVENTS[event_num]
         else:
             return "UNKNOWN"
-
 
 if __name__ == "__main__":
     try:

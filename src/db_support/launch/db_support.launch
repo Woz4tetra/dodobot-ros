@@ -17,4 +17,5 @@
 
     <node pkg="tf" type="static_transform_publisher" name="camera_to_rotate" args="0.02784 0 0.01587 0 0 0 1 camera_rotate_link camera_link 33" />
     <node pkg="tf" type="static_transform_publisher" name="base_link_to_footprint" args="0 0 0.0312 0 0 0 1 base_link wheel_center_link 33" />
+    <node pkg="tf" type="static_transform_publisher" name="linear_to_gripper" args="0.144 0 0.0017 0 0 0 1 linear_link gripper_link 33" />
 </launch>

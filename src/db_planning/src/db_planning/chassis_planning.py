@@ -1,16 +1,20 @@
 #!/usr/bin/python
 
-import rospy
-import tf
 import math
 import pprint
 import traceback
+
+import rospy
+import tf2_ros
+import tf_conversions
 import actionlib
 import geometry_msgs
 import dynamic_reconfigure.client
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Odometry
+
+from std_srvs.srv import Trigger, TriggerResponse
 
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
 
@@ -52,6 +56,7 @@ class ChassisPlanning:
         self.min_speed = 0.01  # m/s
 
         self.base_link_frame = "base_link"
+        # self.base_link_frame = "gripper_link"  # plan based on the gripper position
         self.map_frame = "map"
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
@@ -59,7 +64,8 @@ class ChassisPlanning:
         self.chassis_server.start()
         rospy.loginfo("[%s] server started" % self.chassis_action_name)
 
-        self.tf_listener = tf.TransformListener()
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         self.state = ChassisState()
 
         self.controller = GoalController()
@@ -67,20 +73,20 @@ class ChassisPlanning:
         self.controller.set_constants(3.5, 20.0, -1.0)
         self.controller.forward_movement_only = False
 
-        # # wait for action client
-        # self.move_action_client = actionlib.SimpleActionClient("/move_base", MoveBaseAction)
-        # self.move_action_client.wait_for_server()
-        # rospy.loginfo("[%s] move_base action server connected" % self.chassis_action_name)
-        #
-        # # self.local_planner_name = "DWAPlannerROS"
-        # self.local_planner_name = "TrajectoryPlannerROS"
-        #
-        # self.dyn_cfg_topic_name = "/move_base/" + self.local_planner_name
-        # self.local_planner_dyn_client = dynamic_reconfigure.client.Client(self.dyn_cfg_topic_name, timeout=30, config_callback=self.local_planner_callback)
-        # self.local_planner_updated = False
-        # rospy.loginfo("[%s] DWAPlannerROS dynamic reconfigure server connected" % self.chassis_action_name)
+        self.chassis_ready_service_name = "chassis_ready_service"
+        rospy.loginfo("Setting up service %s" % self.chassis_ready_service_name)
+        self.chassis_ready_srv = rospy.Service(self.chassis_ready_service_name, Trigger, self.chassis_ready_callback)
+        rospy.loginfo("%s service is ready" % self.chassis_ready_service_name)
 
         rospy.loginfo("[%s] --- Dodobot chassis planning is up! ---" % self.chassis_action_name)
+
+    def chassis_ready_callback(self, req):
+        # TODO: pull is_active flag from firmware
+        return TriggerResponse(True, "Ready!")
+        # if self.is_active:
+        #     return TriggerResponse(True, "Ready!")
+        # else:
+        #     return TriggerResponse(False, "active: %s" % str(self.is_active))
 
     def chassis_callback(self, goal):
         goal_x = goal.goal_x
@@ -174,12 +180,17 @@ class ChassisPlanning:
 
     def update_current_pose(self):
         try:
-            trans, rot = self.tf_listener.lookupTransform(self.map_frame, self.base_link_frame, rospy.Time(0))
-            self.state.x = trans[0]
-            self.state.y = trans[1]
-            self.state.t = tf.transformations.euler_from_quaternion(rot)[2]
+            goal_tf = self.tf_buffer.lookup_transform(self.map_frame, self.base_link_frame, rospy.Time(0))
+            self.state.x = goal_tf.transform.translation.x
+            self.state.y = goal_tf.transform.translation.y
+            self.state.t = tf_conversions.transformations.euler_from_quaternion([
+                goal_tf.transform.rotation.x,
+                goal_tf.transform.rotation.y,
+                goal_tf.transform.rotation.z,
+                goal_tf.transform.rotation.w
+            ])[2]
 
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             return
 
     def goto_pose(self, params):
@@ -204,8 +215,6 @@ class ChassisPlanning:
         self.controller.linear_tolerance = self.pos_tolerance
         self.controller.angular_tolerance = self.angle_tolerance
         self.controller.reverse_direction = not drive_forwards
-
-        self.tf_listener.waitForTransform(self.map_frame, self.base_link_frame, rospy.Time(), rospy.Duration(5.0))
 
         rate = rospy.Rate(60.0)
         prev_time = rospy.Time.now()
@@ -239,7 +248,6 @@ class ChassisPlanning:
 
             command_state = self.controller.get_velocity(self.state, goal_state, dt)
             self.send_cmd(command_state.vx, command_state.vt)
-            rospy.loginfo("error: %s" % (goal_state - self.state))
 
             if self.controller.is_stuck():
                 rospy.logwarn("Robot got stuck during go to pose routine!")
@@ -253,79 +261,6 @@ class ChassisPlanning:
         rospy.loginfo("goto_pose command completed successfully!")
         rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
         return True
-
-
-        # if goal_angle is None:
-        #     goal_angle = 0.0  # TODO: compute resulting angle from current and goal
-        #
-        # sign = 1 if drive_forwards else -1
-        #
-        # max_vel_trans = self.base_speed  # * sign
-        # min_vel_trans = self.min_speed  # * sign
-        # max_vel_x = self.base_speed
-        # if drive_forwards:
-        #     min_vel_x = 0.0
-        # else:
-        #     min_vel_x = -self.base_speed
-        # max_vel_theta = self.base_ang_v
-        # min_vel_theta = self.min_ang_v
-        # yaw_goal_tolerance = self.angle_tolerance
-        # xy_goal_tolerance = self.pos_tolerance
-        # forward_point_distance = 0.325 * sign
-        #
-        # self.local_planner_updated = False
-        # if self.local_planner_name == "DWAPlannerROS":
-        #     self.update_move_base_config(
-        #         max_vel_trans=max_vel_trans,
-        #         min_vel_trans=min_vel_trans,
-        #         max_vel_x=max_vel_x,
-        #         min_vel_x=min_vel_x,
-        #         max_vel_theta=max_vel_theta,
-        #         min_vel_theta=min_vel_theta,
-        #         yaw_goal_tolerance=yaw_goal_tolerance,
-        #         xy_goal_tolerance=xy_goal_tolerance,
-        #         # forward_point_distance=forward_point_distance,
-        #     )
-        # elif self.local_planner_name == "TrajectoryPlannerROS":
-        #     self.update_move_base_config(
-        #         max_vel_x=max_vel_trans,
-        #         min_vel_x=min_vel_trans,
-        #         max_vel_theta=max_vel_theta,
-        #         min_vel_theta=-max_vel_theta,
-        #         min_in_place_vel_theta=min_vel_theta,
-        #         yaw_goal_tolerance=yaw_goal_tolerance,
-        #         xy_goal_tolerance=xy_goal_tolerance,
-        #     )
-        #
-        # pose_base_link = geometry_msgs.msg.Pose()
-        # pose_base_link.position.x = goal_x
-        # pose_base_link.position.y = goal_y
-        # if goal_angle is not None:
-        #     goal_quat = tf.transformations.quaternion_from_euler(0.0, 0.0, goal_angle)
-        #     pose_base_link.orientation.x = goal_quat[0]
-        #     pose_base_link.orientation.y = goal_quat[1]
-        #     pose_base_link.orientation.z = goal_quat[2]
-        #     pose_base_link.orientation.w = goal_quat[3]
-        #
-        # goal = MoveBaseGoal()
-        # goal.target_pose.header.frame_id = "map"
-        # goal.target_pose.header.stamp = rospy.Time.now()
-        # goal.target_pose.pose = pose_base_link
-        #
-        # while not self.local_planner_updated:
-        #     rospy.sleep(0.1)
-        #
-        # rospy.loginfo("Send goal to move_base: %s" % goal)
-        # # Sends the goal to the action server.
-        # self.move_action_client.send_goal(goal)
-        #
-        # # Waits for the server to finish performing the action.
-        # self.move_action_client.wait_for_result()
-        #
-        # # Get the result of executing the action
-        # move_base_result = self.move_action_client.get_result()
-        #
-        # return bool(move_base_result)
 
 
     def shutdown_hook(self):

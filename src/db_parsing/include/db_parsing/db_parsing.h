@@ -132,6 +132,7 @@ private:
 
     ros::Publisher linear_pub;
     ros::Subscriber linear_sub;
+    uint32_t stepper_max_speed, stepper_max_accel, stepper_low_speed, stepper_low_accel;
     db_parsing::DodobotLinear linear_msg;
     void parseLinear();
     void linearCallback(const db_parsing::DodobotLinear::ConstPtr& msg);

@@ -4,17 +4,24 @@
 DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),image_transport(nh)
 {
     string drive_cmd_topic_name = "";
+    int stepper_max_speed_param, stepper_max_accel_param;
 
-    nh.param<string>("serial_port", _serialPort, "");
-    nh.param<int>("serial_baud", _serialBaud, 115200);
-    nh.param<string>("drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
-    nh.param<int>("write_thread_rate", write_thread_rate, 60);
-    nh.param<bool>("use_sensor_msg_time", use_sensor_msg_time, true);
-    nh.param<string>("display_img_topic", display_img_topic, "image");
-    nh.param<int>("jpeg_image_quality", jpeg_image_quality, 50);
-    nh.param<int>("image_resize_width", image_resize_width, 160);
-    nh.param<int>("image_resize_height", image_resize_height, 128 - 20);
-    nh.param<string>("starter_image_path", starter_image_path, "./dodobot.jpeg");
+    ros::param::param<string>("~serial_port", _serialPort, "");
+    ros::param::param<int>("~serial_baud", _serialBaud, 115200);
+    ros::param::param<string>("~drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
+    ros::param::param<int>("~write_thread_rate", write_thread_rate, 60);
+    ros::param::param<bool>("~use_sensor_msg_time", use_sensor_msg_time, true);
+    ros::param::param<string>("~display_img_topic", display_img_topic, "image");
+    ros::param::param<int>("~jpeg_image_quality", jpeg_image_quality, 50);
+    ros::param::param<int>("~image_resize_width", image_resize_width, 160);
+    ros::param::param<int>("~image_resize_height", image_resize_height, 128 - 20);
+    ros::param::param<string>("~starter_image_path", starter_image_path, "./dodobot.jpeg");
+    ros::param::param<int>("~stepper_max_speed", stepper_max_speed_param, 420000000);
+    ros::param::param<int>("~stepper_max_accel", stepper_max_accel_param, 20000000);
+    stepper_max_speed = (uint32_t)stepper_max_speed_param;
+    stepper_max_accel = (uint32_t)stepper_max_accel_param;
+    stepper_low_speed = stepper_max_speed / 1000;
+    stepper_low_accel = stepper_max_accel / 1000;
 
     ROS_INFO_STREAM("serial_port: " << _serialPort);
     ROS_INFO_STREAM("serial_baud: " << _serialBaud);
@@ -699,13 +706,30 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
         return;
     }
 
-    if (msg->max_speed != -1) {
-        writeSerial("lincfg", "dd", 0, msg->max_speed);
-        ros::Duration(0.005).sleep();
+    if (msg->max_speed != -1)
+    {
+        if (0 < msg->max_speed && msg->max_speed <= stepper_max_speed) {
+            if (msg->max_speed < stepper_low_speed) {
+                ROS_WARN("Requested linear speed %d is very low (threshold: %d)", msg->max_speed, stepper_low_speed);
+            }
+            writeSerial("lincfg", "dd", 0, msg->max_speed);
+            ros::Duration(0.005).sleep();
+        }
+        else {
+            ROS_ERROR("Requested linear speed %d is out of bounds: %d", msg->max_speed, stepper_max_speed);
+        }
     }
     if (msg->acceleration != -1) {
-        writeSerial("lincfg", "dd", 1, msg->acceleration);
-        ros::Duration(0.005).sleep();
+        if (0 < msg->acceleration && msg->acceleration <= stepper_max_accel) {
+            if (msg->acceleration < stepper_low_accel) {
+                ROS_WARN("Requested linear speed %d is very low (threshold: %d)", msg->acceleration, stepper_low_accel);
+            }
+            writeSerial("lincfg", "dd", 1, msg->acceleration);
+            ros::Duration(0.005).sleep();
+        }
+        else {
+            ROS_ERROR("Requested linear accel %d is out of bounds: %d", msg->acceleration, stepper_max_accel);
+        }
     }
 
     if (msg->command_value == 2 || msg->command_value == 3 || msg->command_value == 4) {
@@ -1138,8 +1162,8 @@ void DodobotParsing::parseFSR()
     else {
         fsr_msg.header.stamp = ros::Time::now();
     }
-    CHECK_SEGMENT(4); fsr_msg.left = (uint16_t)segment_as_uint32();
     CHECK_SEGMENT(4); fsr_msg.right = (uint16_t)segment_as_uint32();
+    CHECK_SEGMENT(4); fsr_msg.left = (uint16_t)segment_as_uint32();
 
     fsr_pub.publish(fsr_msg);
 }

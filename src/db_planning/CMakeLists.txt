@@ -15,18 +15,18 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#     FILES
-#     SequenceRequest.srv
-#     FrontLoaderAction.srv
-#     ChassisAction.srv
-# )
+add_service_files(
+    FILES
+    GrabbingSrv.srv
+)
+
 add_action_files(
     DIRECTORY action
     FILES
     SequenceRequest.action
     Chassis.action
     FrontLoader.action
+    Gripper.action
 )
 
 generate_messages(

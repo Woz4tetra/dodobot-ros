@@ -1,0 +1,37 @@
+
+-
+    comment: "position chassis"
+    goal_x: 0.0
+    goal_y: 0.0
+    goal_angle: 0.0
+    pos_tolerance: 0.01
+    angle_tolerance: 0.05
+    drive_forwards: true
+-
+    comment: "lower object"
+    goal_z: 0.0
+    z_speed: 0.03
+    z_accel: 0.001
+-
+    comment: "release object"
+    grip_distance: 0.08
+-
+    comment: "reset speed and acceleration limits"
+    z_speed: 0.04424
+    z_accel: 0.0017696
+
+# All fields:
+#     goal_x
+#     goal_y
+#     goal_angle
+#     base_speed
+#     base_ang_v
+#     pos_tolerance
+#     angle_tolerance
+#     drive_forwards
+#     goal_z
+#     z_speed
+#     z_accel
+#     grip_distance
+#     force_threshold
+#     comment
