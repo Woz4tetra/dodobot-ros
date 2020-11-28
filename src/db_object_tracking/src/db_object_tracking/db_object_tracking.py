@@ -28,7 +28,7 @@ from sensor_msgs.msg import CameraInfo
 
 from image_geometry import PinholeCameraModel
 
-from db_object_tracking.stored_object import StoredObjectContainer, StoredObject
+from stored_object import StoredObjectContainer, StoredObject
 
 
 class DodobotObjectTracking:
@@ -59,6 +59,7 @@ class DodobotObjectTracking:
         self.publish_debug_image = rospy.get_param("~publish_debug_image", True)
         self.bounding_box_border = rospy.get_param("~bounding_box_border_px", 30)
         self.main_workspace_tf = rospy.get_param("~map_tf_name", "map")
+        self.close_obj_threshold_m = rospy.get_param("~close_obj_threshold_m", 0.1)
 
         label_list = rospy.get_param("~labels", None)  # tag's TF name
         self.labels = {index: label for index, label in enumerate(label_list)}
@@ -76,14 +77,14 @@ class DodobotObjectTracking:
         self.depth_info_loaded = False
         self.debug_image = None
 
-        self.stored_objects = StoredObjectContainer()
+        self.stored_objects = StoredObjectContainer(self.camera_model, self.close_obj_threshold_m)
 
         self.camera_info_sub = rospy.Subscriber(self.camera_info_topic, CameraInfo, self.camera_info_callback, queue_size=10)
         self.depth_info_sub = rospy.Subscriber(self.depth_info_topic, CameraInfo, self.depth_info_callback, queue_size=10)
 
-        self.depth_sub = message_filters.Subscriber(self.depth_topic, Image, queue_size=1)
+        self.depth_sub = message_filters.Subscriber(self.depth_topic, Image, queue_size=5)
         self.detect_sub = message_filters.Subscriber(self.detect_topic, Detection2DArray, queue_size=10)
-        self.approx_time_sync = message_filters.ApproximateTimeSynchronizer([self.depth_sub, self.detect_sub], queue_size=10, slop=0.1)
+        self.approx_time_sync = message_filters.ApproximateTimeSynchronizer([self.depth_sub, self.detect_sub], queue_size=10, slop=0.02)
         self.approx_time_sync.registerCallback(self.depth_detect_callback)
 
         self.object_poses_pub = rospy.Publisher("object_poses", Detection2DArray, queue_size=25)
@@ -96,7 +97,6 @@ class DodobotObjectTracking:
         self.camera_model.fromCameraInfo(msg)
         # rospy.loginfo("Camera model loaded!")
         self.camera_info_loaded = True
-
 
     def depth_info_callback(self, msg):
         self.depth_size[0] = msg.width
@@ -125,8 +125,8 @@ class DodobotObjectTracking:
         try:
             camera_tf = self.tf_buffer.lookup_transform(
                 self.main_workspace_tf,
-                self.camera_model.header.frame_id, rospy.Time(0),
-                rospy.Duration(1.0)
+                self.camera_model.tfFrame(), detect_msg.header.stamp, # - rospy.Duration(0.25),
+                rospy.Duration(0.1)
             )
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             rospy.logerr_throttle(15.0, e)
@@ -148,9 +148,6 @@ class DodobotObjectTracking:
             pose = self.bbox_to_pose(detection.bbox, cv_image, label_name)
             if pose is None:
                 continue
-            # rospy.loginfo("label_name: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (label_name,
-            #     pose.pose.pose.position.x, pose.pose.pose.position.y, pose.pose.pose.position.z)
-            # )
 
             detection.results[0].pose = pose
             detect_with_pose_msg.detections.append(detection)
@@ -158,17 +155,22 @@ class DodobotObjectTracking:
 
             if camera_tf is not None:
                 # transform object pose into the map frame so positions stay constant while moving
-                tfd_pose = tf2_geometry_msgs.do_transform_pose(pose, camera_tf)
+                tfd_pose = tf2_geometry_msgs.do_transform_pose(pose.pose, camera_tf)
 
                 in_view_objects.append(StoredObject(
-                    label_name, tfd_pose
+                    label_name, tfd_pose.pose, pose.pose.pose
                 ))
+                rospy.loginfo("[%s] label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (self.main_workspace_tf, label_name,
+                    tfd_pose.pose.position.x, tfd_pose.pose.position.y, tfd_pose.pose.position.z)
+                )
+            else:
+                rospy.loginfo("[%s] label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (self.camera_model.tfFrame(), label_name,
+                    pose.pose.pose.position.x, pose.pose.pose.position.y, pose.pose.pose.position.z)
+                )
 
-        if camera_tf not is None:
+        if camera_tf is not None:
             self.stored_objects.check_objects_in_view(in_view_objects)
             self.stored_objects.check_in_view_points(in_view_objects)
-            for child_frame, pose_stamped in self.stored_objects.iter_tfs():
-                self.publish_detected_tf(child_frame, self.main_workspace_tf, pose_stamped.pose)
 
         self.object_poses_pub.publish(detect_with_pose_msg)
 
@@ -206,9 +208,9 @@ class DodobotObjectTracking:
         x_dist = ray[0] * z_dist
         y_dist = ray[1] * z_dist
 
-        rospy.loginfo("label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (label,
-            x_dist, y_dist, z_dist)
-        )
+        # rospy.loginfo("label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (label,
+        #     x_dist, y_dist, z_dist)
+        # )
 
         pose = PoseWithCovarianceStamped()
         pose.pose.pose.position.x = x_dist
@@ -242,12 +244,16 @@ class DodobotObjectTracking:
         # self.camera_info_callback(camera_info_msg)
         # self.depth_info_callback(depth_info_msg)
         # self.camera_info_loaded = True
-        rospy.spin()
+        # rospy.spin()
 
-        # rate = rospy.Rate(5.0)
-        # while not rospy.is_shutdown():
-        #
-        #     rate.sleep()
+        rate = rospy.Rate(5.0)
+        while not rospy.is_shutdown():
+            active_tf_names = []
+            for child_frame, pose in self.stored_objects.iter_tfs():
+                self.publish_detected_tf(child_frame, self.main_workspace_tf, pose)
+                active_tf_names.append(child_frame)
+            rospy.loginfo_throttle(1.0, "Stored objects: %s" % str(active_tf_names))
+            rate.sleep()
 
     def shutdown_hook(self):
         pass
