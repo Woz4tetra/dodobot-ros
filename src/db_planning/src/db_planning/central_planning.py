@@ -5,6 +5,7 @@ import os
 import cv2
 import math
 import datetime
+import numpy as np
 
 import rospy
 import rosservice
@@ -20,6 +21,8 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
+from nav_msgs.msg import GetPlan
+
 from std_srvs.srv import Trigger, TriggerResponse
 
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
@@ -33,6 +36,17 @@ from db_planning.srv import GrabbingSrv, GrabbingSrvResponse
 from db_planning.sequence import Sequence
 from db_planning.sounds import Sounds
 
+
+class SequenceState:
+    def __init__(self):
+        self.is_ready = False
+        self.sequence_start_pose = None
+        self.object_pose = None
+        self.goal_tf_name = ""
+        self.sequence_type = ""
+
+    def reset(self):
+        self.is_ready = False
 
 
 class CentralPlanning:
@@ -74,14 +88,18 @@ class CentralPlanning:
             "pickup": self.pickup_action_sequence,
             "delivery": self.delivery_action_sequence,
         }
+        self.sequence_state = SequenceState()
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
         self.gripper_action_name = rospy.get_param("~gripper_action_name", "gripper_actions")
-        self.move_base_action_name = rospy.get_param("~move_base_action_name", "/move_base")
+        self.move_base_namespace = rospy.get_param("~move_base_namespace", "/move_base")
 
-        self.main_workspace_tf = "map"
-        self.linear_base_tf = "linear_base_link"
+        self.main_workspace_tf = rospy.get_param("~map_tf", "map")
+        self.base_link_tf = rospy.get_param("~base_link_tf", "base_link")
+        self.linear_base_tf = rospy.get_param("~linear_base_link_tf", "linear_base_link")
+
+        self.sequence_start_radius = rospy.get_param("~sequence_start_radius", 0.25)
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -123,10 +141,18 @@ class CentralPlanning:
         rospy.loginfo("%s service is ready" % self.gripper_grabbing_service_name)
 
         # move_base action client
-        self.move_action_client = actionlib.SimpleActionClient(self.move_base_action_name, MoveBaseAction)
-        rospy.loginfo("Waiting for service %s" % self.move_base_action_name)
+        self.move_action_client = actionlib.SimpleActionClient(self.move_base_namespace, MoveBaseAction)
+        rospy.loginfo("Waiting for service %s" % self.move_base_namespace)
         self.move_action_client.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.move_base_action_name))
+        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.move_base_namespace))
+
+        # move_base make_plan service
+        self.move_base_make_plan_service_name = self.move_base_namespace + "/make_plan"
+        rospy.loginfo("Waiting for service %s" % self.move_base_make_plan_service_name)
+        self.make_plan_srv = rospy.ServiceProxy(self.move_base_make_plan_service_name, GetPlan)
+        rospy.loginfo("%s service is ready" % self.move_base_make_plan_service_name)
+
+        self.tilter_pub = rospy.Publisher("tilter_orientation", geometry_msgs.msg.Quaternion, queue_size=100)
 
         # central_planning sequence action server
         self.sequence_server = actionlib.SimpleActionServer("sequence_request", SequenceRequestAction, self.sequence_callback, auto_start=False)
@@ -143,41 +169,53 @@ class CentralPlanning:
         rospy.loginfo("Sequence requested: %s @ %s" % (sequence_type, sequence_goal))
         result = SequenceRequestResult()
 
+        self.sequence_state.sequence_type = sequence_type
+        self.sequence_state.goal_tf_name = sequence_goal
+
         if sequence_type not in self.sequence_types:
             rospy.logwarn("%s not an action type: %s" % (sequence_type, self.sequence_types))
-            result.success = False
-            self.sequence_server.set_aborted(result)
+            self.set_aborted()
             return
 
         if not self.check_sequence_prerequisites(sequence_type):
-            result.success = False
-            self.sequence_server.set_aborted(result)
+            self.set_aborted()
             return
+
+        self.sequence_state.is_ready = True
 
         if not self.move_to_start_pose(sequence_goal):
-            result.success = False
-            self.sequence_server.set_aborted(result)
+            self.set_success(False)
             return
 
+        self.look_at_object()
+        rospy.Time.sleep(0.25)  # wait for tilter
+
         try:
-            seq_result = self.sequence_mapping[sequence_type](sequence_goal)
+            seq_result = self.sequence_mapping[sequence_type]()
         except BaseException as e:
             rospy.logwarn("Failed to complete action sequence: %s" % str(e))
+            self.set_aborted()
             raise
-            # result.success = False
-            # self.sequence_server.set_aborted(result)
-            # return
 
         if seq_result is None:
-            result.success = True
-            self.sequence_server.set_succeeded(result)
+            self.set_success(True)
+            rospy.loginfo("%s sequence completed!" % sequence_type)
+            self.sounds["sequence_finished"].play()
         else:
+            self.set_success(False)
             rospy.logwarn("Failed to complete action sequence. Stopped at index #%s" % seq_result)
-            result.success = False
-            self.sequence_server.set_aborted(result)
 
-        rospy.loginfo("%s sequence completed!" % sequence_type)
-        self.sounds["sequence_finished"].play()
+    def set_success(self, success):
+        result = SequenceRequestResult()
+        result.success = success
+        self.sequence_server.set_succeeded(result)
+        self.sequence_state.is_ready = False
+
+    def set_aborted(self):
+        result = SequenceRequestResult()
+        result.success = False
+        self.sequence_server.set_aborted(result)
+        self.sequence_state.is_ready = False
 
     def check_sequence_prerequisites(self, sequence_type):
         # linear must be homed and motors active
@@ -205,10 +243,43 @@ class CentralPlanning:
 
     def move_to_start_pose(self, tf_name):
         goal_tf = self.tf_buffer.lookup_transform(self.main_workspace_tf, tf_name, rospy.Time(0), rospy.Duration(1.0))
+        start_tf = self.tf_buffer.lookup_transform(self.main_workspace_tf, self.base_link_tf, rospy.Time(0), rospy.Duration(1.0))
 
-        move_base_goal_pose = geometry_msgs.msg.Pose()
-        move_base_goal_pose.position = goal_tf.transform.translation
-        move_base_goal_pose.orientation = goal_tf.transform.rotation
+        start_pose = geometry_msgs.msg.Pose()
+        start_pose.position = start_tf.transform.translation
+        start_pose.orientation = start_tf.transform.rotation
+
+        goal_pose = geometry_msgs.msg.Pose()
+        goal_pose.position = goal_tf.transform.translation
+        goal_pose.orientation = goal_tf.transform.rotation
+        rospy.loginfo("Object pose: %s" % goal_pose)
+
+        req_plan = GetPlan()
+        req_plan.start = start_pose
+        req_plan.goal = goal_pose
+        req_plan.tolerance = self.sequence_start_radius
+        nav_plan = make_plan_srv(req_plan)
+
+        if len(nav_plan.poses) == 0:
+            rospy.logerr("Failed to produce a path to the object!")
+            return False
+
+        goal_point = self.pose_to_array(goal_pose)
+        for pose in nav_plan.poses[::-1]:  # iterate backwards through the plan
+            path_point = self.pose_to_array(pose.pose)
+
+            distance = np.linalg.norm(goal_point - path_point)
+            if distance <= self.sequence_start_radius:
+                move_base_goal_pose = pose
+
+        rospy.loginfo("Sequence start pose: %s" % move_base_goal_pose)
+        self.sequence_state.sequence_start_pose = move_base_goal_pose
+
+        # set sequence start pose to the last pose's orientation in the path
+        # since the object's orientation isn't known (yet!)
+        last_pose = nav_plan.poses[-1]
+        self.sequence_state.object_pose = goal_pose
+        self.sequence_state.object_pose.orientation = last_pose.pose.orientation
 
         goal = MoveBaseGoal()
         goal.target_pose.header.frame_id = self.main_workspace_tf
@@ -220,9 +291,20 @@ class CentralPlanning:
         move_base_result = self.move_action_client.get_result()
         return bool(move_base_result)
 
-    def pickup_action_sequence(self, sequence_goal):
+    def look_at_object(self):
+        camera_base_tf = self.tf_buffer.lookup_transform(
+            self.main_workspace_tf,
+            self.camera_base_link_tf,
+            rospy.Time(0),
+            rospy.Duration(1.0)
+        )
+        tfd_pose = tf2_geometry_msgs.do_transform_pose(self.sequence_state.object_pose, camera_base_tf)
+
+        self.tilter_pub.publish(tfd_pose.pose.orientation)
+
+    def pickup_action_sequence(self):
         self.pickup_sequence.reload()
-        adj_sequence = self.adjust_sequence_into_main_tf(sequence_goal, self.pickup_sequence)
+        adj_sequence = self.adjust_sequence_into_main_tf(self.pickup_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running pickup action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
@@ -234,7 +316,7 @@ class CentralPlanning:
 
     def delivery_action_sequence(self, sequence_goal):
         self.delivery_sequence.reload()
-        adj_sequence = self.adjust_sequence_into_main_tf(sequence_goal, self.delivery_sequence)
+        adj_sequence = self.adjust_sequence_into_main_tf(self.delivery_sequence)
         for index, action in enumerate(adj_sequence):
             rospy.loginfo("\n\n--- Running delivery action #%s: %s ---" % (index, action["comment"]))
             result = self.run_action(action)
@@ -294,9 +376,11 @@ class CentralPlanning:
                 pass
         return goal_msg
 
-    def adjust_sequence_into_main_tf(self, sequence_goal, sequence):
+    def adjust_sequence_into_main_tf(self, sequence):
         # adjust all actions while the tag is in view. If it's not, throw an error
         adj_sequence = []
+
+        sequence_goal = self.sequence_state.object_pose
 
         main_transform = self.tf_buffer.lookup_transform(self.main_workspace_tf,
             sequence_goal,  # source frame
@@ -312,6 +396,10 @@ class CentralPlanning:
         for action in sequence.sequence:
             adj_sequence.append(self.get_action_goal_in_main_tf(sequence_goal, main_transform, linear_transform, action))
         return adj_sequence
+
+    def pose_to_array(self, pose):
+        position = pose.position
+        return np.array([position.x, position.y, position.z])
 
     def quat_to_z_angle(self, orientation):
         tfd_goal_angle = tf_conversions.transformations.euler_from_quaternion([
@@ -380,8 +468,23 @@ class CentralPlanning:
         ))
         return tfd_action
 
+    def look_at_object_demo(self):
+        rate = rospy.Rate(10.0)
+        tf_name = "Orange_0"
+        while not rospy.is_shutdown():
+            goal_tf = self.tf_buffer.lookup_transform(self.main_workspace_tf, tf_name, rospy.Time(0), rospy.Duration(1.0))
+            goal_pose = geometry_msgs.msg.Pose()
+            goal_pose.position = goal_tf.transform.translation
+            goal_pose.orientation = goal_tf.transform.rotation
+            self.sequence_state.object_pose = goal_pose
+
+            self.look_at_object()
+
+            rate.sleep()
+
     def run(self):
-        rospy.spin()
+        self.look_at_object_demo()
+        # rospy.spin()
 
     def shutdown_hook(self):
         pass

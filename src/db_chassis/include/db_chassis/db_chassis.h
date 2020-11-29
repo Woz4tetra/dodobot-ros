@@ -163,6 +163,7 @@ private:
     ros::Publisher linear_pos_pub;
     ros::Publisher linear_joint_pub;
     ros::Publisher tilter_joint_pub;
+    ros::Publisher tilter_pub;
 
     // Subscribers
     ros::Subscriber twist_sub;
@@ -173,6 +174,7 @@ private:
     ros::Subscriber parallel_gripper_sub;
     ros::Subscriber linear_pos_sub;
     ros::Subscriber linear_vel_sub;
+    ros::Subscriber tilter_orientation_sub;
 
     // Sub callbacks
     void twist_callback(geometry_msgs::Twist msg);
@@ -183,6 +185,7 @@ private:
     void parallel_gripper_callback(db_parsing::DodobotParallelGripper msg);
     void linear_pos_callback(db_chassis::LinearPosition msg);
     void linear_vel_callback(db_chassis::LinearVelocity msg);
+    void tilter_orientation_callback(geometry_msgs::Quaternion msg);
 
     // messages
     db_parsing::DodobotDrive drive_sub_msg;
@@ -228,6 +231,7 @@ private:
     double servo_to_angle(int command, int max_command, int min_command, double min_angle, double max_angle);
     int angle_to_servo(double angle, int max_command, int min_command, double min_angle, double max_angle);
     double tilt_command_to_angle_rad(int command);
+    int tilt_angle_rad_to_command(double angle_rad);
 
     double bound_speed(double value, double lower, double upper, double epsilon);
 

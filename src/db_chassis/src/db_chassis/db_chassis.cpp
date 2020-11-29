@@ -155,6 +155,7 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 50);
     drive_pub = nh.advertise<db_parsing::DodobotDrive>(drive_pub_name, 50);
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper_cmd", 50);
+    tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter_cmd", 50);
     parallel_gripper_pub = nh.advertise<db_parsing::DodobotParallelGripper>("parallel_gripper", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear_cmd", 50);
     linear_pos_pub = nh.advertise<db_chassis::LinearPosition>("linear_pos", 50);
@@ -170,6 +171,7 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     parallel_gripper_sub = nh.subscribe<db_parsing::DodobotParallelGripper>("parallel_gripper_cmd", 50, &DodobotChassis::parallel_gripper_callback, this);
     linear_pos_sub = nh.subscribe<db_chassis::LinearPosition>("linear_pos_cmd", 50, &DodobotChassis::linear_pos_callback, this);
     linear_vel_sub = nh.subscribe<db_chassis::LinearVelocity>("linear_vel_cmd", 50, &DodobotChassis::linear_vel_callback, this);
+    tilter_orientation_sub = nh.subscribe<geometry_msgs::Quaternion>("tilter_orientation", 50, &DodobotChassis::tilter_orientation_callback, this);
 
     pid_service_name = "dodobot_pid";
     odom_reset_service_name = "dodobot_odom_reset";
@@ -323,6 +325,19 @@ void DodobotChassis::tilter_callback(db_parsing::DodobotTilter msg)
 {
     camera_tilt_angle = tilt_command_to_angle_rad(msg.position);
     tilter_joint.position[0] = -camera_tilt_angle;
+}
+
+void DodobotChassis::tilter_orientation_callback(geometry_msgs::Quaternion msg)
+{
+    tilter_msg = DodobotTilter();
+    tf2::Quaternion quat;
+    tf2::convert(msg, quat);
+    tf::Matrix3x3 tf_matrix(quat);
+    double roll, pitch, yaw;
+    tf_matrix.getRPY(roll, pitch, yaw);
+
+    tilter_msg.command = tilt_angle_rad_to_command(pitch);
+    tilter_pub.publish(tilter_msg);
 }
 
 void DodobotChassis::linear_callback(db_parsing::DodobotLinear msg)
@@ -479,7 +494,14 @@ int DodobotChassis::angle_to_servo(double angle, int max_command, int min_comman
 }
 
 double DodobotChassis::tilt_command_to_angle_rad(int command) {
-    servo_to_angle(command,
+    return servo_to_angle(command,
+        tilter_upper_command, tilter_lower_command,
+        tilter_lower_angle, tilter_upper_angle
+    );
+}
+
+int DodobotChassis::tilt_angle_rad_to_command(double angle_rad) {
+    return angle_to_servo(angle_rad,
         tilter_upper_command, tilter_lower_command,
         tilter_lower_angle, tilter_upper_angle
     );
