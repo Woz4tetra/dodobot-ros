@@ -56,7 +56,6 @@ class ChassisPlanning:
         self.min_speed = 0.01  # m/s
 
         self.base_link_frame = "base_link"
-        # self.base_link_frame = "gripper_link"  # plan based on the gripper position
         self.map_frame = "map"
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
@@ -69,8 +68,8 @@ class ChassisPlanning:
         self.state = ChassisState()
 
         self.controller = GoalController()
-        # self.controller.set_constants(3.5, 8.0, -1.5)
-        self.controller.set_constants(3.5, 20.0, -1.0)
+        self.controller.set_constants(3.0, 8.0, -1.5)
+        # self.controller.set_constants(3.5, 20.0, -1.0)
         self.controller.forward_movement_only = False
 
         self.chassis_ready_service_name = "chassis_ready_service"
@@ -180,14 +179,14 @@ class ChassisPlanning:
 
     def update_current_pose(self):
         try:
-            goal_tf = self.tf_buffer.lookup_transform(self.map_frame, self.base_link_frame, rospy.Time(0))
-            self.state.x = goal_tf.transform.translation.x
-            self.state.y = goal_tf.transform.translation.y
+            base_tf = self.tf_buffer.lookup_transform(self.map_frame, self.base_link_frame, rospy.Time(0))
+            self.state.x = base_tf.transform.translation.x
+            self.state.y = base_tf.transform.translation.y
             self.state.t = tf_conversions.transformations.euler_from_quaternion([
-                goal_tf.transform.rotation.x,
-                goal_tf.transform.rotation.y,
-                goal_tf.transform.rotation.z,
-                goal_tf.transform.rotation.w
+                base_tf.transform.rotation.x,
+                base_tf.transform.rotation.y,
+                base_tf.transform.rotation.z,
+                base_tf.transform.rotation.w
             ])[2]
 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -226,6 +225,7 @@ class ChassisPlanning:
         while True:
             rate.sleep()
             self.update_current_pose()
+            rospy.loginfo("goal: %s, current: %s, error: %s" % (goal_state, self.state, goal_state - self.state))
 
             is_at_goal = self.controller.at_goal(self.state, goal_state)
             if is_at_goal:

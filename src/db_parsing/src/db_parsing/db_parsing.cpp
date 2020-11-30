@@ -756,11 +756,11 @@ void DodobotParsing::writeTilter(uint8_t command, int position) {
     }
     if (command <= 2) {
         // Up, Down, Toggle
-        writeSerial("tilter", "d", command);
+        writeSerial("tilt", "d", command);
     }
     else {
         // Set with position
-        writeSerial("tilter", "dd", command, position);
+        writeSerial("tilt", "dd", command, position);
     }
 }
 

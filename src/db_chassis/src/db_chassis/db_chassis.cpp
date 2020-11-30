@@ -329,14 +329,15 @@ void DodobotChassis::tilter_callback(db_parsing::DodobotTilter msg)
 
 void DodobotChassis::tilter_orientation_callback(geometry_msgs::Quaternion msg)
 {
-    tilter_msg = DodobotTilter();
+    db_parsing::DodobotTilter tilter_msg;
     tf2::Quaternion quat;
     tf2::convert(msg, quat);
-    tf::Matrix3x3 tf_matrix(quat);
+    tf2::Matrix3x3 tf_matrix(quat);
     double roll, pitch, yaw;
     tf_matrix.getRPY(roll, pitch, yaw);
 
-    tilter_msg.command = tilt_angle_rad_to_command(pitch);
+    tilter_msg.command = 3;
+    tilter_msg.position = tilt_angle_rad_to_command(pitch);
     tilter_pub.publish(tilter_msg);
 }
 

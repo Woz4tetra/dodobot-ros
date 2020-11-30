@@ -7,6 +7,7 @@ import math
 import rospy
 import datetime
 import numpy as np
+import threading
 
 import message_filters
 
@@ -19,7 +20,7 @@ from vision_msgs.msg import ObjectHypothesisWithPose
 from vision_msgs.msg import VisionInfo
 
 import geometry_msgs
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped, PoseWithCovariance
 
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -56,10 +57,11 @@ class DodobotObjectTracking:
         self.depth_info_topic = rospy.get_param("~depth_info_topic", "depth/camera_info")
         self.detect_topic = rospy.get_param("~detect_topic", "/detectnet/detections")
         self.publish_label_tfs = rospy.get_param("~publish_label_tfs", True)
-        self.publish_debug_image = rospy.get_param("~publish_debug_image", True)
+        self.publish_debug_image = rospy.get_param("~publish_debug_image", False)
         self.bounding_box_border = rospy.get_param("~bounding_box_border_px", 30)
         self.main_workspace_tf = rospy.get_param("~map_tf_name", "map")
         self.close_obj_threshold_m = rospy.get_param("~close_obj_threshold_m", 0.1)
+        self.object_far_away_buffer = rospy.get_param("~object_far_away_buffer", 0.05)
 
         label_list = rospy.get_param("~labels", None)  # tag's TF name
         self.labels = {index: label for index, label in enumerate(label_list)}
@@ -76,15 +78,22 @@ class DodobotObjectTracking:
         self.camera_info_loaded = False
         self.depth_info_loaded = False
         self.debug_image = None
+        self.in_view_objects_lock = threading.Lock()
+        self.in_view_objects = []
+        self.in_view_object_prev_time = rospy.Time.now()
 
-        self.stored_objects = StoredObjectContainer(self.camera_model, self.close_obj_threshold_m)
+        self.stored_objects = StoredObjectContainer(
+            self.camera_model, self.tf_buffer,
+            self.main_workspace_tf,
+            self.close_obj_threshold_m, self.object_far_away_buffer
+        )
 
         self.camera_info_sub = rospy.Subscriber(self.camera_info_topic, CameraInfo, self.camera_info_callback, queue_size=10)
         self.depth_info_sub = rospy.Subscriber(self.depth_info_topic, CameraInfo, self.depth_info_callback, queue_size=10)
 
-        self.depth_sub = message_filters.Subscriber(self.depth_topic, Image, queue_size=5)
-        self.detect_sub = message_filters.Subscriber(self.detect_topic, Detection2DArray, queue_size=10)
-        self.approx_time_sync = message_filters.ApproximateTimeSynchronizer([self.depth_sub, self.detect_sub], queue_size=10, slop=0.02)
+        self.depth_sub = message_filters.Subscriber(self.depth_topic, Image, queue_size=25)
+        self.detect_sub = message_filters.Subscriber(self.detect_topic, Detection2DArray, queue_size=25)
+        self.approx_time_sync = message_filters.ApproximateTimeSynchronizer([self.depth_sub, self.detect_sub], queue_size=25, slop=0.01)
         self.approx_time_sync.registerCallback(self.depth_detect_callback)
 
         self.object_poses_pub = rospy.Publisher("object_poses", Detection2DArray, queue_size=25)
@@ -133,7 +142,8 @@ class DodobotObjectTracking:
             camera_tf = None
 
         # label_counters = {}
-        in_view_objects = []
+        self.in_view_objects_lock.acquire()
+        self.in_view_objects = []
         for detection in detect_msg.detections:
             label_id = detection.results[0].id
             label_name = self.labels[label_id]
@@ -146,31 +156,29 @@ class DodobotObjectTracking:
             # child_frame = "%s_%s" % (label_name, label_index)
 
             pose = self.bbox_to_pose(detection.bbox, cv_image, label_name)
-            if pose is None:
-                continue
+            pose_with_covar = PoseWithCovariance()
+            pose_with_covar.pose = pose.pose
 
-            detection.results[0].pose = pose
+            detection.results[0].pose = pose_with_covar
             detect_with_pose_msg.detections.append(detection)
             # self.publish_detected_tf(child_frame, self.parent_tf_name, pose.pose.pose)
 
             if camera_tf is not None:
                 # transform object pose into the map frame so positions stay constant while moving
-                tfd_pose = tf2_geometry_msgs.do_transform_pose(pose.pose, camera_tf)
+                tfd_pose = tf2_geometry_msgs.do_transform_pose(pose, camera_tf)
 
-                in_view_objects.append(StoredObject(
-                    label_name, tfd_pose.pose, pose.pose.pose
+                self.in_view_object_prev_time = rospy.Time.now()
+                self.in_view_objects.append(StoredObject(
+                    label_name, tfd_pose, pose, detect_msg.header.stamp
                 ))
                 rospy.loginfo("[%s] label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (self.main_workspace_tf, label_name,
                     tfd_pose.pose.position.x, tfd_pose.pose.position.y, tfd_pose.pose.position.z)
                 )
             else:
                 rospy.loginfo("[%s] label: %s, X: %0.3f, Y: %0.3f, Z: %0.3f" % (self.camera_model.tfFrame(), label_name,
-                    pose.pose.pose.position.x, pose.pose.pose.position.y, pose.pose.pose.position.z)
+                    pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
                 )
-
-        if camera_tf is not None:
-            self.stored_objects.check_objects_in_view(in_view_objects)
-            self.stored_objects.check_in_view_points(in_view_objects)
+        self.in_view_objects_lock.release()
 
         self.object_poses_pub.publish(detect_with_pose_msg)
 
@@ -212,14 +220,15 @@ class DodobotObjectTracking:
         #     x_dist, y_dist, z_dist)
         # )
 
-        pose = PoseWithCovarianceStamped()
-        pose.pose.pose.position.x = x_dist
-        pose.pose.pose.position.y = y_dist
-        pose.pose.pose.position.z = z_dist
-        pose.pose.pose.orientation.x = 0.0
-        pose.pose.pose.orientation.y = 0.0
-        pose.pose.pose.orientation.z = 0.0
-        pose.pose.pose.orientation.w = 1.0
+        pose = PoseStamped()
+        pose.header.frame_id = self.camera_model.tfFrame()
+        pose.pose.position.x = x_dist
+        pose.pose.position.y = y_dist
+        pose.pose.position.z = z_dist
+        pose.pose.orientation.x = 0.0
+        pose.pose.orientation.y = 0.0
+        pose.pose.orientation.z = 0.0
+        pose.pose.orientation.w = 1.0
 
         return pose
 
@@ -248,11 +257,19 @@ class DodobotObjectTracking:
 
         rate = rospy.Rate(5.0)
         while not rospy.is_shutdown():
+            if not self.in_view_objects_lock.locked():
+                self.in_view_objects_lock.acquire()
+                if rospy.Time.now() - self.in_view_object_prev_time > rospy.Duration(5.0):
+                    self.in_view_objects = []
+                self.stored_objects.update(self.in_view_objects)
+                self.in_view_objects_lock.release()
+
             active_tf_names = []
-            for child_frame, pose in self.stored_objects.iter_tfs():
-                self.publish_detected_tf(child_frame, self.main_workspace_tf, pose)
+            for child_frame, obj in self.stored_objects.iter_tfs():
+                self.publish_detected_tf(child_frame, self.main_workspace_tf, obj.map_pose.pose)
                 active_tf_names.append(child_frame)
             rospy.loginfo_throttle(1.0, "Stored objects: %s" % str(active_tf_names))
+
             rate.sleep()
 
     def shutdown_hook(self):

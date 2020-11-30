@@ -11,8 +11,12 @@
 
     <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" />
 
-
     <group ns="camera">
+        <arg name="depth_topic_throttle_rate" default="15.0"/>
+        <arg name="depth_topic" value="depth/image_rect_raw_throttle"/>
+        <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
+            args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/>
+
         <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
                 args="load depth_image_proc/point_cloud_xyzrgb realsense2_camera_manager" respawn="false">
             <remap from="rgb/image_rect_color"        to="color/image_raw" />
@@ -25,7 +29,7 @@
             args="load depth_image_proc/register realsense2_camera_manager false" respawn="false">
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth/camera_info"           to="depth/camera_info" />
-            <remap from="depth/image_rect"            to="depth/image_rect_raw" />
+            <remap from="depth/image_rect"            to="$(arg depth_topic)" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
         </node>
     </group>
