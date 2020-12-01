@@ -2,11 +2,14 @@
 -
     comment: "position gripper"
     grip_distance: 0.08
-    force_threshold: 300
+    force_threshold: 900
+    # goal_z: 0.05
     goal_z: -0.05
+    z_speed: 0.03
+    z_accel: 0.001
 -
     comment: "position chassis"
-    goal_x: -0.2
+    goal_x: -0.15
     goal_y: 0.0
     goal_angle: 0.0
     pos_tolerance: 0.01
@@ -21,11 +24,12 @@
     comment: "lift object"
     goal_z: 0.1
     # z_speed: 0.03
-    # z_accel: 0.001
+
 -
     comment: "reset speed and acceleration limits"
-    # z_speed: 0.04424
-    # z_accel: 0.0017696
+    goal_z: 0.1
+    z_speed: 0.04424
+    z_accel: 0.0017696
 
 # All fields:
 #     goal_x

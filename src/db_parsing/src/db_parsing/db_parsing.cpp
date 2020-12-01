@@ -712,6 +712,7 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
             if (msg->max_speed < stepper_low_speed) {
                 ROS_WARN("Requested linear speed %d is very low (threshold: %d)", msg->max_speed, stepper_low_speed);
             }
+            ROS_INFO("Setting linear max speed: %d", msg->max_speed);
             writeSerial("lincfg", "dd", 0, msg->max_speed);
             ros::Duration(0.005).sleep();
         }
@@ -724,6 +725,7 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
             if (msg->acceleration < stepper_low_accel) {
                 ROS_WARN("Requested linear speed %d is very low (threshold: %d)", msg->acceleration, stepper_low_accel);
             }
+            ROS_INFO("Setting linear max acceleration: %d", msg->acceleration);
             writeSerial("lincfg", "dd", 1, msg->acceleration);
             ros::Duration(0.005).sleep();
         }
