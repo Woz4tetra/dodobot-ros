@@ -948,7 +948,7 @@ string DodobotParsing::formatPacketToPrint(char* packet, uint32_t length)
     string str = "";
     for (size_t i = 0; i < length; i++)
     {
-        switch (packet[i]) {
+        switch ((unsigned char)packet[i]) {
             case 0: str += "\\x00"; break;
             case 1: str += "\\x01"; break;
             case 2: str += "\\x02"; break;

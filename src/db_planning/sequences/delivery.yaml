@@ -1,7 +1,7 @@
 
 -
     comment: "position chassis"
-    goal_x: -0.15
+    goal_x: 0.0
     goal_y: 0.0
     goal_angle: 0.0
     pos_tolerance: 0.01
@@ -19,7 +19,7 @@
     grip_distance: 0.08
 -
     comment: "back out"
-    goal_x: -0.3
+    goal_x: -0.15
     goal_y: 0.0
     goal_angle: 0.0
 -

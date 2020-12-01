@@ -73,11 +73,15 @@ class CentralPlanning:
 
         self.audio_sink = rospy.get_param("~audio_sink", "alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo")
 
-        self.sounds = Sounds(self.audio_sink, {
-            "sequence_finished": "/home/ben/Music/sound_effects/ding.wav",
-            "action_finished": "/home/ben/Music/sound_effects/click.wav",
-            "action_failed": "/home/ben/Music/sound_effects/thud.wav",
-        })
+        try:
+            self.sounds = Sounds(self.audio_sink, {
+                "sequence_finished": "/home/ben/Music/sound_effects/ding.wav",
+                "action_finished": "/home/ben/Music/sound_effects/click.wav",
+                "action_failed": "/home/ben/Music/sound_effects/thud.wav",
+            })
+        except BaseException as e:
+            self.sounds = None
+            rospy.logerr("Failed to load sounds: %s" % str(e))
 
         self.force_threshold = rospy.get_param("~force_threshold", 30)
 
@@ -101,6 +105,7 @@ class CentralPlanning:
         self.base_link_tf = rospy.get_param("~base_link_tf", "base_link")
         self.linear_base_tf = rospy.get_param("~linear_base_link_tf", "linear_base_link")
         self.camera_base_link_tf = rospy.get_param("~camera_base_link_tf", "tilt_base_link")
+        self.gripper_link_tf = rospy.get_param("~gripper_link_tf", "gripper_link")
 
         self.sequence_start_radius = rospy.get_param("~sequence_start_radius", 0.3)
 
@@ -221,7 +226,7 @@ class CentralPlanning:
 
         self.set_success(True)
         rospy.loginfo("%s sequence completed!" % sequence_type)
-        self.sounds["sequence_finished"].play()
+        self.play_sound("sequence_finished")
 
     def set_success(self, success):
         result = SequenceRequestResult()
@@ -278,36 +283,13 @@ class CentralPlanning:
         return True
 
     def move_to_start_pose(self, tf_name):
-        goal_tf = self.tf_buffer.lookup_transform(self.main_workspace_tf, tf_name, rospy.Time(0), rospy.Duration(1.0))
-        start_tf = self.tf_buffer.lookup_transform(self.main_workspace_tf, self.base_link_tf, rospy.Time(0), rospy.Duration(1.0))
+        goal_tf = self.attempt_get_tf(self.main_workspace_tf, tf_name, rospy.Duration(1.0))
+        if goal_tf is None:
+            return False
 
-        # goal_pose = geometry_msgs.msg.PoseStamped()
-        # goal_pose.header.frame_id = self.main_workspace_tf
-        # goal_pose.pose.position = goal_tf.transform.translation
-        #
-        # # Eliminate all but the yaw component of object rotation
-        # goal_quat = tf_conversions.transformations.quaternion_from_euler(
-        #     0.0, 0.0, self.quat_to_z_angle(goal_tf.transform.rotation)
-        # )
-        # goal_pose.pose.orientation.x = goal_quat[0]
-        # goal_pose.pose.orientation.y = goal_quat[1]
-        # goal_pose.pose.orientation.z = goal_quat[2]
-        # goal_pose.pose.orientation.w = goal_quat[3]
-        #
-        # # create TF matrix. Transforms from map -> object tf with only yaw
-        # goal_trans, goal_rot = self.assign_pose_to_lists(goal_pose.pose)
-        # rot_m = tf.transformations.quaternion_matrix(goal_rot)
-        # trans_m = tf.transformations.translation_matrix(goal_trans)
-        # goal_mat = np.dot(trans_m, rot_m)
-        #
-        # # apply retraction distance
-        # relative_seq_start_pose = goal_pose
-        # relative_seq_start_pose.pose.position.x -= self.sequence_start_radius
-        #
-        # # TF retracted distance from object tf with only yaw to map frame
-        # move_base_goal_pose = geometry_msgs.msg.PoseStamped()
-        # move_base_goal_pose.header.frame_id = self.main_workspace_tf
-        # move_base_goal_pose.pose = self.tf_with_mat(relative_seq_start_pose.pose, goal_mat)
+        start_tf = self.attempt_get_tf(self.main_workspace_tf, self.base_link_tf, rospy.Duration(1.0))
+        if start_tf is None:
+            return False
 
         start_pose = geometry_msgs.msg.PoseStamped()
         start_pose.header.frame_id = self.main_workspace_tf
@@ -352,31 +334,44 @@ class CentralPlanning:
     def update_object_pose(self, tf_name):
         goal_tf = self.attempt_get_tf(self.main_workspace_tf, tf_name, rospy.Duration(1.0))
         if goal_tf is None:
-            rospy.logwarn("Failed to look up %s to %s" % (self.main_workspace_tf, tf_name))
             return False
 
         start_tf = self.attempt_get_tf(self.main_workspace_tf, self.base_link_tf, rospy.Duration(1.0))
         if start_tf is None:
-            rospy.logwarn("Failed to look up %s to %s" % (self.main_workspace_tf, self.base_link_tf))
+            return False
+
+        gripper_offset_tf = self.attempt_get_tf(self.gripper_link_tf, self.base_link_tf, rospy.Duration(1.0))
+        if gripper_offset_tf is None:
             return False
 
         unrotate_obj_tf = self.attempt_get_tf(tf_name, self.base_link_tf, rospy.Duration(1.0))
         if unrotate_obj_tf is None:
-            rospy.logwarn("Failed to look up %s to %s" % (tf_name, self.base_link_tf))
             return False
 
         linear_tf = self.attempt_get_tf(self.linear_base_tf, tf_name, rospy.Duration(1.0))
         if linear_tf is None:
-            rospy.logwarn("Failed to look up %s to %s" % (self.linear_base_tf, tf_name))
             return False
 
         main_tf_mat = self.get_tf_matrix(goal_tf)
 
+        # apply object counter rotation to map -> object TF.
+        # main_tf_mat will TF using base_link's orientation
         trans, rot = self.assign_tf_to_lists(unrotate_obj_tf)
         unrotate_mat = tf.transformations.quaternion_matrix(rot)
-        
         main_tf_mat = np.dot(main_tf_mat, unrotate_mat)
 
+        # apply gripper backwards offset so that X=0.0, Y=0.0 is at the gripper
+        # center
+        trans = tf.transformations.translation_matrix([
+            gripper_offset_tf.transform.translation.x,
+            gripper_offset_tf.transform.translation.y,
+            0.0,
+        ])
+        gripper_offset_mat = tf.transformations.quaternion_matrix(trans)
+        main_tf_mat = np.dot(main_tf_mat, gripper_offset_mat)
+
+        # get position component of linear to object TF. Sets Z=0.0 to the
+        # object's height
         trans_m = tf.transformations.translation_matrix([
             linear_tf.transform.translation.x,
             linear_tf.transform.translation.y,
@@ -410,6 +405,7 @@ class CentralPlanning:
         try:
             return self.tf_buffer.lookup_transform(parent_link, child_link, time_window, timeout)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            rospy.logwarn("Failed to look up %s to %s" % (parent_link, child_link))
             return None
 
     def look_at_object(self, tf_name):
@@ -493,10 +489,10 @@ class CentralPlanning:
             # self.front_loader_action.cancel_goal()
             # self.chassis_action.cancel_goal()
             # self.gripper_action.cancel_goal()
-            self.sounds["action_failed"].play()
+            self.play_sound("action_failed")
             return False
 
-        self.sounds["action_finished"].play()
+        self.play_sound("action_finished")
         return True
 
     def chassis_action_progress(self, msg):
@@ -673,6 +669,11 @@ class CentralPlanning:
                 rate.sleep()
         except BaseException as e:
             rospy.logerr(e)
+
+    def play_sound(self, name):
+        if self.sounds:
+            self.sounds[name].play()
+
 
     def test_tf(self):
         self.update_object_pose("map")
