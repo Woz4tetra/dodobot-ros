@@ -6,6 +6,7 @@
             <param name="depth_info_topic"      value="/camera/aligned_depth_to_color/camera_info"/>
             <param name="detect_topic"          value="/detectnet/detections"/>
             <param name="publish_label_tfs"     value="true"/>
+            <param name="publish_debug_image"     value="true"/>
 
             <rosparam param="labels">
                 - BACKGROUND

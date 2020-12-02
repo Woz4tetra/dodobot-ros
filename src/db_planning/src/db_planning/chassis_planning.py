@@ -39,13 +39,16 @@ class ChassisPlanning:
         )
         rospy.on_shutdown(self.shutdown_hook)
 
+        self.base_max_speed = rospy.get_param("~base_max_speed", 0.36)  # m/s, absolute max: 0.36
+        self.base_max_ang_v = rospy.get_param("~base_max_ang_v", 0.7)  # rad/s, absolute max: 7.0
+        self.kP = rospy.get_param("~kP", 3.0)
+        self.kA = rospy.get_param("~kA", 8.0)
+        self.kB = rospy.get_param("~kB", -1.5)
+
         self.twist_command = geometry_msgs.msg.Twist()
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", geometry_msgs.msg.Twist, queue_size=100)
 
         self.result = ChassisResult()
-
-        self.base_max_speed = 0.36  # m/s, absolute max: 0.36
-        self.base_max_ang_v = 7.0  # rad/s, absolute max: 7.0
 
         self.pos_tolerance = 0.01  # m
         self.angle_tolerance = 0.05  # rad
@@ -57,6 +60,7 @@ class ChassisPlanning:
 
         self.base_link_frame = "base_link"
         self.map_frame = "map"
+        self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.chassis_server = actionlib.SimpleActionServer(self.chassis_action_name, ChassisAction, self.chassis_callback, auto_start=False)
@@ -68,7 +72,7 @@ class ChassisPlanning:
         self.state = ChassisState()
 
         self.controller = GoalController()
-        self.controller.set_constants(3.0, 8.0, -1.5)
+        self.controller.set_constants(self.kP, self.kA, self.kB)
         # self.controller.set_constants(3.5, 20.0, -1.0)
         self.controller.forward_movement_only = False
 

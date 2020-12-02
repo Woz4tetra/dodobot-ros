@@ -362,12 +362,11 @@ class CentralPlanning:
 
         # apply gripper backwards offset so that X=0.0, Y=0.0 is at the gripper
         # center
-        trans = tf.transformations.translation_matrix([
+        gripper_offset_mat = tf.transformations.translation_matrix([
             gripper_offset_tf.transform.translation.x,
             gripper_offset_tf.transform.translation.y,
             0.0,
         ])
-        gripper_offset_mat = tf.transformations.quaternion_matrix(trans)
         main_tf_mat = np.dot(main_tf_mat, gripper_offset_mat)
 
         # get position component of linear to object TF. Sets Z=0.0 to the

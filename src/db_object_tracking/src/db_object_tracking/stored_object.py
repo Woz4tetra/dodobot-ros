@@ -20,6 +20,10 @@ class StoredObjectContainer(object):
         self.main_workspace_tf = main_workspace_tf
         self.object_far_away_buffer = object_far_away_buffer
 
+    def reset(self):
+        self.stored_objects = {}
+        self.assigned_indices = {}
+    
     def update(self, in_view_objects):
         self.check_objects_in_view(in_view_objects)
         self.check_in_view_points(in_view_objects)
