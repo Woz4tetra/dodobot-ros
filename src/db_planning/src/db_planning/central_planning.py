@@ -657,6 +657,10 @@ class CentralPlanning:
         ))
         return tfd_action
 
+    def play_sound(self, name):
+        if self.sounds:
+            self.sounds[name].play()
+
     def look_at_object_demo(self):
         rate = rospy.Rate(2.0)
         rospy.loginfo("-----------------------------")
@@ -669,13 +673,50 @@ class CentralPlanning:
         except BaseException as e:
             rospy.logerr(e)
 
-    def play_sound(self, name):
-        if self.sounds:
-            self.sounds[name].play()
-
-
     def test_tf(self):
         self.update_object_pose("map")
+
+    def stress_test_linear(self):
+        sequence = [
+            dict(goal_z=0.15, z_speed=0.04424, z_accel=0.0017696),
+            dict(goal_z=0.0, z_speed=0.04424, z_accel=0.0017696),
+
+            dict(goal_z=0.0375, z_speed=0.03, z_accel=0.001),
+            dict(goal_z=0.075, z_speed=0.03, z_accel=0.001),
+            dict(goal_z=0.1125, z_speed=0.03, z_accel=0.001),
+            dict(goal_z=0.15, z_speed=0.03, z_accel=0.001),
+            dict(goal_z=0.0, z_speed=0.03, z_accel=0.001)
+        ]
+        sequence_index = 0
+        num_failures = 0
+        start_time = rospy.Time.now()
+        rospy.sleep(10.0)
+        try:
+            while not rospy.is_shutdown():
+                action = sequence[sequence_index]
+                front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
+                self.front_loader_action.send_goal(front_loader_goal)
+                self.front_loader_action.wait_for_result()
+                front_loader_result = self.front_loader_action.get_result()
+                if not front_loader_result.success:
+                    num_failures += 1
+                    duration = (rospy.Time.now() - start_time).to_sec()
+                    rospy.logerr("Failed at index #%d after %ss: %s" % (sequence_index, duration, action))
+                else:
+                    num_failures = 0
+                    sequence_index += 1
+                    if sequence_index >= len(sequence):
+                        sequence_index = 0
+
+                if num_failures >= 10:
+                    rospy.logerr("Failed after 10 attempts at index #%d after %ss: %s" % (sequence_index, duration, action))
+                    break
+
+                rospy.sleep(0.25)
+        except BaseException as e:
+            rospy.logerr(e)
+        finally:
+            rospy.signal_shutdown("Exiting")
 
     def run(self):
         rospy.spin()
@@ -689,6 +730,7 @@ if __name__ == "__main__":
         node.run()
         # node.look_at_object_demo()
         # node.test_tf()
+        # node.stress_test_linear()
 
     except rospy.ROSInterruptException:
         pass
