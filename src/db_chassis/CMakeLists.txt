@@ -111,7 +111,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES db_parsing
-    CATKIN_DEPENDS geometry_msgs roscpp roslaunch sensor_msgs tf2 nav_msgs dynamic_reconfigure message_runtime
+    CATKIN_DEPENDS geometry_msgs roscpp roslaunch sensor_msgs tf2 nav_msgs dynamic_reconfigure message_runtime db_parsing
     # DEPENDS system_lib
 )
 
