@@ -727,10 +727,10 @@ class CentralPlanning:
 if __name__ == "__main__":
     try:
         node = CentralPlanning()
-        node.run()
+        # node.run()
         # node.look_at_object_demo()
         # node.test_tf()
-        # node.stress_test_linear()
+        node.stress_test_linear()
 
     except rospy.ROSInterruptException:
         pass
