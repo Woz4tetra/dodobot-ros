@@ -36,7 +36,7 @@
             /tf
             /tf_static
             " /> -->
-    <node pkg="rosbag" type="record" name="rosbag_record_motors"
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_motors"
        args="record -o $(find db_config)/bags/dodobot_minimal
             /dodobot/battery
             /dodobot/bumper
@@ -52,7 +52,7 @@
             /dodobot/tilter
             /dodobot/tilter_cmd
             /joy
-            " />
+            " /> -->
     <!-- <node pkg="rosbag" type="record" name="rosbag_record_realsense"
        args="record -o $(find db_config)/bags/dodobot_realsense
             /camera/color/image_raw
@@ -63,4 +63,9 @@
             /camera/depth/camera_info
             /camera/depth_registered/points
             " /> -->
+    <node pkg="rosbag" type="record" name="rosbag_record_realsense"
+       args="record -o $(find db_config)/bags/dodobot_realsense
+            /camera/color/image_raw/compressed
+            /camera/color/camera_info
+            " />
 </launch>
