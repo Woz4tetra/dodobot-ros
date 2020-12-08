@@ -9,6 +9,7 @@ teb-local-planner
 rtabmap-ros
 realsense2-camera
 image-geometry
+vision-msgs
 )
 
 package_list=""
