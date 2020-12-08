@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_everything"
+       args="record -o $(find db_config)/bags/dodobot_everything
+            /dodobot/battery
+            /dodobot/bumper
+            /dodobot/bumper_occupancy
+            /dodobot/cmd_vel
+            /dodobot/db_chassis/parameter_descriptions
+            /dodobot/db_chassis/parameter_updates
+            /dodobot/display_image
+            /dodobot/drive
+            /dodobot/drive_cmd
+            /dodobot/drive_cmd_throttle
+            /dodobot/fsrs
+            /dodobot/gripper
+            /dodobot/gripper_cmd
+            /dodobot/linear
+            /dodobot/linear_cmd
+            /dodobot/linear_events
+            /dodobot/linear_joint_state
+            /dodobot/linear_pos
+            /dodobot/linear_pos_cmd
+            /dodobot/linear_vel_cmd
+            /dodobot/odom
+            /dodobot/parallel_gripper
+            /dodobot/parallel_gripper_cmd
+            /dodobot/tilter
+            /dodobot/tilter_cmd
+            /dodobot/tilter_joint_state
+            /dodobot/tilter_orientation
+            /joint_states
+            /joy
+            /joy/set_feedback
+            /joy_throttled
+            /tf
+            /tf_static
+            " /> -->
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_motors"
+       args="record -o $(find db_config)/bags/dodobot_minimal
+            /dodobot/battery
+            /dodobot/bumper
+            /dodobot/cmd_vel
+            /dodobot/drive
+            /dodobot/drive_cmd
+            /dodobot/fsrs
+            /dodobot/gripper
+            /dodobot/gripper_cmd
+            /dodobot/linear
+            /dodobot/linear_cmd
+            /dodobot/linear_events
+            /dodobot/tilter
+            /dodobot/tilter_cmd
+            /joy
+            " /> -->
+    <!-- <node pkg="rosbag" type="record" name="rosbag_record_realsense"
+       args="record -o $(find db_config)/bags/dodobot_realsense
+            /camera/color/image_raw
+            /camera/color/image_raw/compressed
+            /camera/aligned_depth_to_color/image_raw
+            /camera/aligned_depth_to_color/image_raw/compressedDepth
+            /camera/color/camera_info
+            /camera/depth/camera_info
+            /camera/depth_registered/points
+            " /> -->
+    <node pkg="rosbag" type="record" name="rosbag_record_realsense"
+       args="record -o $(find db_config)/bags/dodobot_realsense
+            /camera/color/image_raw/compressed
+            /camera/color/camera_info
+            " />
+</launch>

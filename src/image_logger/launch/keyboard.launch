@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node name="keyboard_listener" pkg="image_logger" type="keyboard_listener.py" output="screen" required="true"/>
+</launch>

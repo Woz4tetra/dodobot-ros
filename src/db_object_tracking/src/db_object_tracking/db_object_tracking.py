@@ -29,6 +29,8 @@ from sensor_msgs.msg import CameraInfo
 
 from image_geometry import PinholeCameraModel
 
+from std_srvs.srv import Trigger, TriggerResponse
+
 from stored_object import StoredObjectContainer, StoredObject
 
 
@@ -88,6 +90,11 @@ class DodobotObjectTracking:
             self.close_obj_threshold_m, self.object_far_away_buffer
         )
 
+        self.reset_tracked_objects_service_name = "reset_tracked_objects_service"
+        rospy.loginfo("Setting up service %s" % self.reset_tracked_objects_service_name)
+        self.reset_tracked_objects_srv = rospy.Service(self.reset_tracked_objects_service_name, Trigger, self.reset_tracked_objects_callback)
+        rospy.loginfo("%s service is ready" % self.reset_tracked_objects_service_name)
+
         self.camera_info_sub = rospy.Subscriber(self.camera_info_topic, CameraInfo, self.camera_info_callback, queue_size=10)
         self.depth_info_sub = rospy.Subscriber(self.depth_info_topic, CameraInfo, self.depth_info_callback, queue_size=10)
 
@@ -112,6 +119,14 @@ class DodobotObjectTracking:
         self.depth_size[1] = msg.height
         # rospy.loginfo("Depth size loaded!")
         self.depth_info_loaded = True
+
+    def reset_tracked_objects_callback(self, req):
+        self.in_view_objects_lock.acquire()
+        self.in_view_objects = []
+        self.stored_objects.reset()
+        self.in_view_objects_lock.release()
+
+        return TriggerResponse(True, "Done")
 
     def depth_detect_callback(self, depth_msg, detect_msg):
         if not (self.camera_info_loaded and self.depth_info_loaded):

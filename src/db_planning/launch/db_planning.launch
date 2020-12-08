@@ -4,7 +4,11 @@
             <param name="pickup_sequence_path" value="$(find db_planning)/sequences/pickup.yaml" type="str"/>
             <param name="delivery_sequence_path" value="$(find db_planning)/sequences/delivery.yaml" type="str"/>
         </node>
-        <node name="db_planning_chassis"      pkg="db_planning" type="chassis_planning.py" output="screen" required="true"></node>
+        <node name="db_planning_chassis"      pkg="db_planning" type="chassis_planning.py" output="screen" required="true">
+            <param name="kP" value="3.0"/>
+            <param name="kA" value="6.0"/>
+            <param name="kB" value="-1.5"/>
+        </node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
         <node name="db_planning_gripper" pkg="db_planning" type="gripper_planning.py" output="screen" required="true"></node>
     </group>
