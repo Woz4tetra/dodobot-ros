@@ -2,10 +2,14 @@
     <group ns="dodobot" >
         <node name="db_bbox_to_pose" pkg="db_bbox_to_pose" type="db_bbox_to_pose.py" output="screen">
             <param name="depth_topic"           value="/camera/aligned_depth_to_color/image_raw"/>
-            <param name="camera_info_topic"     value="/camera/color/camera_info"/>
+            <!-- <param name="depth_topic"           value="/camera/depth/image_rect_raw"/> -->
             <param name="depth_info_topic"      value="/camera/aligned_depth_to_color/camera_info"/>
+            <!-- <param name="depth_info_topic"      value="/camera/depth/camera_info"/> -->
+
+            <param name="camera_info_topic"     value="/camera/color/camera_info"/>
+
             <param name="detect_topic"          value="/detectnet/detections"/>
-            <param name="publish_debug_image"     value="true"/>
+            <param name="publish_debug_image"     value="false"/>
 
             <rosparam param="labels">
                 - BACKGROUND
@@ -27,6 +31,17 @@
                 red_low_bin: [0.52, 0.2, 0.14, 1.0]
                 blue_cube: [0.14, 0.75, 1.0, 1.0]
                 red_cube: [1.0, 0.2, 0.13, 1.0]
+            </rosparam>
+
+            <rosparam param="z_depth_estimations">
+                BACKGROUND: 0.0
+                cozmo_cube: 0.04
+                blue_cut_sphere: 0.09
+                red_cut_sphere: 0.09
+                blue_low_bin: 0.116
+                red_low_bin: 0.116
+                blue_cube: 0.08
+                red_cube: 0.08
             </rosparam>
 
         </node>

@@ -44,10 +44,9 @@
         <param name="overlay_alpha" value="$(arg overlay_alpha)"/>
     </node> -->
 
-    <arg name="image_throttle_rate" default="15.0"/>
-
+    <!-- <arg name="image_throttle_rate" default="10.0"/>
     <node type="throttle" name="detect_image_topic_throttle" pkg="topic_tools" required="true" output="screen"
-        args="messages /camera/color/image_raw $(arg image_throttle_rate) /camera/color/detect_image_raw_throttled"/>
+        args="messages /camera/color/image_raw $(arg image_throttle_rate) /camera/color/detect_image_raw_throttled"/> -->
 
     <!-- <arg name="model_name" default="ssd-mobilenet-v2"/> -->
     <!-- <arg name="model_name" default="ssd-inception-v2"/> -->
@@ -65,7 +64,7 @@
     <arg name="threshold" default="0.3"/>
 
     <node pkg="ros_deep_learning" type="detectnet" name="detectnet" output="screen">
-        <remap from="/detectnet/image_in" to="/camera/color/detect_image_raw_throttled"/>
+        <remap from="/detectnet/image_in" to="/camera/color/image_raw"/>
         <param name="model_name" value="$(arg model_name)"/>
         <param name="model_path" value="$(arg model_path)"/>
         <param name="prototxt_path" value="$(arg prototxt_path)"/>

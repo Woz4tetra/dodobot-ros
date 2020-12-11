@@ -14,11 +14,13 @@
     <group ns="camera">
         <arg name="depth_topic_throttle_rate" default="15.0"/>
         <arg name="depth_topic" value="depth/image_rect_raw_throttle"/>
-        <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
+        <node if="$(eval depth_registered_processing and sw_registered_processing)"
+            type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
             args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/>
 
+        <node pkg="nodelet" type="nodelet" args="manager" name="post_processing_manager" output="screen"/>
         <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
-                args="load depth_image_proc/point_cloud_xyzrgb realsense2_camera_manager" respawn="false">
+                args="load depth_image_proc/point_cloud_xyzrgb post_processing_manager" respawn="false">
             <remap from="rgb/image_rect_color"        to="color/image_raw" />
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
@@ -26,7 +28,7 @@
         </node>
 
         <node if="$(eval depth_registered_processing and sw_registered_processing)" pkg="nodelet" type="nodelet" name="register_depth"
-            args="load depth_image_proc/register realsense2_camera_manager false" respawn="false">
+            args="load depth_image_proc/register post_processing_manager false" respawn="false">
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth/camera_info"           to="depth/camera_info" />
             <remap from="depth/image_rect"            to="$(arg depth_topic)" />
@@ -87,8 +89,10 @@
         <arg name="publish_tf"               value="true"/>
         <!-- <arg name="tf_publish_rate"          value="10"/> -->
 
-        <arg     if="$(eval compute_pointcloud and pointcloud_use_hw)" name="filters" value="pointcloud"/>
-        <arg unless="$(arg compute_pointcloud)" name="filters" value=""/>
+        <!-- <arg     if="$(eval compute_pointcloud and pointcloud_use_hw)" name="filters" value="pointcloud,decimation"/> -->
+        <!-- <arg unless="$(arg compute_pointcloud)" name="filters" value="decimation"/> -->
+        <!-- <arg name="filters" value="decimation"/> -->
+        <arg name="filters" value=""/>
 
         <arg name="clip_distance"            value="-1"/>
         <arg name="linear_accel_cov"         value="0.01"/>
