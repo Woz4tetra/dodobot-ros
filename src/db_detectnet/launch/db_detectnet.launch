@@ -1,17 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="dodobot" >
-        <node name="db_bbox_to_pose" pkg="db_bbox_to_pose" type="db_bbox_to_pose.py" output="screen">
+        <node name="db_detectnet" pkg="db_detectnet" type="db_detectnet_node" output="screen">
+            <param name="model_name" value=""/>
+            <param name="model_path" value="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/dodobot_objects/mb2-ssd-lite.onnx"/>
+            <param name="prototxt_path" value=""/>
+            <param name="class_labels_path" value="/home/ben/object-recognition/jetson-inference/python/training/detection/ssd/models/dodobot_objects/labels.txt"/>
+            <param name="input_blob" value="input_0"/>
+            <param name="output_cvg" value="scores"/>
+            <param name="output_bbox" value="boxes"/>
+            <param name="overlay_flags" value="box,labels,conf"/>
+            <param name="mean_pixel_value" value="0.0"/>
+            <param name="threshold" value="0.3"/>
+
             <param name="depth_topic"           value="/camera/aligned_depth_to_color/image_raw"/>
             <!-- <param name="depth_topic"           value="/camera/depth/image_rect_raw"/> -->
             <param name="depth_info_topic"      value="/camera/aligned_depth_to_color/camera_info"/>
             <!-- <param name="depth_info_topic"      value="/camera/depth/camera_info"/> -->
 
-            <param name="camera_info_topic"     value="/camera/color/camera_info"/>
+            <param name="color_topic"     value="/camera/color/image_raw"/>
+            <param name="color_info_topic"     value="/camera/color/camera_info"/>
 
-            <param name="detect_topic"          value="/detectnet/detections"/>
-            <param name="publish_debug_image"     value="false"/>
+            <param name="approx_sync"           value="false"/>
+            <param name="publish_debug_image"     value="true"/>
 
-            <rosparam param="labels">
+            <rosparam param="detectnet_labels">
                 - BACKGROUND
                 - cozmo_cube
                 - blue_cut_sphere
@@ -22,7 +35,7 @@
                 - red_cube
             </rosparam>
 
-            <rosparam param="marker_colors">
+            <rosparam param="detectnet_marker_colors">
                 BACKGROUND: [0.0, 0.0, 0.0, 1.0]
                 cozmo_cube: [0.95, 1.0, 1.0, 1.0]
                 blue_cut_sphere: [0.14, 0.75, 1.0, 1.0]
@@ -33,7 +46,7 @@
                 red_cube: [1.0, 0.2, 0.13, 1.0]
             </rosparam>
 
-            <rosparam param="z_depth_estimations">
+            <rosparam param="detectnet_z_depth_estimations">
                 BACKGROUND: 0.0
                 cozmo_cube: 0.04
                 blue_cut_sphere: 0.09

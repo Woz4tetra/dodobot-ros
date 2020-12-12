@@ -12,28 +12,39 @@
     <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" />
 
     <group ns="camera">
-        <arg name="depth_topic_throttle_rate" default="15.0"/>
+        <arg name="depth_topic" value="depth/image_rect_raw"/>
+        <!-- <arg name="depth_topic_throttle_rate" default="15.0"/>
         <arg name="depth_topic" value="depth/image_rect_raw_throttle"/>
         <node if="$(eval depth_registered_processing and sw_registered_processing)"
             type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
-            args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/>
+            args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/> -->
 
         <node pkg="nodelet" type="nodelet" args="manager" name="post_processing_manager" output="screen"/>
-        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
-                args="load depth_image_proc/point_cloud_xyzrgb post_processing_manager" respawn="false">
-            <remap from="rgb/image_rect_color"        to="color/image_raw" />
-            <remap from="rgb/camera_info"             to="color/camera_info" />
-            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
-            <!-- <remap from="depth_registered/points"     to="points" /> -->
+
+        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="downsample_rgb"
+                args="load image_proc/crop_decimate post_processing_manager">
+            <param name="decimation_x" value="2"/>
+            <param name="decimation_y" value="2"/>
+            <remap from="camera" to="color"/>
+            <remap from="camera_out" to="color_decimate"/>
         </node>
 
         <node if="$(eval depth_registered_processing and sw_registered_processing)" pkg="nodelet" type="nodelet" name="register_depth"
-            args="load depth_image_proc/register post_processing_manager false" respawn="false">
+                args="load depth_image_proc/register post_processing_manager" respawn="false">
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth/camera_info"           to="depth/camera_info" />
             <remap from="depth/image_rect"            to="$(arg depth_topic)" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
         </node>
+
+        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
+                args="load depth_image_proc/point_cloud_xyzrgb depth_processing_manager" respawn="false">
+            <remap from="rgb/image_rect_color"        to="color_decimate/image_raw" />
+            <remap from="rgb/camera_info"             to="color_decimate/camera_info" />
+            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
+            <!-- <remap from="depth_registered/points"     to="points" /> -->
+        </node>
+
     </group>
 
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
@@ -61,7 +72,7 @@
         <!-- <arg name="depth_width"              value="848"/> -->
         <!-- <arg name="depth_height"             value="480"/> -->
         <arg name="enable_depth"             value="true"/>
-        <arg name="depth_fps"                value="30"/>
+        <arg name="depth_fps"                value="15"/>
 
         <arg name="color_width"              value="1920" if="$(arg hirez_mode)"/>
         <arg name="color_height"             value="1080" if="$(arg hirez_mode)"/>
