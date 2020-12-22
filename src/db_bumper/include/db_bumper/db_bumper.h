@@ -15,6 +15,8 @@
 using namespace std;
 
 #define point pair<double, double>
+#define THROW_EXCEPTION(msg)  throw std::runtime_error(msg)
+
 
 class DodobotBumper {
 private:

@@ -42,6 +42,9 @@
 using namespace std;
 using namespace sensor_msgs;
 
+#define THROW_EXCEPTION(msg)  throw std::runtime_error(msg)
+
+
 typedef struct {
     string label;
     int index;
