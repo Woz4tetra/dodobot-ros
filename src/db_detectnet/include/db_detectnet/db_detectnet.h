@@ -115,7 +115,7 @@ private:
     std::map<std::string, double> _z_depth_estimations;
 
     std::vector<std::string> _class_descriptions;
-    uint32_t _num_classes = _net->GetNumClasses();
+    uint32_t _num_classes;
 
     // detectnet variables
     detectNet* _net;
