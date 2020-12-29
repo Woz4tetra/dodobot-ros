@@ -29,18 +29,22 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
     _overlay_flags = detectNet::OverlayFlagsFromStr(_overlay_str.c_str());
 
     string key;
-    ROS_ASSERT_MSG(ros::param::search("detectnet_marker_colors", key), "Failed to find detectnet_marker_colors parameter");
+    if (!ros::param::search("detectnet_marker_colors", key)) {
+        THROW_EXCEPTION("Failed to find detectnet_marker_colors parameter");
+    }
     nh.getParam(key, _marker_colors_param);
 
     // _marker_colors_param is a map
-    ROS_ASSERT_MSG(
-        _marker_colors_param.getType() == XmlRpc::XmlRpcValue::Type::TypeStruct &&
-        _marker_colors_param.size() > 0, "detectnet_marker_colors wrong type or size"
-    );
+    if (_marker_colors_param.getType() != XmlRpc::XmlRpcValue::Type::TypeStruct ||
+        _marker_colors_param.size() == 0) {
+        THROW_EXCEPTION("detectnet_marker_colors wrong type or size");
+    }
 
     for (XmlRpc::XmlRpcValue::iterator it = _marker_colors_param.begin(); it != _marker_colors_param.end(); ++it)
     {
-        ROS_ASSERT_MSG(it->second.getType() == XmlRpc::XmlRpcValue::TypeArray, "detectnet_marker_colors element is not a list");
+        if (it->second.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+            THROW_EXCEPTION("detectnet_marker_colors element is not a list");
+        }
         string label = it->first;
 
         std_msgs::ColorRGBA color;
@@ -52,11 +56,17 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
         ROS_INFO("%s: R=%0.2f, G=%0.2f, B=%0.2f, A=%0.2f", label.c_str(), color.r, color.g, color.b, color.a);
     }
 
-    ROS_ASSERT_MSG(_marker_colors.size() > 0, "detectnet_marker_colors has zero length!");
+    if (_marker_colors.size() == 0) {
+        THROW_EXCEPTION("detectnet_marker_colors has zero length!");
+    }
 
-    ROS_ASSERT_MSG(ros::param::search("detectnet_z_depth_estimations", key), "Failed to find detectnet_z_depth_estimations parameter");
+    if (!ros::param::search("detectnet_z_depth_estimations", key)) {
+        THROW_EXCEPTION("Failed to find detectnet_z_depth_estimations parameter");
+    }
     nh.getParam(key, _z_depth_estimations);
-    ROS_ASSERT_MSG(_z_depth_estimations.size() > 0, "detectnet_z_depth_estimations has zero length!");
+    if (_z_depth_estimations.size() == 0) {
+        THROW_EXCEPTION("detectnet_z_depth_estimations has zero length!");
+    }
 
     load_detectnet_model();
     load_labels();

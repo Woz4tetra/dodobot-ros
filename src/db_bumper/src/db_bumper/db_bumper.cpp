@@ -8,32 +8,54 @@ DodobotBumper::DodobotBumper(ros::NodeHandle* nodehandle):nh(*nodehandle)
     ros::param::param<int>("~scan_count", scan_count, 25);
     ros::param::param<double>("~range_max", range_max, 100.0);
 
-    ROS_INFO("bumper_frame: %s", bumper_frame.c_str());
     ROS_INFO("bumper_scan_topic: %s", bumper_scan_topic.c_str());
+    ROS_INFO("bumper_frame: %s", bumper_frame.c_str());
+    ROS_DEBUG("scan_count: %d", scan_count);
+    ROS_DEBUG("range_max: %f", range_max);
 
     string key;
     // Bumper dimension parameters
-    ROS_ASSERT_MSG(ros::param::search("left_bumper_x_points", key), "Failed to find left_bumper_x_points parameter");
+    if (!ros::param::search("left_bumper_x_points", key)) {
+        THROW_EXCEPTION("Failed to find left_bumper_x_points parameter");
+    }
+    ROS_DEBUG("left_bumper_x_points: %s", key.c_str());
     nh.getParam(key, left_bumper_x_points);
-    ROS_ASSERT_MSG(ros::param::search("left_bumper_y_points", key), "Failed to find left_bumper_y_points parameter");
+
+    if (!ros::param::search("left_bumper_y_points", key)) {
+        THROW_EXCEPTION("Failed to find left_bumper_y_points parameter");
+    }
+    ROS_DEBUG("left_bumper_y_points: %s", key.c_str());
     nh.getParam(key, left_bumper_y_points);
 
-    ROS_ASSERT_MSG(ros::param::search("right_bumper_x_points", key), "Failed to find right_bumper_x_points parameter");
+    if (!ros::param::search("right_bumper_x_points", key)) {
+        THROW_EXCEPTION("Failed to find right_bumper_x_points parameter");
+    }
+    ROS_DEBUG("right_bumper_x_points: %s", key.c_str());
     nh.getParam(key, right_bumper_x_points);
-    ROS_ASSERT_MSG(ros::param::search("right_bumper_y_points", key), "Failed to find right_bumper_y_points parameter");
+
+    if (!ros::param::search("right_bumper_y_points", key)) {
+        THROW_EXCEPTION("Failed to find right_bumper_y_points parameter");
+    }
+    ROS_DEBUG("right_bumper_y_points: %s", key.c_str());
     nh.getParam(key, right_bumper_y_points);
 
+    if (left_bumper_x_points.size() != left_bumper_y_points.size()) {
+        THROW_EXCEPTION("Left bumper points are not equal in size!");
+    }
+    if (left_bumper_x_points.size() == 0) {
+        THROW_EXCEPTION("Left bumper points has zero length!");
+    }
+    if (right_bumper_x_points.size() != right_bumper_y_points.size()) {
+        THROW_EXCEPTION("Right bumper points are not equal in size!");
+    }
+    if (right_bumper_x_points.size() == 0) {
+        THROW_EXCEPTION("Right bumper points has zero length!");
+    }
 
-    ROS_ASSERT_MSG(left_bumper_x_points.size() == left_bumper_y_points.size(), "Left bumper points are not equal in size!");
-    ROS_ASSERT_MSG(left_bumper_x_points.size() > 0, "Left bumper points has zero length!");
-
-    ROS_ASSERT_MSG(right_bumper_x_points.size() == right_bumper_y_points.size(), "Right bumper points are not equal in size!");
-    ROS_ASSERT_MSG(right_bumper_x_points.size() > 0, "Right bumper points has zero length!");
-
-    ROS_INFO_STREAM("left_bumper_x_points len: " << left_bumper_x_points.size());
-    ROS_INFO_STREAM("left_bumper_y_points len: " << left_bumper_y_points.size());
-    ROS_INFO_STREAM("right_bumper_x_points len: " << right_bumper_x_points.size());
-    ROS_INFO_STREAM("right_bumper_y_points len: " << right_bumper_y_points.size());
+    ROS_DEBUG_STREAM("left_bumper_x_points len: " << left_bumper_x_points.size());
+    ROS_DEBUG_STREAM("left_bumper_y_points len: " << left_bumper_y_points.size());
+    ROS_DEBUG_STREAM("right_bumper_x_points len: " << right_bumper_x_points.size());
+    ROS_DEBUG_STREAM("right_bumper_y_points len: " << right_bumper_y_points.size());
 
     // Publishers
     scan_pub = nh.advertise<sensor_msgs::LaserScan>(bumper_scan_topic, 5);
