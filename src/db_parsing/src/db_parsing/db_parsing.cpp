@@ -977,7 +977,8 @@ void DodobotParsing::writeImage(const cv::Mat& image)
     // }
 
     ROS_INFO("sending image: %d", (int)img_size);
-    writeSerialLarge("img", display_img_buf);
+    writeSerial("setpath", "s", "DBSPLASH.JPG");
+    writeSerialLarge("file", display_img_buf);
 }
 
 void DodobotParsing::resendPidKs() {
