@@ -1,5 +1,5 @@
 <launch>
-    <include file="$(find db_support)/launch/db_support.launch">
+    <include file="$(find )/launch/.launch">
         <arg name="gui" value="true" />
     </include>
 

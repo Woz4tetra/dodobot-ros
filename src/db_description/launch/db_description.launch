@@ -1,6 +1,6 @@
 <launch>
 
-    <arg name="model" default="$(find db_support)/urdf/dodobot.urdf"/>
+    <arg name="model" default="$(find db_description)/urdf/dodobot.urdf.xml"/>
     <arg name="gui" default="false" />
 
     <param name="robot_description" command="$(find xacro)/xacro $(arg model)" />
