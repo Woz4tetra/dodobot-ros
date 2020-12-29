@@ -5,6 +5,7 @@
 #include <ctime>
 #include <queue>
 #include <boost/thread/thread.hpp>
+#include <iterator>
 
 #include "ros/ros.h"
 #include "ros/console.h"
@@ -94,21 +95,32 @@ class DodobotParsing {
 private:
     ros::NodeHandle nh;  // ROS node handle
 
+    serial::Serial _serialRef;
     string _serialPort;
     int _serialBaud;
+
     int _serialBufferIndex;
     char* _currentBufferSegment;
     int _currentSegmentNum;
-    serial::Serial _serialRef;
+
     uint32_t _readPacketNum;
     uint32_t _writePacketNum;
+
     ros::Time deviceStartTime;
     uint32_t offsetTimeMs;
-    size_t _recvCharIndex;
+
     size_t _readPacketLen;
+    size_t _recvCharIndex;
     char* _recvCharBuffer;
+
     size_t _writeCharIndex;
     char* _writeCharBuffer;
+
+    size_t large_packet_len;
+
+    std::map<uint32_t, int> wait_for_ok_reqs;
+    ros::Duration packet_ok_timeout;
+
     bool use_sensor_msg_time;
 
     ros::Publisher gripper_pub;
@@ -158,7 +170,7 @@ private:
     image_transport::Subscriber image_sub;
     image_transport::ImageTransport image_transport;
     string starter_image_path;
-    vector<unsigned char> display_img_buf;
+    vector<unsigned char>* display_img_buf;
     vector<int> jpeg_params;
     int jpeg_image_quality;
     int image_resize_width, image_resize_height;
@@ -198,7 +210,10 @@ private:
 
     bool readline();
     bool readSerial();
+    void writeSerialLarge(string name, vector<unsigned char>* data);
     void writeSerial(string name, const char *formats, ...);
+    bool waitForOK(uint32_t packet_num);
+    bool waitForOK();
 
     bool write_stop_flag;
     int write_thread_rate;
@@ -226,6 +241,8 @@ private:
     void logPacketErrorCode(int error_code, uint32_t packet_num, string message);
 
     string formatPacketToPrint(char* packet, uint32_t length);
+    string formatPacketToPrint(string packet);
+    string getPrintChar(unsigned char c);
 
     void parseEncoder();
     void parseINA();
