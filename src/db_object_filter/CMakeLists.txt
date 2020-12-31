@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.2)
 project(db_object_filter)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -17,10 +17,14 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     visualization_msgs
     vision_msgs
-    PkgConfig
 )
+find_package(PkgConfig)
 
+# find_package(BFL REQUIRED orocos-bfl)
 pkg_check_modules(BFL REQUIRED orocos-bfl)
+
+message("BFL include dirs:" ${BFL_INCLUDE_DIRS})
+message("BFL library dirs:" ${BFL_LIBRARY_DIRS})
 
 roslaunch_add_file_check(launch)
 
