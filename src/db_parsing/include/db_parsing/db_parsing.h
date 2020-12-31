@@ -6,6 +6,7 @@
 #include <queue>
 #include <boost/thread/thread.hpp>
 #include <iterator>
+#include <fstream>
 
 #include "ros/ros.h"
 #include "ros/console.h"
@@ -32,6 +33,8 @@
 #include "db_parsing/DodobotTilter.h"
 
 #include "db_parsing/DodobotPidSrv.h"
+#include "db_parsing/DodobotUploadFile.h"
+#include "db_parsing/DodobotListDir.h"
 
 
 using namespace std;
@@ -192,6 +195,13 @@ private:
     ros::Timer pid_resend_timer;
     void resendPidKs();
     void resendPidKsTimed();
+    bool set_pid(db_parsing::DodobotPidSrv::Request &req, db_parsing::DodobotPidSrv::Response &res);
+
+    ros::ServiceServer file_service;
+    bool upload_file(db_parsing::DodobotUploadFile::Request &req, db_parsing::DodobotUploadFile::Response &res);
+
+    ros::ServiceServer listdir_service;
+    bool db_listdir(db_parsing::DodobotListDir::Request &req, db_parsing::DodobotListDir::Response &res);
 
     void configure();
     void checkReady();
@@ -227,8 +237,6 @@ private:
     void setup();
     void loop();
     void stop();
-
-    bool set_pid(db_parsing::DodobotPidSrv::Request &req, db_parsing::DodobotPidSrv::Response &res);
 
     void setActive(bool state);
     void softRestart();

@@ -95,6 +95,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
+    file_service = nh.advertiseService("dodobot_file", &DodobotParsing::upload_file, this);
+    listdir_service = nh.advertiseService("dodobot_listdir", &DodobotParsing::db_listdir, this);
 
     write_stop_flag = false;
     write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
@@ -490,6 +492,11 @@ void DodobotParsing::processSerialPacket(string category)
         readyState->is_ready = true;
         ROS_INFO_STREAM("Received ready signal! Rover name: " << readyState->robot_name);
     }
+    else if (category.compare("listdir") == 0) {
+        CHECK_SEGMENT(-1);  string filename = string(_currentBufferSegment);
+        CHECK_SEGMENT(4);  int32_t size = segment_as_int32();
+        ROS_INFO_STREAM("filename: " << filename << ", size: " << size);
+    }
 }
 
 void DodobotParsing::writeSerialLarge(string name, vector<unsigned char>* data)
@@ -520,6 +527,7 @@ void DodobotParsing::writeSerialLarge(string name, vector<unsigned char>* data)
             ROS_WARN("Failed to receive ok signal on segment %lu of %lu. %s", count, num_segments, name.c_str());
             return;
         }
+        ros::Duration(0.05).sleep();
     }
 }
 
@@ -644,7 +652,6 @@ bool DodobotParsing::waitForOK(uint32_t packet_num)
             wait_for_ok_reqs.erase(packet_num);
             return error_code == 0 || error_code == 6;
         }
-        // ros::Duration(0.01).sleep();
     }
 }
 
@@ -665,10 +672,10 @@ void DodobotParsing::setup()
     setReporting(true);
 
     // Send starter image
-    ros::Duration(0.25).sleep();
-    cv::Mat starter_image;
-    starter_image = cv::imread(starter_image_path, cv::IMREAD_COLOR);
-    writeImage(starter_image);
+    // ros::Duration(0.25).sleep();
+    // cv::Mat starter_image;
+    // starter_image = cv::imread(starter_image_path, cv::IMREAD_COLOR);
+    // writeImage(starter_image);
 }
 
 void DodobotParsing::write_packet_from_queue()
@@ -880,6 +887,52 @@ bool DodobotParsing::set_pid(db_parsing::DodobotPidSrv::Request  &req,
     return true;
 }
 
+bool DodobotParsing::upload_file(db_parsing::DodobotUploadFile::Request &req, db_parsing::DodobotUploadFile::Response &res)
+{
+    if (!robotReady()) {
+        ROS_WARN("Robot isn't ready! Skipping upload_file");
+        return false;
+    }
+
+    ifstream local_file(req.path, ios::in | ios::binary | ios::ate);
+    if (!local_file) {
+        ROS_WARN("Local file '%s' failed to open", req.path.c_str());
+        return false;
+    }
+
+    ifstream::pos_type size = local_file.tellg();
+	ROS_INFO_STREAM("Size of file: " << size);
+	local_file.seekg(0, ios::beg);
+
+    char* temp = new char[1];
+
+    std::vector<unsigned char>* file_buf = new std::vector<unsigned char>();
+
+    for (size_t index = 0; index < size; index++) {
+        local_file.read(temp, 1);
+        file_buf->push_back(temp[0]);
+    }
+
+    ROS_INFO("Uploading file '%s' to '%s'", req.path.c_str(), req.dest.c_str());
+    writeSerial("setpath", "s", req.dest.c_str());
+    writeSerialLarge("file", file_buf);
+
+    res.resp = true;
+    return true;
+}
+
+bool DodobotParsing::db_listdir(db_parsing::DodobotListDir::Request &req, db_parsing::DodobotListDir::Response &res)
+{
+    if (!robotReady()) {
+        ROS_WARN("Robot isn't ready! Skipping upload_file");
+        return false;
+    }
+    writeSerial("listdir", "s", req.dirname.c_str());
+    res.resp = true;
+    return true;
+}
+
+
 void DodobotParsing::setActive(bool state)
 {
     if (state) {
@@ -977,7 +1030,7 @@ void DodobotParsing::writeImage(const cv::Mat& image)
     // }
 
     ROS_INFO("sending image: %d", (int)img_size);
-    writeSerial("setpath", "s", "DBSPLASH.JPG");
+    writeSerial("setpath", "s", "IMAGE.JPG");
     writeSerialLarge("file", display_img_buf);
 }
 
