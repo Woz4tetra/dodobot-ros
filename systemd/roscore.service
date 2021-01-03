@@ -13,6 +13,10 @@ User=ben
 # non-forked shell wait until it can connect to the tcp opened by
 # roscore, and then exit, preventing conflicts with dependant services
 ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roscore.sh
+Restart=no
+KillSignal=SIGINT
+TimeoutStopSec=3
+FinalKillSignal=SIGKILL
 
 [Install]
 WantedBy=multi-user.target

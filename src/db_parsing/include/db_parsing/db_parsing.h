@@ -31,10 +31,15 @@
 #include "db_parsing/DodobotLinear.h"
 #include "db_parsing/DodobotLinearEvent.h"
 #include "db_parsing/DodobotTilter.h"
+#include "db_parsing/DodobotState.h"
+#include "db_parsing/DodobotFunctions.h"
+#include "db_parsing/DodobotFunctionsListing.h"
+#include "db_parsing/DodobotNotify.h"
 
 #include "db_parsing/DodobotPidSrv.h"
 #include "db_parsing/DodobotUploadFile.h"
 #include "db_parsing/DodobotListDir.h"
+#include "db_parsing/DodobotSetState.h"
 
 #include "keyboard_listener/KeyEvent.h"
 
@@ -129,6 +134,14 @@ private:
     bool use_sensor_msg_time;
     bool active_on_start, reporting_on_start;
 
+    StructRobotState* robotState;
+    StructReadyState* readyState;
+    ros::Publisher state_pub;
+    db_parsing::DodobotState state_msg;
+    void parseState();
+    void parseReady();
+    void setReadyFlag(bool state);
+
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
     db_parsing::DodobotGripper gripper_msg;
@@ -191,11 +204,18 @@ private:
     ros::Subscriber keyboard_sub;
     void keyboardCallback(const keyboard_listener::KeyEvent::ConstPtr& msg);
 
+    ros::Subscriber robot_functions_sub;
+    void robotFunctionsCallback(const db_parsing::DodobotFunctionsListing::ConstPtr& msg);
+
+    ros::Publisher robot_functions_pub;
+    db_parsing::DodobotFunctionsListing selected_fn_msg;
+    void parseSelectedRobotFn();
+
+    ros::Subscriber notification_sub;
+    void notifyCallback(const db_parsing::DodobotNotify::ConstPtr& msg);
+
     bool motorsReady();
     bool robotReady();
-
-    StructRobotState* robotState;
-    StructReadyState* readyState;
 
     ros::ServiceServer pid_service;
     PidKs* pidConstants;
@@ -209,6 +229,9 @@ private:
 
     ros::ServiceServer listdir_service;
     bool db_listdir(db_parsing::DodobotListDir::Request &req, db_parsing::DodobotListDir::Response &res);
+
+    ros::ServiceServer set_state_service;
+    bool set_state(db_parsing::DodobotSetState::Request &req, db_parsing::DodobotSetState::Response &res);
 
     void configure();
     void checkReady();
@@ -224,6 +247,7 @@ private:
     uint32_t segment_as_uint32();
     int32_t segment_as_int32();
     float segment_as_float();
+    string segment_as_string();
 
     bool readline();
     bool readSerial();

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="dodobot" >
-        <node name="db_bumper" pkg="db_bumper" type="db_bumper_node" output="log" required="false">
+        <node name="db_bumper" pkg="db_bumper" type="db_bumper_node" output="screen" required="false">
             <!-- <param name="bumper_scan_topic" value="bumper_occupancy"/> -->
             <param name="bumper_frame" value="base_link"/>
             <param name="scan_count" value="50"/>

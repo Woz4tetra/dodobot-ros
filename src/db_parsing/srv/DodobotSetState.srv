@@ -1,0 +1,4 @@
+bool reporting
+bool active
+---
+bool resp

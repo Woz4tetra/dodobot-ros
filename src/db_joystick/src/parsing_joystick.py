@@ -12,8 +12,13 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64, Bool
 
 from db_parsing.msg import DodobotLinear
+from db_parsing.msg import DodobotState
 from db_parsing.msg import DodobotParallelGripper
-from db_chassis.msg import LinearVelocity
+from db_parsing.msg import DodobotTilter
+
+from db_chassis.msg import LinearVelocity, LinearPosition
+
+from db_parsing.srv import DodobotSetState, DodobotSetStateResponse
 
 MAX_INT32 = 0x7fffffff
 
@@ -35,28 +40,36 @@ class ParsingJoystick:
         self.twist_command = Twist()
         self.prev_joy_msg = None
 
+        self.motors_active = False
+
         # parameters from launch file
         self.linear_axis = int(rospy.get_param("~linear_axis", 1))
         self.angular_axis = int(rospy.get_param("~angular_axis", 2))
         self.stepper_axis = int(rospy.get_param("~stepper_axis", 4))
+        self.tilter_axis = int(rospy.get_param("~tilter_axis", 4))
 
         self.linear_scale = rospy.get_param("~linear_scale", 1.0)
         self.angular_scale = rospy.get_param("~angular_scale", 1.0)
         self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 0.04424059137543106)
 
+        self.max_tilt_speed = rospy.get_param("~max_tilt_speed", 6.0)
+
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
 
-
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
-        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=100)
-        self.linear_vel_pub = rospy.Publisher("linear_vel_cmd", LinearVelocity, queue_size=100)
-        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=100)
+        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=5)
+        self.linear_vel_pub = rospy.Publisher("linear_vel_cmd", LinearVelocity, queue_size=50)
+        self.linear_pos_pub = rospy.Publisher("linear_pos_cmd", LinearPosition, queue_size=50)
+        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=50)
+        self.tilter_pub = rospy.Publisher("tilter_cmd", DodobotTilter, queue_size=50)
 
         # subscription topics
         self.joy_sub = rospy.Subscriber(self.joystick_topic, Joy, self.joystick_msg_callback, queue_size=5)
         self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
+        self.robot_state_sub = rospy.Subscriber("state", DodobotState, self.robot_state_callback, queue_size=100)
+        self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=50)
 
         self.max_joy_val = 1.0
         self.prev_brake_engage_time = rospy.Time.now()
@@ -68,10 +81,20 @@ class ParsingJoystick:
         self.gripper_dist = self.gripper_max_dist
         self.parallel_gripper_msg = DodobotParallelGripper()
 
+        self.enable_tilt_axis = False
+        self.tilt_position = 180
+
         self.cmd_vel_timeout = rospy.Time.now()
 
         self.linear_vel_command = 0.0
         self.prev_linear_vel_command = 0.0
+
+        # Services
+        self.set_robot_state_service_name = "set_state"
+        rospy.loginfo("Waiting for service %s" % self.set_robot_state_service_name)
+        self.set_robot_state = rospy.ServiceProxy(self.set_robot_state_service_name, DodobotSetState)
+        rospy.loginfo("%s service is ready" % self.set_robot_state_service_name)
+
 
     def joy_to_speed(self, scale_factor, value):
         if abs(value) < self.deadzone_joy_val:
@@ -83,8 +106,14 @@ class ParsingJoystick:
 
         return command
 
+    def is_button_down(self, msg, index):
+        return msg.buttons[index] and self.did_button_change(msg, index)
+
+    def is_button_up(self, msg, index):
+        return not msg.buttons[index] and self.did_button_change(msg, index)
+
     def did_button_change(self, msg, index):
-        return msg.buttons[index] and self.prev_joy_msg.buttons[index] != msg.buttons[index]
+        return self.prev_joy_msg.buttons[index] != msg.buttons[index]
 
     def joystick_msg_callback(self, msg):
         try:
@@ -120,6 +149,13 @@ class ParsingJoystick:
         msg.acceleration = -1
         self.linear_pub.publish(msg)
 
+        # set stepper velocity and acceleration profiles
+        msg = LinearPosition()
+        msg.position = float("nan")
+        msg.max_speed = self.stepper_max_speed
+        msg.acceleration = float("nan")
+        self.linear_pos_pub.publish(msg)
+
     def parallel_gripper_callback(self, gripper_msg):
         self.gripper_dist = gripper_msg.distance
 
@@ -131,15 +167,41 @@ class ParsingJoystick:
 
         self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
 
+    def robot_state_callback(self, msg):
+        # battery_ok
+        # motors_active
+        # loop_rate
+        # is_ready
+        # robot_name
+        self.motors_active = msg.motors_active
+
+    def toggle_active(self):
+        rospy.loginfo("Setting active to %s" % (not self.motors_active))
+        self.set_robot_state(True, not self.motors_active)
+
+    def tilter_callback(self, msg):
+        self.tilt_position = msg.position
+
+    def set_tilter(self, position):
+        msg = DodobotTilter()
+        msg.command = 3
+        msg.position = position
+        self.tilter_pub.publish(msg)
+
+    def toggle_tilter(self):
+        msg = DodobotTilter()
+        msg.command = 2
+        self.tilter_pub.publish(msg)
+
     def process_joy_msg(self, msg):
         if self.prev_joy_msg is None:
             self.prev_joy_msg = msg
             return
 
         # Xbox button mapping:
-        # 0: A,    1: B,     3: X,      4: Y
-        # 6: L1,   7: R1,    6: Select, 7: Start
-        # 11: Menu, 13: L joy, 14: R joy
+        # 0: A,    1: B,     2: X,      3: Y
+        # 4: L1,   5: R1,    6: Select, 7: Start
+        # 8: L joy, 9: R joy
 
         # Xbox axes:
         # Lx: 0, Ly: 1
@@ -148,15 +210,31 @@ class ParsingJoystick:
         # R brake: 4
         # D-pad left-right: 6
         # D-pad up-down: 7
-        if self.did_button_change(msg, 0):  # A
+        if self.is_button_down(msg, 0):  # A
             self.home_linear()
-        elif self.did_button_change(msg, 1): # B
+        if self.is_button_down(msg, 1): # B
             self.toggle_gripper()
+        if self.is_button_down(msg, 3): # Y
+            self.toggle_active()
+        if self.is_button_down(msg, 2): # X
+            self.toggle_tilter()
+        if self.did_button_change(msg, 4): # L1
+            self.enable_tilt_axis = msg.buttons[4] == 1
+            if self.enable_tilt_axis:
+                self.set_linear(0.0)
+            else:
+                self.tilt_speed = 0
 
         linear_val = self.joy_to_speed(self.linear_scale, msg.axes[self.linear_axis])
         angular_val = self.joy_to_speed(self.angular_scale, msg.axes[self.angular_axis])
 
-        self.set_linear(msg.axes[self.stepper_axis])
+        if self.enable_tilt_axis:
+            self.tilt_speed = int(self.max_tilt_speed * msg.axes[self.tilter_axis])
+
+            if self.tilt_speed != 0:
+                self.set_tilter(self.tilt_position + self.tilt_speed)
+        else:
+            self.set_linear(msg.axes[self.stepper_axis])
 
         if self.set_twist(linear_val, angular_val):
             self.cmd_vel_pub.publish(self.twist_command)

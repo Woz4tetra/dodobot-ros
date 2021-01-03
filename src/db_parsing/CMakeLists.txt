@@ -66,6 +66,10 @@ add_message_files(
     DodobotTilter.msg
     DodobotBumper.msg
     DodobotFSRs.msg
+    DodobotState.msg
+    DodobotFunctions.msg
+    DodobotFunctionsListing.msg
+    DodobotNotify.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -74,6 +78,7 @@ add_service_files(
     DodobotPidSrv.srv
     DodobotUploadFile.srv
     DodobotListDir.srv
+    DodobotSetState.srv
 )
 
 ## Generate actions in the 'action' folder

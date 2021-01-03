@@ -64,6 +64,12 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     robotState->motors_active = false;
     robotState->loop_rate = 0.0;
 
+    state_msg.battery_ok = true;
+    state_msg.motors_active = false;
+    state_msg.loop_rate = 0.0;
+    state_msg.is_ready = false;
+    state_msg.robot_name = "";
+
     deviceStartTime = ros::Time::now();
     offsetTimeMs = 0;
 
@@ -90,6 +96,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     drive_pub = nh.advertise<db_parsing::DodobotDrive>("drive", 50);
     bumper_pub = nh.advertise<db_parsing::DodobotBumper>("bumper", 50);
     fsr_pub = nh.advertise<db_parsing::DodobotFSRs>("fsrs", 50);
+    state_pub = nh.advertise<db_parsing::DodobotState>("state", 50);
+    robot_functions_pub = nh.advertise<db_parsing::DodobotFunctionsListing>("selected_fn", 10);
 
     gripper_sub = nh.subscribe<db_parsing::DodobotGripper>("gripper_cmd", 50, &DodobotParsing::gripperCallback, this);
     tilter_sub = nh.subscribe<db_parsing::DodobotTilter>("tilter_cmd", 50, &DodobotParsing::tilterCallback, this);
@@ -98,10 +106,13 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
 
     keyboard_sub = nh.subscribe<keyboard_listener::KeyEvent>("keys", 50, &DodobotParsing::keyboardCallback, this);
+    robot_functions_sub = nh.subscribe<db_parsing::DodobotFunctionsListing>("functions", 50, &DodobotParsing::robotFunctionsCallback, this);
+    notification_sub = nh.subscribe<db_parsing::DodobotNotify>("notify", 50, &DodobotParsing::notifyCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
     file_service = nh.advertiseService("dodobot_file", &DodobotParsing::upload_file, this);
     listdir_service = nh.advertiseService("dodobot_listdir", &DodobotParsing::db_listdir, this);
+    set_state_service = nh.advertiseService("set_state", &DodobotParsing::set_state, this);
 
     write_stop_flag = false;
     write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
@@ -249,6 +260,10 @@ float DodobotParsing::segment_as_float() {
         f_union.byte[i] = _currentBufferSegment[i];
     }
     return f_union.floating_point;
+}
+
+string DodobotParsing::segment_as_string() {
+    return _currentBufferSegment;
 }
 
 bool DodobotParsing::readline()
@@ -446,13 +461,8 @@ void DodobotParsing::processSerialPacket(string category)
             }
         }
     }
-    else if (category.compare("state") == 0)
-    {
-        CHECK_SEGMENT(4); robotState->time_ms = (uint32_t)segment_as_uint32();
-        CHECK_SEGMENT(4); robotState->battery_ok = (bool)segment_as_uint32();
-        CHECK_SEGMENT(4); robotState->motors_active = (bool)segment_as_uint32();
-        CHECK_SEGMENT(4); robotState->loop_rate = (double)segment_as_float();
-
+    else if (category.compare("state") == 0) {
+        parseState();
     }
     else if (category.compare("enc") == 0) {
         parseDrive();
@@ -492,19 +502,19 @@ void DodobotParsing::processSerialPacket(string category)
         }
     }
     else if (category.compare("ready") == 0) {
-        CHECK_SEGMENT(4); readyState->time_ms = segment_as_uint32();
-        CHECK_SEGMENT(-1); readyState->robot_name = string(_currentBufferSegment);
-        readyState->is_ready = true;
-        ROS_INFO_STREAM("Received ready signal! Rover name: " << readyState->robot_name);
+        parseReady();
     }
     else if (category.compare("listdir") == 0) {
-        CHECK_SEGMENT(-1);  string filename = string(_currentBufferSegment);
+        CHECK_SEGMENT(-1);  string filename = segment_as_string();
         CHECK_SEGMENT(4);  int32_t size = segment_as_int32();
         ROS_INFO_STREAM("filename: " << filename << ", size: " << size);
     }
     else if (category.compare("recvimage") == 0) {
         CHECK_SEGMENT(4); ready_for_images = (bool)segment_as_int32();
         ROS_INFO_STREAM("Receive images: " << ready_for_images);
+    }
+    else if (category.compare("robotfn") == 0) {
+        parseSelectedRobotFn();
     }
 }
 
@@ -683,6 +693,7 @@ void DodobotParsing::setup()
     if (active_on_start) {
         setActive(true);
     }
+    setReadyFlag(true);  // signal that ROS is ready
 
     // Send starter image
     // ros::Duration(0.25).sleep();
@@ -732,9 +743,12 @@ void DodobotParsing::loop()
 
 void DodobotParsing::stop()
 {
-    write_stop_flag = true;
-    setActive(false);
+    setReadyFlag(false);
+    if (active_on_start) {
+        setActive(false);
+    }
 
+    write_stop_flag = true;
     while (!write_queue.empty()) {
         write_packet_from_queue();
     }
@@ -827,16 +841,20 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
         }
     }
 
-    if (msg->command_value == 2 || msg->command_value == 3 || msg->command_value == 4) {
-        // stop linear:  2
-        // reset linear: 3
-        // home linear:  4
-        writeSerial("linear", "d", msg->command_type);
-    }
-    else {
-        // position: 0
-        // velocity: 1
-        writeSerial("linear", "dd", msg->command_type, msg->command_value);
+    switch (msg->command_type) {
+        case 0:  // position: 0
+        case 1:  // velocity: 1
+            writeSerial("linear", "dd", msg->command_type, msg->command_value);
+            break;
+        case 2:  // stop linear:  2
+        case 3:  // reset linear: 3
+        case 4:  // home linear:  4
+            writeSerial("linear", "d", msg->command_type);
+            break;
+        default:
+            // no operation: -1 (for only writing lincfg)
+            break;
+
     }
 }
 
@@ -877,6 +895,21 @@ void DodobotParsing::writeGripper(int position, int force_threshold) {
         // Close gripper
         writeSerial("grip", "ddd", 1, force_threshold, position);
     }
+}
+
+bool DodobotParsing::set_state(db_parsing::DodobotSetState::Request &req, db_parsing::DodobotSetState::Response &res)
+{
+    if (!robotReady()) {
+        ROS_WARN("Robot isn't ready! Skipping set_state");
+        res.resp = false;
+        return false;
+    }
+
+    setReporting(req.reporting);
+    setActive(req.active);
+
+    res.resp = true;
+    return true;
 }
 
 bool DodobotParsing::set_pid(db_parsing::DodobotPidSrv::Request  &req,
@@ -970,6 +1003,17 @@ void DodobotParsing::setReporting(bool state)
     }
 }
 
+void DodobotParsing::setReadyFlag(bool state)
+{
+    // signal that ROS is or is not ready
+    if (state) {
+        writeSerial("ros", "d", 1);
+    }
+    else {
+        writeSerial("ros", "d", 0);
+    }
+}
+
 void DodobotParsing::writeDriveChassis(float speedA, float speedB) {
     if (!motorsReady()) {
         ROS_WARN("Motors aren't ready! Skipping writeDriveChassis");
@@ -1011,12 +1055,40 @@ void DodobotParsing::writeK(PidKs* constants) {
     }
 }
 
+void DodobotParsing::robotFunctionsCallback(const db_parsing::DodobotFunctionsListing::ConstPtr& msg)
+{
+    size_t total_length = 0;
+    for (size_t menu_index = 0; menu_index < msg->menu.size(); menu_index++) {
+        for (size_t fn_index = 0; fn_index < msg->menu[menu_index].functions.size(); fn_index++) {
+            total_length++;
+        }
+    }
+
+    size_t index = 0;
+    for (size_t menu_index = 0; menu_index < msg->menu.size(); menu_index++) {
+        size_t fn_length = msg->menu[menu_index].functions.size();
+        for (size_t fn_index = 0; fn_index < fn_length; fn_index++) {
+            string name = msg->menu[menu_index].functions[fn_index];
+            int blank_space = 0;
+            if (fn_index == fn_length - 1) {
+                blank_space = 6;
+            }
+            writeSerial("robotfn", "ddsd", index, total_length, name.c_str(), blank_space);
+            index++;
+        }
+    }
+}
+
+void DodobotParsing::notifyCallback(const db_parsing::DodobotNotify::ConstPtr& msg) {
+    writeSerial("notify", "dsu", msg->level, msg->message.c_str(), msg->timeout);
+}
+
 void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
 {
     if (!ready_for_images) {
         return;
     }
-    
+
     cv_bridge::CvImagePtr cv_ptr;
     try
     {
@@ -1277,7 +1349,35 @@ string DodobotParsing::formatPacketToPrint(char* packet, uint32_t length)
     }
     return str;
 }
+void DodobotParsing::parseState()
+{
+    CHECK_SEGMENT(4); robotState->time_ms = (uint32_t)segment_as_uint32();
+    CHECK_SEGMENT(4); robotState->battery_ok = (bool)segment_as_uint32();
+    CHECK_SEGMENT(4); robotState->motors_active = (bool)segment_as_uint32();
+    CHECK_SEGMENT(4); robotState->loop_rate = (double)segment_as_float();
 
+    state_msg.header.stamp = getDeviceTime(robotState->time_ms);
+    state_msg.battery_ok = robotState->battery_ok;
+    state_msg.motors_active = robotState->motors_active;
+    state_msg.loop_rate = robotState->loop_rate;
+
+    state_pub.publish(state_msg);
+}
+void DodobotParsing::parseReady()
+{
+    CHECK_SEGMENT(4); readyState->time_ms = segment_as_uint32();
+    CHECK_SEGMENT(-1); readyState->robot_name = segment_as_string();
+    readyState->is_ready = true;
+    ROS_INFO_STREAM("Received ready signal! Rover name: " << readyState->robot_name);
+
+    state_msg.header.stamp = getDeviceTime(readyState->time_ms);
+    state_msg.is_ready = readyState->is_ready;
+    state_msg.robot_name = readyState->robot_name;
+
+    state_pub.publish(state_msg);
+
+    setReadyFlag(true);  // signal that ROS is ready
+}
 
 void DodobotParsing::parseDrive()
 {
@@ -1427,4 +1527,10 @@ void DodobotParsing::parseTilter()
     CHECK_SEGMENT(4); tilter_msg.position = segment_as_int32();
 
     tilter_pub.publish(tilter_msg);
+}
+
+void DodobotParsing::parseSelectedRobotFn()
+{
+    CHECK_SEGMENT(-1); selected_fn_msg.selected = segment_as_string();
+    robot_functions_pub.publish(selected_fn_msg);
 }

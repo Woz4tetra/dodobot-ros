@@ -390,8 +390,14 @@ void DodobotChassis::linear_pos_callback(db_chassis::LinearPosition msg)
 {
     db_parsing::DodobotLinear linear_msg;
 
-    linear_msg.command_type = 0;
-    linear_msg.command_value = (int)(msg.position * step_linear_m_to_ticks);
+    if (isnan(msg.position)) {
+        linear_msg.command_type = -1;
+        linear_msg.command_value = 0;
+    }
+    else {
+        linear_msg.command_type = 0;
+        linear_msg.command_value = (int)(msg.position * step_linear_m_to_ticks);
+    }
 
     if (isnan(msg.max_speed)) {
         linear_msg.max_speed = -1;
@@ -415,7 +421,7 @@ void DodobotChassis::linear_vel_callback(db_chassis::LinearVelocity msg)
     db_parsing::DodobotLinear linear_msg;
     linear_msg.command_type = 1;
     linear_msg.command_value = (int)(msg.velocity * step_linear_m_to_speed_ticks);
-    linear_msg.max_speed = linear_msg.command_value;
+    linear_msg.max_speed = -1;
 
     if (isnan(msg.acceleration)) {
         linear_msg.acceleration = -1;

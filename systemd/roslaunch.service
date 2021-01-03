@@ -8,6 +8,10 @@ Description=dodobot ros launch
 Type=simple
 User=ben
 ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
+Restart=no
+KillSignal=SIGINT
+TimeoutStopSec=3
+FinalKillSignal=SIGKILL
 
 [Install]
 WantedBy=multi-user.target

@@ -4,7 +4,7 @@
     <arg name="joystick_angular_axis"   default="0" />
     <arg name="deadzone_val"   default="0.1" />
 
-    <node name="joystick" pkg="joy" type="joy_node" output="log" required="true">
+    <node name="joystick" pkg="joy" type="joy_node" output="screen" required="true">
         <param name="dev" value="/dev/input/js0" type="str"/>
         <param name="deadzone" value="0.0" />
         <param name="autorepeat_rate" value="30.0" />
@@ -15,7 +15,7 @@
     <group ns="dodobot" >
         <rosparam file="/home/ben/.local/dodobot/dodobot_py/config/joystick.yaml" command="load" ns="joystick"/>
 
-        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="log" required="false">
+        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="screen" required="false">
             <param name="deadzone_joy_val" value="$(arg deadzone_val)" />
             <param name="joystick_topic" value="/joy_throttled" />
             <param name="linear_scale" value="0.4" />
