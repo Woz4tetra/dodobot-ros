@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
-# import roslaunch
+import Queue
+import roslaunch
 from std_msgs.msg import String
 
 from db_parsing.msg import DodobotFunctionsListing
@@ -80,6 +81,84 @@ class FunctionsList(object):
             listing.menu.append(fns)
         return listing
 
+class ProcessListener(roslaunch.pmon.ProcessListener):
+    def __init__(self, manager):
+        self.is_running = False
+        self.manager = manager
+
+    def process_died(self, name, exit_code):
+        rospy.logwarn("%s died with code %s", name, exit_code)
+
+
+class LaunchManager(object):
+    def __init__(self):
+        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(self.uuid)
+        self.launches = {}
+        self.launch_args = {}
+        self.processes = {}
+        self.requests = Queue.Queue()
+
+    def add_launch(self, local_name, package, filename, **kwargs):
+        if local_name in self.launches:
+            rospy.logwarn("%s is already added" % local_name)
+            return
+
+        cli_kwargs = ["%s:=%s" % (key, value) for key, value in kwargs.items()]
+        cli_args = [package, filename] + cli_kwargs
+        proc_listener = ProcessListener(self)
+
+        self.launch_args[local_name] = cli_args
+        self.processes[local_name] = proc_listener
+
+    def start_launch(self, local_name):
+        self.requests.put((local_name, "start"))
+
+    def _start_launch_from_req(self, local_name):
+        if self.processes[local_name].is_running:
+            rospy.logwarn("%s is already started" % local_name)
+            return
+        self.processes[local_name].is_running = True
+
+        cli_args = self.launch_args[local_name]
+        proc_listener = self.processes[local_name]
+
+        roslaunch_file = roslaunch.rlutil.resolve_launch_arguments(cli_args)
+        parent = roslaunch.parent.ROSLaunchParent(self.uuid, roslaunch_file, process_listeners=[proc_listener])
+        self.launches[local_name] = parent
+        parent.start()
+
+    def is_running(self, local_name):
+        return self.processes[local_name].is_running
+
+    def spin_once(self):
+        self._process_requests()
+        for launch in self.launches.values():
+            launch.spin_once()
+
+    def stop_launch(self, local_name):
+        self.requests.put((local_name, "stop"))
+
+    def _stop_launch_from_req(self, local_name):
+        if not self.processes[local_name].is_running:
+            rospy.logwarn("%s is already stopped" % local_name)
+            return
+        self.processes[local_name].is_running = False
+        self.launches[local_name].shutdown()
+
+    def _process_requests(self):
+        while not self.requests.empty():
+            local_name, command = self.requests.get()
+            if command == "start":
+                self._start_launch_from_req(local_name)
+            elif command == "stop":
+                self._stop_launch_from_req(local_name)
+
+    def stop_all(self):
+        for name in self.launches:
+            self.stop_launch(name)
+
+
 class DodobotLauncher(object):
     def __init__(self):
         self.node_name = "db_launcher"
@@ -90,9 +169,10 @@ class DodobotLauncher(object):
         )
         rospy.on_shutdown(self.shutdown_hook)
 
-        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-        roslaunch.configure_logging(self.uuid)
-        self.launches = []
+        self.launcher = LaunchManager()
+
+        self.camera_launch = "camera"
+        self.launcher.add_launch(self.camera_launch, self.node_name, "camera.launch")
 
         self.function_list_pub = rospy.Publisher("functions", DodobotFunctionsListing, queue_size=50)
         self.notif_pub = rospy.Publisher("notify", DodobotNotify, queue_size=10)
@@ -104,11 +184,12 @@ class DodobotLauncher(object):
         self.groups = FunctionsList.from_list(["hardware", "rtabmap", "navigation", "objects"])
         self.groups.update_from_dict({
             "hardware": {
-                "Start/stop camera": self.callback,
+                "Start/stop camera": self.camera_callback,
             },
             "rtabmap": {
                 "Start new map": self.callback,
                 "Load last map": self.callback,
+                "Stop mapping": self.callback,
             },
             "navigation": {
                 "Name this location": self.callback,
@@ -120,25 +201,19 @@ class DodobotLauncher(object):
                 "Deliver ...": self.callback,
             }
         })
+        rospy.loginfo("%s node started" % self.node_name)
 
-        self.camera_launch = "camera"
 
     def camera_callback(self):
-        if self.camera_launch not in self.launches:
-            self.add_launch(self.camera_launch, self.node_name, "camera.launch")
-
-        self.camera_launch.start()
-
-
-    def add_launch(self, local_name, package, filename, *args):
-        if local_name in self.launches:
-            rospy.logwarn("%s is already launched" % local_name)
-            return
-        cli_args = [package, filename] + list(args)
-        roslaunch_file = roslaunch.rlutil.resolve_launch_arguments(cli_args)
-        roslaunch_args = cli_args[2:]
-        launch = roslaunch.parent.ROSLaunchParent(self.uuid, [roslaunch_file, roslaunch_args])
-        self.launches[local_name] = launch
+        rospy.loginfo("Camera callback")
+        if self.launcher.is_running(self.camera_launch):
+            rospy.loginfo("Stopping camera")
+            self.launcher.stop_launch(self.camera_launch)
+            self.send_notification(0, "Stop camera", 1000)
+        else:
+            rospy.loginfo("Starting camera")
+            self.launcher.start_launch(self.camera_launch)
+            self.send_notification(0, "Start camera", 1000)
 
     def send_notification(self, level, message, timeout):
         msg = DodobotNotify()
@@ -160,16 +235,16 @@ class DodobotLauncher(object):
             self.prev_ready_state = msg.is_ready
 
     def run(self):
-        rospy.spin()
-        # rate = rospy.Rate(0.5)
-        # while True:
-        #     if rospy.is_shutdown():
-        #         return
-        #     rate.sleep()
+        # rospy.spin()
+        rate = rospy.Rate(10.0)
+        while True:
+            self.launcher.spin_once()
+            rate.sleep()
+            if rospy.is_shutdown():
+                return
 
     def shutdown_hook(self):
-        for launch in self.launches.values():
-            launch.shutdown()
+        self.launcher.stop_all()
 
 
 if __name__ == "__main__":
