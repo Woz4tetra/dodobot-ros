@@ -1,0 +1,13 @@
+[Unit]
+Requires=roscore.service
+PartOf=roscore.service
+After=NetworkManager.service time-sync.target roscore.service
+Description=dodobot ros launch
+
+[Service]
+Type=simple
+User=ben
+ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
+
+[Install]
+WantedBy=multi-user.target

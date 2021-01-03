@@ -11,6 +11,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     ros::param::param<string>("~drive_cmd_topic", drive_cmd_topic_name, "drive_cmd");
     ros::param::param<int>("~write_thread_rate", write_thread_rate, 60);
     ros::param::param<bool>("~use_sensor_msg_time", use_sensor_msg_time, true);
+    ros::param::param<bool>("~active_on_start", active_on_start, true);
+    ros::param::param<bool>("~reporting_on_start", reporting_on_start, true);
     ros::param::param<string>("~display_img_topic", display_img_topic, "image");
     ros::param::param<int>("~jpeg_image_quality", jpeg_image_quality, 50);
     ros::param::param<int>("~image_resize_width", image_resize_width, 160);
@@ -27,6 +29,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     ROS_INFO_STREAM("drive_cmd_topic: " << drive_cmd_topic_name);
 
     large_packet_len = 0x1000;
+    ready_for_images = false;
+
     int num_servos = 0;
 
     drive_msg.header.frame_id = "drive";
@@ -92,6 +96,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     linear_sub = nh.subscribe<db_parsing::DodobotLinear>("linear_cmd", 50, &DodobotParsing::linearCallback, this);
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
     image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
+
+    keyboard_sub = nh.subscribe<keyboard_listener::KeyEvent>("keys", 50, &DodobotParsing::keyboardCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
     file_service = nh.advertiseService("dodobot_file", &DodobotParsing::upload_file, this);
@@ -496,6 +502,10 @@ void DodobotParsing::processSerialPacket(string category)
         CHECK_SEGMENT(4);  int32_t size = segment_as_int32();
         ROS_INFO_STREAM("filename: " << filename << ", size: " << size);
     }
+    else if (category.compare("recvimage") == 0) {
+        CHECK_SEGMENT(4); ready_for_images = (bool)segment_as_int32();
+        ROS_INFO_STREAM("Receive images: " << ready_for_images);
+    }
 }
 
 void DodobotParsing::writeSerialLarge(string name, vector<unsigned char>* data)
@@ -667,8 +677,12 @@ void DodobotParsing::setup()
     checkReady();
 
     // tell the microcontroller to start
-    setActive(true);
-    setReporting(true);
+    if (reporting_on_start) {
+        setReporting(true);
+    }
+    if (active_on_start) {
+        setActive(true);
+    }
 
     // Send starter image
     // ros::Duration(0.25).sleep();
@@ -999,6 +1013,10 @@ void DodobotParsing::writeK(PidKs* constants) {
 
 void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
 {
+    if (!ready_for_images) {
+        return;
+    }
+    
     cv_bridge::CvImagePtr cv_ptr;
     try
     {
@@ -1029,7 +1047,7 @@ void DodobotParsing::writeImage(const cv::Mat& image)
     // }
 
     ROS_INFO("sending image: %d", (int)img_size);
-    writeSerial("setpath", "s", "IMAGE.JPG");
+    writeSerial("setpath", "s", "CAMERA.JPG");
     writeSerialLarge("file", display_img_buf);
 }
 
@@ -1046,6 +1064,11 @@ void DodobotParsing::resendPidKsTimed() {
         pid_resend_timer.setPeriod(ros::Duration(1.0));
         pid_resend_timer.start();
     }
+}
+
+void DodobotParsing::keyboardCallback(const keyboard_listener::KeyEvent::ConstPtr& msg)
+{
+    writeSerial("key", "sd", msg->data.c_str(), msg->event_type);
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, uint32_t packet_num, string message) {

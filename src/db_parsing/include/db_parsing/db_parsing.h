@@ -36,6 +36,8 @@
 #include "db_parsing/DodobotUploadFile.h"
 #include "db_parsing/DodobotListDir.h"
 
+#include "keyboard_listener/KeyEvent.h"
+
 
 using namespace std;
 
@@ -125,6 +127,7 @@ private:
     ros::Duration packet_ok_timeout;
 
     bool use_sensor_msg_time;
+    bool active_on_start, reporting_on_start;
 
     ros::Publisher gripper_pub;
     ros::Subscriber gripper_sub;
@@ -184,6 +187,9 @@ private:
     ros::Publisher bumper_pub;
     db_parsing::DodobotBumper bumper_msg;
     void parseBumper();
+
+    ros::Subscriber keyboard_sub;
+    void keyboardCallback(const keyboard_listener::KeyEvent::ConstPtr& msg);
 
     bool motorsReady();
     bool robotReady();

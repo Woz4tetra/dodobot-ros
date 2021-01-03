@@ -7,7 +7,7 @@
     <arg name="db_chassis_odom_frame" default="odom"/>
 
     <group ns="dodobot" >
-        <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="screen" required="true">
+        <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="log" required="true">
             <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
 
             <param name="min_angular_speed" value="0.7"/>

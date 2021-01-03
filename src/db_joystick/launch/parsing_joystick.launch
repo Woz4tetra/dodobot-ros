@@ -14,8 +14,8 @@
 
     <group ns="dodobot" >
         <rosparam file="/home/ben/.local/dodobot/dodobot_py/config/joystick.yaml" command="load" ns="joystick"/>
-        
-        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="screen" required="false">
+
+        <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="log" required="false">
             <param name="deadzone_joy_val" value="$(arg deadzone_val)" />
             <param name="joystick_topic" value="/joy_throttled" />
             <param name="linear_scale" value="0.4" />
