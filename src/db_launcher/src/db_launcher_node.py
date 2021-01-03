@@ -1,7 +1,11 @@
 #!/usr/bin/env python
-import rospy
+import os
 import Queue
+from datetime import datetime
+
+import rospy
 import roslaunch
+
 from std_msgs.msg import String
 
 from db_parsing.msg import DodobotFunctionsListing
@@ -9,6 +13,7 @@ from db_parsing.msg import DodobotFunctions
 from db_parsing.msg import DodobotState
 from db_parsing.msg import DodobotNotify
 
+from db_parsing.srv import DodobotSetState, DodobotSetStateResponse
 
 class FunctionGroup(object):
     def __init__(self):
@@ -87,6 +92,7 @@ class ProcessListener(roslaunch.pmon.ProcessListener):
         self.manager = manager
 
     def process_died(self, name, exit_code):
+        # self.is_running = False
         rospy.logwarn("%s died with code %s", name, exit_code)
 
 
@@ -104,12 +110,14 @@ class LaunchManager(object):
             rospy.logwarn("%s is already added" % local_name)
             return
 
-        cli_kwargs = ["%s:=%s" % (key, value) for key, value in kwargs.items()]
-        cli_args = [package, filename] + cli_kwargs
+        cli_args = [package, filename, kwargs]
         proc_listener = ProcessListener(self)
 
         self.launch_args[local_name] = cli_args
         self.processes[local_name] = proc_listener
+
+    def update_kwargs(self, local_name, **kwargs):
+        self.launch_args[local_name][2].update(**kwargs)
 
     def start_launch(self, local_name):
         self.requests.put((local_name, "start"))
@@ -120,11 +128,16 @@ class LaunchManager(object):
             return
         self.processes[local_name].is_running = True
 
-        cli_args = self.launch_args[local_name]
+        package, filename, kwargs = self.launch_args[local_name]
+        cli_kwargs = ["%s:=%s" % (key, value) for key, value in kwargs.items()]
+        cli_args = [package, filename] + cli_kwargs
+        rospy.loginfo("Launching with args: %s" % str(cli_args))
         proc_listener = self.processes[local_name]
 
         roslaunch_file = roslaunch.rlutil.resolve_launch_arguments(cli_args)
-        parent = roslaunch.parent.ROSLaunchParent(self.uuid, roslaunch_file, process_listeners=[proc_listener])
+        launch_cfg = [(roslaunch_file[0], cli_kwargs)]
+
+        parent = roslaunch.parent.ROSLaunchParent(self.uuid, launch_cfg, process_listeners=[proc_listener])
         self.launches[local_name] = parent
         parent.start()
 
@@ -172,12 +185,28 @@ class DodobotLauncher(object):
         self.launcher = LaunchManager()
 
         self.camera_launch = "camera"
+        self.rtabmap_new_launch = "rtabmap_new"
+        self.rtabmap_load_launch = "rtabmap_load"
+        self.move_base_launch = "move_base"
         self.launcher.add_launch(self.camera_launch, self.node_name, "camera.launch")
+        self.launcher.add_launch(self.rtabmap_new_launch, self.node_name, "rtabmap.launch", localization=False)
+        self.launcher.add_launch(self.rtabmap_load_launch, self.node_name, "rtabmap.launch", localization=True)
+        self.launcher.add_launch(self.move_base_launch, self.node_name, "move_base.launch")
+
+        self.rtabmap_dir = rospy.get_param("~rtabmap_dir", "/home/ben/rtabmaps")
+        self.rtabmap_filename = rospy.get_param("~rtabmap_filename", "rtabmap_%Y-%m-%d--%H-%M-%S,%f.db")
+        if not os.path.isdir(self.rtabmap_dir):
+            os.makedirs(self.rtabmap_dir)
 
         self.function_list_pub = rospy.Publisher("functions", DodobotFunctionsListing, queue_size=50)
         self.notif_pub = rospy.Publisher("notify", DodobotNotify, queue_size=10)
         self.selected_fn_sub = rospy.Subscriber("selected_fn", DodobotFunctionsListing, self.selected_fn_callback, queue_size=10)
         self.state_sub = rospy.Subscriber("state", DodobotState, self.robot_state_callback, queue_size=10)
+
+        self.set_robot_state_service_name = "set_state"
+        rospy.loginfo("Waiting for service %s" % self.set_robot_state_service_name)
+        self.set_robot_state = rospy.ServiceProxy(self.set_robot_state_service_name, DodobotSetState)
+        rospy.loginfo("%s service is ready" % self.set_robot_state_service_name)
 
         self.prev_ready_state = False
 
@@ -187,14 +216,15 @@ class DodobotLauncher(object):
                 "Start/stop camera": self.camera_callback,
             },
             "rtabmap": {
-                "Start new map": self.callback,
-                "Load last map": self.callback,
-                "Stop mapping": self.callback,
+                "Start new map": self.rtabmap_new_map,
+                "Load last map": self.rtabmap_recent_map,
+                "Stop mapping": self.rtabmap_stop,
             },
             "navigation": {
-                "Name this location": self.callback,
-                "Go to ...": self.callback,
+                "Name this location": self.name_location_callback,
+                # "Go to ...": self.callback,
                 "Explore": self.callback,
+                "Stop move_base": self.stop_move_base,
             },
             "objects": {
                 "Pickup ...": self.callback,
@@ -203,6 +233,9 @@ class DodobotLauncher(object):
         })
         rospy.loginfo("%s node started" % self.node_name)
 
+    # ---
+    # Camera callbacks
+    # ---
 
     def camera_callback(self):
         rospy.loginfo("Camera callback")
@@ -214,6 +247,95 @@ class DodobotLauncher(object):
             rospy.loginfo("Starting camera")
             self.launcher.start_launch(self.camera_launch)
             self.send_notification(0, "Start camera", 1000)
+
+    def rtabmap_new_map(self):
+        if self.launcher.is_running(self.rtabmap_new_launch):
+            rospy.loginfo("rtabmap mapping already running")
+            return
+
+        if not self.launcher.is_running(self.camera_launch):
+            self.launcher.start_launch(self.camera_launch)
+        self.set_robot_state(True, True)
+
+        if self.launcher.is_running(self.rtabmap_load_launch):
+            self.launcher.stop_launch(self.rtabmap_load_launch)
+
+        self.launcher.update_kwargs(self.rtabmap_new_launch, map_name=self.get_map_name())
+        self.launcher.start_launch(self.rtabmap_new_launch)
+        self.send_notification(0, "New map", 1000)
+
+    # ---
+    # RTAB-Map callbacks
+    # ---
+    def rtabmap_recent_map(self):
+        if self.launcher.is_running(self.rtabmap_load_launch):
+            rospy.loginfo("rtabmap recent already running")
+            return
+
+        map_name = self.get_recent_rtabmap()
+        if map_name is None:
+            self.rtabmap_new_map()
+            return
+
+        if not self.launcher.is_running(self.camera_launch):
+            self.launcher.start_launch(self.camera_launch)
+        self.set_robot_state(True, True)
+
+        if self.launcher.is_running(self.rtabmap_new_launch):
+            self.launcher.stop_launch(self.rtabmap_new_launch)
+
+        self.launcher.update_kwargs(self.rtabmap_load_launch, map_name=map_name)
+        self.launcher.start_launch(self.rtabmap_load_launch)
+        self.send_notification(0, "Recent map", 1000)
+
+    def rtabmap_stop(self):
+        if self.launcher.is_running(self.rtabmap_load_launch):
+            self.launcher.stop_launch(self.rtabmap_load_launch)
+        if self.launcher.is_running(self.rtabmap_new_launch):
+            self.launcher.stop_launch(self.rtabmap_new_launch)
+        self.send_notification(0, "Stop map", 1000)
+
+    def get_map_name(self):
+        now = datetime.now()
+        filename = now.strftime(self.rtabmap_filename)
+        path = os.path.join(self.rtabmap_dir, filename)
+        return path
+
+    def get_recent_rtabmap(self):
+        recent_filename = None
+        now = datetime.now()
+        recent_date = None
+        for filename in os.listdir(self.rtabmap_dir):
+            try:
+                date = datetime.strptime(filename, self.rtabmap_filename)
+            except ValueError as e:
+                rospy.logwarn(e)
+            dt = now - date
+            if recent_date is None or recent_date - date < dt:
+                recent_date = date
+                recent_filename = filename
+
+        if recent_filename is None:
+            return None
+        else:
+            return os.path.join(self.rtabmap_dir, recent_filename)
+
+    # ---
+    # Navigation callbacks
+    # ---
+
+    def name_location_callback(self):
+        if not self.launcher.is_running(self.rtabmap_load_launch) and \
+                not self.launcher.is_running(self.rtabmap_new_launch):
+            self.send_notification(1, "Map stopped", 2000)
+            return
+
+    def go_to_location(self, name):
+        pass
+
+    def stop_move_base(self):
+        if self.launcher.is_running(self.move_base_launch):
+            self.launcher.stop_launch(self.move_base_launch)
 
     def send_notification(self, level, message, timeout):
         msg = DodobotNotify()

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="map_name" default="rtabmap.db"/>
+    <arg name="localization" default="true"/>
+    <include file="$(find db_config)/launch/rtabmap.launch" ns="/">
+        <arg name="localization" value="$(arg localization)"/>
+        <arg name="database_path" value="$(arg map_name)"/>
+    </include>
+</launch>
