@@ -152,6 +152,7 @@ private:
     ros::Time prev_odom_time;
     int64_t prev_left_ticks;
     int64_t prev_right_ticks;
+    ros::Duration odom_idle_timeout;
 
     // Publishers
     tf2_ros::TransformBroadcaster tf_broadcaster;

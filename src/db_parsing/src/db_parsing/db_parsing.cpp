@@ -15,7 +15,6 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     ros::param::param<int>("~jpeg_image_quality", jpeg_image_quality, 50);
     ros::param::param<int>("~image_resize_width", image_resize_width, 160);
     ros::param::param<int>("~image_resize_height", image_resize_height, 128 - 20);
-    ros::param::param<string>("~starter_image_path", starter_image_path, "./dodobot.jpeg");
     ros::param::param<int>("~stepper_max_speed", stepper_max_speed_param, 420000000);
     ros::param::param<int>("~stepper_max_accel", stepper_max_accel_param, 20000000);
     stepper_max_speed = (uint32_t)stepper_max_speed_param;

@@ -21,6 +21,7 @@
             <param name="publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
             <param name="use_sensor_msg_time" value="$(arg db_chassis_use_sensor_msg_time)"/>
             <param name="odom_parent_frame" value="$(arg db_chassis_odom_frame)"/>
+            <param name="idle_timeout" value="1.0"/>
         </node>
     </group>
 </launch>

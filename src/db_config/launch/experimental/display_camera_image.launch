@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <arg name="image_throttle_rate" default="3.0"/>
+    <arg name="image_throttle_rate" default="0.5"/>
 
     <node type="throttle" name="motor_topic_throttle" pkg="topic_tools" required="true" output="screen"
         args="messages /camera/color/image_raw $(arg image_throttle_rate) /dodobot/display_image"/>

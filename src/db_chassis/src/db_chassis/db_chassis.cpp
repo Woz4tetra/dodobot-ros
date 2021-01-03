@@ -23,6 +23,9 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     ros::param::param<bool>("~services_enabled", services_enabled, true);
     ros::param::param<bool>("~publish_odom_tf", publish_odom_tf, true);
     ros::param::param<bool>("~use_sensor_msg_time", use_sensor_msg_time, false);
+    double idle_timeout;
+    ros::param::param<double>("~idle_timeout", idle_timeout, 0.0);
+    odom_idle_timeout = ros::Duration(idle_timeout);
 
     // Tilter parameters
     ros::param::param<double>("~tilter_lower_angle_deg", tilter_lower_angle_deg, -60.0);
@@ -605,6 +608,10 @@ void DodobotChassis::compute_odometry()
 void DodobotChassis::publish_chassis_data()
 {
     ros::Time now = ros::Time::now();
+    if (odom_idle_timeout != ros::Duration(0.0) && now - drive_sub_msg.header.stamp > odom_idle_timeout) {
+        return;
+    }
+
     if (use_sensor_msg_time) {
         now = drive_sub_msg.header.stamp;
     }

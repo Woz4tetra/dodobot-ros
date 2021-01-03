@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node name="keyboard" pkg="keyboard_listener" type="keyboard_listener_node.py" args="" output="screen" respawn="false">
+        <param name="device" value="/dev/input/event3"/>
+    </node>
+</launch>

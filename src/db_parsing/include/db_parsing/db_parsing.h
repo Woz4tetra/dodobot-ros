@@ -169,6 +169,7 @@ private:
     void driveCallback(const db_parsing::DodobotDrive::ConstPtr& msg);
     void writeDriveChassis(float speedA, float speedB);
 
+    bool ready_for_images;
     string display_img_topic;
     image_transport::Subscriber image_sub;
     image_transport::ImageTransport image_transport;

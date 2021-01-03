@@ -153,6 +153,9 @@ message("BFL library dirs:" ${BFL_LIBRARY_DIRS})
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
     src/${PROJECT_NAME}/${PROJECT_NAME}.cpp
+    src/${PROJECT_NAME}/NonLinearMeasurementPdf.cpp
+    src/${PROJECT_NAME}/NonLinearSystemPdf.cpp
+    src/${PROJECT_NAME}/ObjectParticleFilter.cpp
 )
 
 ## Add cmake target dependencies of the library

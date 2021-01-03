@@ -1,8 +1,12 @@
 <launch>
-    <group ns="dodobot" >
+    <group ns="dodobot">
         <arg name="drive_cmd_topic" value="drive_cmd_throttle"/>
         <arg name="motor_topic_throttle_rate" default="60.0"/>
         <!-- <arg name="drive_cmd_topic" value="drive_cmd"/> -->
+        <arg name="image_throttle_rate" default="0.5"/>
+
+        <node type="throttle" name="image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+            args="messages /camera/color/image_raw $(arg image_throttle_rate) /dodobot/display_image"/>
 
         <node type="throttle" name="motor_topic_throttle" pkg="topic_tools" required="true" output="screen"
             args="messages drive_cmd $(arg motor_topic_throttle_rate) $(arg drive_cmd_topic)"/>
@@ -13,9 +17,12 @@
             <!-- <param name="serial_baud" type="int" value="115200"/> -->
             <param name="drive_cmd_topic" type="string" value="$(arg drive_cmd_topic)"/>
             <param name="use_sensor_msg_time" type="bool" value="false"/>
+            <param name="use_sensor_msg_time" type="bool" value="false"/>
+
             <param name="display_img_topic" type="string" value="display_image"/>
             <param name="jpeg_image_quality" type="int" value="100"/>
-            <param name="starter_image_path" type="string" value="$(find db_parsing)/launch/dodobot-ros.jpg"/>
+            <param name="image_resize_width" type="int" value="160"/>
+            <param name="image_resize_height" type="int" value="128"/>
         </node>
     </group>
 </launch>
