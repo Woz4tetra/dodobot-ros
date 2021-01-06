@@ -9,7 +9,10 @@
     <node     if="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense/realsense_hirez_config.yaml" />
     <node unless="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense/realsense_slam_config.yaml" />
 
-    <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" />
+    <!-- <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" /> -->
+
+    <arg name="post_processing_manager_name" value="post_processing_manager"/>
+    <arg name="camera_manager_name" value="realsense2_camera_manager"/>
 
     <group ns="camera">
         <arg name="depth_topic" value="depth/image_rect_raw"/>
@@ -19,10 +22,10 @@
             type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
             args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/> -->
 
-        <node pkg="nodelet" type="nodelet" args="manager" name="post_processing_manager" output="screen"/>
+        <node pkg="nodelet" type="nodelet" args="manager" name="$(arg post_processing_manager_name)" output="screen"/>
 
         <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="downsample_rgb"
-                args="load image_proc/crop_decimate post_processing_manager">
+                args="load image_proc/crop_decimate $(arg post_processing_manager_name)">
             <param name="decimation_x" value="2"/>
             <param name="decimation_y" value="2"/>
             <remap from="camera" to="color"/>
@@ -30,15 +33,15 @@
         </node>
 
         <node if="$(eval depth_registered_processing and sw_registered_processing)" pkg="nodelet" type="nodelet" name="register_depth"
-                args="load depth_image_proc/register post_processing_manager" respawn="false">
+                args="load depth_image_proc/register $(arg post_processing_manager_name)" respawn="false">
             <remap from="rgb/camera_info"             to="color/camera_info" />
             <remap from="depth/camera_info"           to="depth/camera_info" />
             <remap from="depth/image_rect"            to="$(arg depth_topic)" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
         </node>
 
-        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_hw_registered"
-                args="load depth_image_proc/point_cloud_xyzrgb depth_processing_manager" respawn="false">
+        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="points_xyzrgb_sw_registered"
+                args="load depth_image_proc/point_cloud_xyzrgb $(arg post_processing_manager_name)" respawn="false">
             <remap from="rgb/image_rect_color"        to="color_decimate/image_raw" />
             <remap from="rgb/camera_info"             to="color_decimate/camera_info" />
             <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
@@ -50,7 +53,7 @@
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
         <arg name="tf_prefix"                value="camera"/>
         <arg name="external_manager"         value="false"/>
-        <arg name="manager"                  value="realsense2_camera_manager"/>
+        <arg name="manager"                  value="$(arg camera_manager_name)"/>
         <arg name="serial_no"                value=""/>
         <arg name="usb_port_id"              value=""/>
         <arg name="device_type"              value=""/>

@@ -479,7 +479,9 @@ bool DodobotDetectNet::publish_overlay(detectNet::Detection* detections, int num
 		return false;
 
 	// generate the overlay
-	if (!_net->Overlay(_input_cvt->ImageGPU(), _overlay_cvt->ImageGPU(), width, height,
+    // was _input_cvt->ImageGPU(). Is now _input_cvt->ImageCPU().
+    // Using the GPU stored image added ~0.03s of latency on Jetson Nano for some reason...
+	if (!_net->Overlay(_input_cvt->ImageCPU(), _overlay_cvt->ImageGPU(), width, height,
 				   imageConverter::InternalFormat, detections, num_detections, _overlay_flags))
 	{
 		return false;

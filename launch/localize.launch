@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="map_name" default="rtabmap.db"/>
-    <include file="$(find db_config)/launch/dodobot.launch"/>
+    <!-- <include file="$(find db_config)/launch/dodobot.launch"/> -->
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
