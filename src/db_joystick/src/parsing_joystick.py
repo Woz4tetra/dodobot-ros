@@ -160,10 +160,10 @@ class ParsingJoystick:
         self.gripper_dist = gripper_msg.distance
 
     def toggle_gripper(self):
-        if abs(self.gripper_dist) < 0.005:
-            self.parallel_gripper_msg.distance = self.gripper_max_dist
-        else:
+        if abs(self.gripper_max_dist - self.gripper_dist) < 0.005:
             self.parallel_gripper_msg.distance = 0.0
+        else:
+            self.parallel_gripper_msg.distance = self.gripper_max_dist
 
         self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
 

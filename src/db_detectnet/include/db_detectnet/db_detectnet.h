@@ -23,6 +23,10 @@
 #include <geometry_msgs/PoseWithCovariance.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/TransformStamped.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -113,6 +117,9 @@ private:
     double _marker_persistance_s;
     ros::Duration _marker_persistance;
 
+    bool _publish_with_frame;
+    string _target_frame;
+
     XmlRpc::XmlRpcValue _marker_colors_param;
     std::map<std::string, std_msgs::ColorRGBA> _marker_colors;
     std::map<std::string, double> _z_depth_estimations;
@@ -153,6 +160,9 @@ private:
     ros::Publisher _marker_pub;
     image_transport::Publisher _overlay_pub;
 
+    // ROS TF
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener tfListener;
 
     // Sub callbacks
     void rgbd_callback(const ImageConstPtr& color_image, const CameraInfoConstPtr& color_info, const ImageConstPtr& depth_image);
@@ -163,6 +173,7 @@ private:
     ObjPoseDescription bbox_to_pose(cv::Mat depth_cv_image, vision_msgs::BoundingBox2D bbox, ros::Time stamp, string label, int label_index);
     visualization_msgs::Marker make_marker(ObjPoseDescription* desc);
     double get_z_dist(cv::Mat depth_cv_image, ObjPoseDescription* desc);
+    void publish_tf(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc);
 
 public:
     DodobotDetectNet(ros::NodeHandle* nodehandle);

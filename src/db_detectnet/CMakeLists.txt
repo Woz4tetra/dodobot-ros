@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
     image_transport
     image_geometry
     cv_bridge
+    tf2_ros
 )
 
 find_package(CUDA REQUIRED)
@@ -130,6 +131,7 @@ catkin_package(
         image_transport
         image_geometry
         cv_bridge
+        tf2_ros
     # DEPENDS system_lib
 )
 

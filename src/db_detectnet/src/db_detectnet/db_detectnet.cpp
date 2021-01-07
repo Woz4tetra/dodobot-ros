@@ -3,7 +3,8 @@
 
 DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
     nh(*nodehandle),
-    _image_transport(nh)
+    _image_transport(nh),
+    tfListener(tfBuffer)
 {
     ros::param::param<string>("~model_name", _model_name, "ssd-mobilenet-v2");
     ros::param::param<string>("~model_path", _model_path, "");
@@ -24,6 +25,9 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
     ros::param::param<string>("~depth_info_topic", _depth_info_topic, "depth/camera_info");
     ros::param::param<int>("~bounding_box_border_px", _bounding_box_border_px, 30);
     ros::param::param<double>("~marker_persistance_s", _marker_persistance_s, 0.5);
+
+    ros::param::param<bool>("~publish_with_frame", _publish_with_frame, true);
+    ros::param::param<string>("~target_frame", _target_frame, "base_link");
 
     _marker_persistance = ros::Duration(_marker_persistance_s);
     _overlay_flags = detectNet::OverlayFlagsFromStr(_overlay_str.c_str());
@@ -259,9 +263,11 @@ void DodobotDetectNet::rgbd_callback(
         geometry_msgs::PoseWithCovariance pose_with_covar;
 
         ObjPoseDescription obj_desc = bbox_to_pose(depth_cv_image, msg.detections[n].bbox, depth_image->header.stamp, label, label_index);
+        publish_tf(color_info, obj_desc);
 
         pose_with_covar.pose = obj_desc.pose_stamped.pose;
         msg.detections[n].results[0].pose = pose_with_covar;
+        msg.detections[n].header = obj_desc.pose_stamped.header;
 
         visualization_msgs::Marker sphere_marker = make_marker(&obj_desc);
         visualization_msgs::Marker text_marker = make_marker(&obj_desc);
@@ -348,6 +354,29 @@ ObjPoseDescription DodobotDetectNet::bbox_to_pose(cv::Mat depth_cv_image, vision
     desc.pose_stamped = pose;
 
     return desc;
+}
+
+void DodobotDetectNet::publish_tf(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc)
+{
+    if (!_publish_with_frame) {
+        return;
+    }
+    geometry_msgs::TransformStamped transform_camera_to_target;
+    geometry_msgs::PoseStamped object_pose;
+
+    try {
+        transform_camera_to_target = tfBuffer.lookupTransform(
+            _target_frame, color_info->header.frame_id,
+            color_info->header.stamp, ros::Duration(1.0)
+        );
+        tf2::doTransform(obj_desc.pose_stamped, obj_desc.pose_stamped, transform_camera_to_target);
+        // obj_desc now contains the object position in the target frame
+    }
+    catch (tf2::TransformException &ex) {
+        ROS_WARN("%s", ex.what());
+        ros::Duration(1.0).sleep();
+        return;
+    }
 }
 
 visualization_msgs::Marker DodobotDetectNet::make_marker(ObjPoseDescription* desc)
