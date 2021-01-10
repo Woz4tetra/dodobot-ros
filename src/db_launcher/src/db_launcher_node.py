@@ -193,8 +193,9 @@ class DodobotLauncher(object):
         self.launcher.add_launch(self.rtabmap_load_launch, self.node_name, "rtabmap.launch", localization=True)
         self.launcher.add_launch(self.move_base_launch, self.node_name, "move_base.launch")
 
-        self.rtabmap_dir = rospy.get_param("~rtabmap_dir", "/home/ben/rtabmaps")
+        self.rtabmap_dir = rospy.get_param("~rtabmap_dir", "~/rtabmaps")
         self.rtabmap_filename = rospy.get_param("~rtabmap_filename", "rtabmap_%Y-%m-%d--%H-%M-%S,%f.db")
+        self.rtabmap_dir = os.path.expanduser(self.rtabmap_dir)
         if not os.path.isdir(self.rtabmap_dir):
             os.makedirs(self.rtabmap_dir)
 

@@ -250,7 +250,7 @@ class ChassisPlanning:
             dt = (current_time - prev_time).to_sec()
             prev_time = current_time
 
-            command_state = self.controller.get_velocity(self.state, goal_state, dt)
+            command_state = self.controller.get_command(self.state, goal_state, dt)
             self.send_cmd(command_state.vx, command_state.vt)
 
             if self.controller.is_stuck():

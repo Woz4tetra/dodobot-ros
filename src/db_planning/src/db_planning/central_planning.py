@@ -26,6 +26,8 @@ from nav_msgs.srv import GetPlan
 
 from std_srvs.srv import Trigger, TriggerResponse
 
+import std_msgs.msg
+
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_planning.msg import GripperAction, GripperGoal, GripperResult
@@ -35,7 +37,6 @@ from db_planning.msg import SequenceRequestAction, SequenceRequestGoal, Sequence
 from db_planning.srv import GrabbingSrv, GrabbingSrvResponse
 
 from db_planning.sequence import Sequence
-from db_planning.sounds import Sounds
 
 
 class SequenceState:
@@ -70,18 +71,6 @@ class CentralPlanning:
         # rospy.on_shutdown(self.shutdown_hook)
 
         self.bridge = CvBridge()
-
-        self.audio_sink = rospy.get_param("~audio_sink", "alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo")
-
-        try:
-            self.sounds = Sounds(self.audio_sink, {
-                "sequence_finished": "/home/ben/Music/sound_effects/ding.wav",
-                "action_finished": "/home/ben/Music/sound_effects/click.wav",
-                "action_failed": "/home/ben/Music/sound_effects/thud.wav",
-            })
-        except BaseException as e:
-            self.sounds = None
-            rospy.logerr("Failed to load sounds: %s" % str(e))
 
         self.force_threshold = rospy.get_param("~force_threshold", 30)
 
@@ -161,6 +150,7 @@ class CentralPlanning:
         rospy.loginfo("%s service is ready" % self.move_base_make_plan_service_name)
 
         self.tilter_pub = rospy.Publisher("tilter_orientation", geometry_msgs.msg.Quaternion, queue_size=100)
+        self.sound_pub = rospy.Publisher("sounds", std_msgs.msg.String, queue_size=10)
 
         # central_planning sequence action server
         self.sequence_server = actionlib.SimpleActionServer("sequence_request", SequenceRequestAction, self.sequence_callback, auto_start=False)
@@ -658,8 +648,7 @@ class CentralPlanning:
         return tfd_action
 
     def play_sound(self, name):
-        if self.sounds:
-            self.sounds[name].play()
+        self.sound_pub.publish(name)
 
     def look_at_object_demo(self):
         rate = rospy.Rate(2.0)
