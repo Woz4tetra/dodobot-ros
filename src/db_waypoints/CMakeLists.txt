@@ -19,6 +19,7 @@ add_service_files(
     GetWaypoint.srv
     SavePose.srv
     SaveRobotPose.srv
+    DeleteWaypoint.srv
 )
 
 generate_messages(

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import yaml
+import math
 from collections import OrderedDict 
 
 import rospy
@@ -21,6 +22,7 @@ from visualization_msgs.msg import Marker
 
 from db_waypoints.srv import GetAllWaypoints, GetAllWaypointsResponse
 from db_waypoints.srv import GetWaypoint, GetWaypointResponse
+from db_waypoints.srv import DeleteWaypoint, DeleteWaypointResponse
 from db_waypoints.srv import SavePose, SavePoseResponse
 from db_waypoints.srv import SaveRobotPose, SaveRobotPoseResponse
 
@@ -38,8 +40,8 @@ class DodobotWaypoints:
         
         self.map_frame = rospy.get_param("~map", "map")
         self.base_frame = rospy.get_param("~base_link", "base_link")
-        self.marker_size = rospy.get_param("~marker_size", "0.15")
-        self.marker_color = rospy.get_param("~marker_color", (1.0, 0.0, 0.0, 1.0))
+        self.marker_size = rospy.get_param("~marker_size", 0.25)
+        self.marker_color = rospy.get_param("~marker_color", (0.0, 0.0, 1.0, 1.0))
         assert (type(self.marker_color) == tuple or type(self.marker_color) == list), "type(%s) != tuple or list" % type(self.marker_color)
         assert len(self.marker_color) == 4, "len(%s) != 4" % len(self.marker_color)
         
@@ -58,6 +60,7 @@ class DodobotWaypoints:
         
         self.get_all_waypoints_srv = self.create_service("get_all_waypoints", GetAllWaypoints, self.get_all_waypoints_callback)
         self.get_waypoint_srv = self.create_service("get_waypoint", GetWaypoint, self.get_waypoint_callback)
+        self.delete_waypoint_srv = self.create_service("delete_waypoint", DeleteWaypoint, self.delete_waypoint_callback)
         self.save_pose_srv = self.create_service("save_pose", SavePose, self.save_pose_callback)
         self.save_robot_pose_srv = self.create_service("save_robot_pose", SaveRobotPose, self.save_robot_pose_callback)
     
@@ -77,6 +80,10 @@ class DodobotWaypoints:
         waypoint = self.get_waypoint(req.name)
         pose = self.waypoint_to_pose(waypoint)
         return GetWaypointResponse(pose)
+    
+    def delete_waypoint_callback(self, req):
+        success = self.pop_waypoint(req.name)
+        return DeleteWaypointResponse(success)
 
     def save_pose_callback(self, req):
         success = self.save_from_pose(req.name, req.waypoint)
@@ -125,7 +132,9 @@ class DodobotWaypoints:
         try:
             with open(self.waypoints_path) as file:
                 config = yaml.safe_load(file)
-            if config is not None:
+            if config is None:
+                self.waypoint_config = OrderedDict()
+            else:
                 self.waypoint_config = config
             self.all_waypoints_to_markers()
             return True
@@ -201,6 +210,13 @@ class DodobotWaypoints:
         # name: str, name of waypoint
         # returns: list, [x, y, theta]
         return self.waypoint_config[name]
+    
+    def pop_waypoint(self, name):
+        # name: str, name of waypoint
+        # returns: list, [x, y, theta]
+        self.delete_marker(name)
+        self.waypoint_config.pop(name)
+        return self.save_to_path()
 
     def get_all_waypoints(self):
         # returns: list, [[x, y, theta], ...]
@@ -254,20 +270,53 @@ class DodobotWaypoints:
     # ---
 
     def all_waypoints_to_markers(self):
+        self.marker_poses = OrderedDict()
         for name, waypoint in self.waypoint_config.items():
             self.marker_poses[name] = self.waypoint_to_pose(waypoint)
         self.update_markers()
 
     def add_marker(self, name, pose):
-        # waypoint: list, [x, y, theta]
         self.marker_poses[name] = pose
+        self.update_markers()
+    
+    def delete_marker(self, name):
+        self.marker_poses.pop(name)
         self.update_markers()
     
     def update_markers(self):
         self.markers = MarkerArray()
         for name, pose in self.marker_poses.items():
-            marker = self.make_marker(name, pose)
-            self.markers.markers.append(marker)
+            position_marker = self.make_marker(name, pose)
+            text_marker = self.make_marker(name, pose)
+            
+            self.prep_position_marker(position_marker)
+            
+            text_marker.type = Marker.TEXT_VIEW_FACING
+            text_marker.ns = "text" + text_marker.ns
+            text_marker.text = name
+            text_marker.scale.x = 0.0
+            text_marker.scale.y = 0.0
+
+            self.markers.markers.append(position_marker)
+            self.markers.markers.append(text_marker)
+    
+    def prep_position_marker(self, position_marker):
+        position_marker.type = Marker.ARROW
+        position_marker.ns = "pos" + position_marker.ns
+        position_marker.color.a = 0.75
+        position_marker.scale.x = self.marker_size / 4.0
+        position_marker.scale.y = self.marker_size / 2.5
+        position_marker.scale.z = self.marker_size / 2.0
+        
+        p1 = geometry_msgs.msg.Point()
+        p2 = geometry_msgs.msg.Point()
+        
+        p2.x = self.marker_size
+
+        position_marker.points.append(p1)
+        position_marker.points.append(p2)
+
+
     
     def make_marker(self, name, pose):
         # name: str, marker name
@@ -276,7 +325,7 @@ class DodobotWaypoints:
         marker.action = Marker.ADD
         marker.pose = pose.pose
         marker.header.frame_id = self.map_frame
-        marker.lifetime = 1.0  # seconds
+        marker.lifetime = rospy.Duration(1.0)  # seconds
         marker.ns = name
         marker.id = 0  # all waypoint names should be unique
 
@@ -295,7 +344,8 @@ class DodobotWaypoints:
         return marker
 
     def publish_markers(self):
-        self.marker_pub.publish(self.markers)
+        if len(self.markers.markers) != 0:
+            self.marker_pub.publish(self.markers)
 
     # ---
     # Run
