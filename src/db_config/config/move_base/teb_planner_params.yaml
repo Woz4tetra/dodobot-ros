@@ -10,7 +10,7 @@
 acc_lim_x: 10.0 # 0.5
 
 # Maximum angular acceleration of the robot in radians/sec^2
-acc_lim_theta: 10.0 # 0.5
+acc_lim_theta: 1.0 # 0.5
 
 # Maximum translational velocity of the robot in meters/sec
 max_vel_x: 0.2 # max speed 0.33 m/s
@@ -191,7 +191,7 @@ exact_arc_length: false # false
 shrink_horizon_min_duration: 10.0 # 10.0
 
 # Minimum desired separation from obstacles in meters
-min_obstacle_dist: 0.2 # 0.5
+min_obstacle_dist: 0.025 # 0.5
 
 # Specify if obstacles of the local costmap should be taken into
 # account. Each cell that is marked as obstacle is considered as a
@@ -216,7 +216,7 @@ obstacle_poses_affected: 30 # 30
 # Buffer zone around obstacles with non-zero penalty costs (should be
 # larger than min_obstacle_dist in order to take effect). Also refer to
 # the weight weight_inflation.
-inflation_dist: 0.6 # 0.6
+inflation_dist: 0.2 # 0.6
 
 # If this parameter is set to true, the motion of obstacles with non-
 # zero velocity (provided via user-supplied obstacles on topic
@@ -418,3 +418,43 @@ odom_topic: "/odom" # "odom"
 # Global planning frame (in case of a static map, this parameter must be
 # usually changed to "/map".
 map_frame: "map" # "odom"
+
+###########################################################################################
+## NOTE: Costmap conversion is experimental. Its purpose is to combine many point        ##
+## obstales into clusters, computed in a separate thread in order to improve the overall ## 
+## efficiency of local planning. However, the implemented conversion algorithms are in a ##
+## very early stage of development. Contributions are welcome!                           ##
+###########################################################################################
+
+## Costmap converter plugin   
+costmap_converter_plugin: "costmap_converter::CostmapToDynamicObstacles"
+costmap_converter_spin_thread: True
+costmap_converter_rate: 5
+
+
+## Configure plugins (namespace move_base/CostmapToDynamicObstacles)
+costmap_converter/CostmapToDynamicObstacles:
+  alpha_slow: 0.3
+  alpha_fast: 0.85
+  beta: 0.85
+  min_sep_between_slow_and_fast_filter: 80
+  min_occupancy_probability: 180
+  max_occupancy_neighbors: 100
+  morph_size: 1
+  filter_by_area: True
+  min_area: 3
+  max_area: 300
+  filter_by_circularity: True
+  min_circularity: 0.2
+  max_circularity: 1.0
+  filter_by_inertia: True
+  min_intertia_ratio: 0.2
+  max_inertia_ratio: 1.0
+  filter_by_convexity: False
+  min_convexity: 0.0
+  max_convexity: 1.0
+  dt: 0.2
+  dist_thresh: 60.0
+  max_allowed_skipped_frames: 3
+  max_trace_length: 10
+  static_converter_plugin: "costmap_converter::CostmapToPolygonsDBSMCCH"
