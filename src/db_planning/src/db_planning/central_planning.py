@@ -18,8 +18,6 @@ import tf2_geometry_msgs
 
 import geometry_msgs
 
-from cv_bridge import CvBridge, CvBridgeError
-
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 from nav_msgs.srv import GetPlan
@@ -37,19 +35,6 @@ from db_planning.msg import SequenceRequestAction, SequenceRequestGoal, Sequence
 from db_planning.srv import GrabbingSrv, GrabbingSrvResponse
 
 from db_planning.sequence import Sequence
-
-
-class SequenceState:
-    def __init__(self):
-        self.is_ready = False
-        self.goal_tf_name = ""
-        self.sequence_type = ""
-
-        self.main_tf_mat = None
-        self.linear_tf_mat = None
-
-    def reset(self):
-        self.is_ready = False
 
 
 class CentralPlanning:
@@ -70,20 +55,7 @@ class CentralPlanning:
         )
         # rospy.on_shutdown(self.shutdown_hook)
 
-        self.bridge = CvBridge()
-
         self.force_threshold = rospy.get_param("~force_threshold", 30)
-
-        self.pickup_path = rospy.get_param("~pickup_sequence_path", "./pickup.yaml")
-        self.delivery_path = rospy.get_param("~delivery_sequence_path", "./delivery.yaml")
-        self.pickup_sequence = Sequence.from_path(self.pickup_path)
-        self.delivery_sequence = Sequence.from_path(self.delivery_path)
-        self.sequence_types = ["pickup", "delivery"]
-        self.sequence_mapping = {
-            "pickup": self.pickup_action_sequence,
-            "delivery": self.delivery_action_sequence,
-        }
-        self.sequence_state = SequenceState()
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
@@ -96,58 +68,32 @@ class CentralPlanning:
         self.camera_base_link_tf = rospy.get_param("~camera_base_link_tf", "tilt_base_link")
         self.gripper_link_tf = rospy.get_param("~gripper_link_tf", "gripper_link")
 
-        self.sequence_start_radius = rospy.get_param("~sequence_start_radius", 0.3)
-
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         # front loader action client
-        self.front_loader_action = actionlib.SimpleActionClient(self.front_loader_action_name, FrontLoaderAction)
-        rospy.loginfo("Waiting for action server %s" % self.front_loader_action_name)
-        self.front_loader_action.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.front_loader_action_name))
+        self.front_loader_action = self.make_action_client(self.front_loader_action_name, FrontLoaderAction)
 
         # chassis action client
-        self.chassis_action = actionlib.SimpleActionClient(self.chassis_action_name, ChassisAction)
-        rospy.loginfo("Waiting for action server %s" % self.chassis_action_name)
-        self.chassis_action.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.chassis_action_name))
+        self.front_loader_action = self.make_action_client(self.chassis_action_name, ChassisAction)
 
         # gripper action client
-        self.gripper_action = actionlib.SimpleActionClient(self.gripper_action_name, GripperAction)
-        rospy.loginfo("Waiting for action server %s" % self.gripper_action_name)
-        self.gripper_action.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.gripper_action_name))
+        self.gripper_action = self.make_action_client(self.gripper_action_name, GripperAction)
 
         # front loader ready service
-        self.front_loader_ready_service_name = "front_loader_ready_service"
-        rospy.loginfo("Waiting for service %s" % self.front_loader_ready_service_name)
-        self.front_loader_ready_srv = rospy.ServiceProxy(self.front_loader_ready_service_name, Trigger)
-        rospy.loginfo("%s service is ready" % self.front_loader_ready_service_name)
+        self.front_loader_ready_srv = self.make_service_client("front_loader_ready_service", Trigger)
 
         # chassis ready service
-        self.chassis_ready_service_name = "chassis_ready_service"
-        rospy.loginfo("Waiting for service %s" % self.chassis_ready_service_name)
-        self.chassis_ready_srv = rospy.ServiceProxy(self.chassis_ready_service_name, Trigger)
-        rospy.loginfo("%s service is ready" % self.chassis_ready_service_name)
+        self.chassis_ready_srv = self.make_service_client("chassis_ready_service", Trigger)
 
         # gripper ready service
-        self.gripper_grabbing_service_name = "gripper_grabbing_service"
-        rospy.loginfo("Waiting for service %s" % self.gripper_grabbing_service_name)
-        self.gripper_grabbing_srv = rospy.ServiceProxy(self.gripper_grabbing_service_name, GrabbingSrv)
-        rospy.loginfo("%s service is ready" % self.gripper_grabbing_service_name)
+        self.gripper_grabbing_srv = self.make_service_client("gripper_grabbing_service", GrabbingSrv)
 
         # move_base action client
-        self.move_action_client = actionlib.SimpleActionClient(self.move_base_namespace, MoveBaseAction)
-        rospy.loginfo("Waiting for service %s" % self.move_base_namespace)
-        self.move_action_client.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, self.move_base_namespace))
-
+        self.move_action_client = self.make_action_client(self.move_base_namespace, MoveBaseAction)
+        
         # move_base make_plan service
-        self.move_base_make_plan_service_name = self.move_base_namespace + "/make_plan"
-        rospy.loginfo("Waiting for service %s" % self.move_base_make_plan_service_name)
-        self.make_plan_srv = rospy.ServiceProxy(self.move_base_make_plan_service_name, GetPlan)
-        rospy.loginfo("%s service is ready" % self.move_base_make_plan_service_name)
+        self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
 
         self.tilter_pub = rospy.Publisher("tilter_orientation", geometry_msgs.msg.Quaternion, queue_size=100)
         self.sound_pub = rospy.Publisher("sounds", std_msgs.msg.String, queue_size=10)
@@ -158,571 +104,32 @@ class CentralPlanning:
         rospy.loginfo("[%s] Dodobot sequence server started" % self.node_name)
 
         rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
-
-    ### CALLBACK FUNCTIONS ###
+    
+    def make_action_client(self, name, action):
+        action = actionlib.SimpleActionClient(name, action)
+        rospy.loginfo("Waiting for action server %s" % name)
+        action.wait_for_server()
+        rospy.loginfo("[%s] %s action server connected" % (self.node_name, name))
+        return action
+    
+    def make_service_client(self, name, srv_type):
+        self.__dict__[name + "_service_name"] = name
+        rospy.loginfo("Waiting for service %s" % name)
+        srv_obj = rospy.ServiceProxy(name, srv_type)
+        rospy.loginfo("%s service is ready" % name)
+        return srv_obj
 
     def sequence_callback(self, goal):
-        sequence_type = goal.sequence_type  # type sequence to run (pickup or delivery)
-        sequence_goal = goal.sequence_goal  # name of the TF to perform sequence on
-        rospy.loginfo("Sequence requested: %s @ %s" % (sequence_type, sequence_goal))
-        result = SequenceRequestResult()
-
-        self.sequence_state.sequence_type = sequence_type
-        self.sequence_state.goal_tf_name = sequence_goal
-
-        if sequence_type not in self.sequence_types:
-            rospy.logwarn("%s not an action type: %s" % (sequence_type, self.sequence_types))
-            self.set_aborted()
-            return
-
-        if not self.check_sequence_preconditions(sequence_type, sequence_goal):
-            self.set_aborted()
-            return
-
-        self.sequence_state.is_ready = True
-
-        if not self.move_to_start_pose(sequence_goal):
-            self.set_success(False)
-            return
-
-        self.look_at_object(sequence_goal)  # tilt camera down to look at object
-        rospy.sleep(2.0)  # wait for tilter and object tracking node
-        if self.get_object_tf(sequence_goal) is None:  # if object is no longer visible
-            rospy.logwarn("Object is not visible! Aborting sequence")
-            self.set_aborted()
-            return
-
-        if not self.update_object_pose(sequence_goal):
-            rospy.logwarn("Failed to update object pose")
-            self.set_aborted()
-            return
-
-        try:
-            seq_result = self.sequence_mapping[sequence_type]()
-        except BaseException as e:
-            rospy.logwarn("Failed to complete action sequence: %s" % str(e))
-            # self.set_aborted()
-            self.reset_tilter()
-            raise
-
-        if seq_result is not None:
-            self.set_success(False)
-            rospy.logwarn("Failed to complete action sequence. Stopped at index #%s" % seq_result)
-            return
-
-        if not self.check_sequence_postconditions(sequence_type):
-            self.set_success(False)
-            return
-
-        self.set_success(True)
-        rospy.loginfo("%s sequence completed!" % sequence_type)
-        self.play_sound("sequence_finished")
-
-    def set_success(self, success):
-        result = SequenceRequestResult()
-        result.success = success
-        self.sequence_server.set_succeeded(result)
-        self.sequence_state.is_ready = False
-        self.reset_tilter()
-
-    def set_aborted(self):
-        result = SequenceRequestResult()
-        result.success = False
-        self.sequence_server.set_aborted(result)
-        self.sequence_state.is_ready = False
-        self.reset_tilter()
-
-    def check_sequence_preconditions(self, sequence_type, sequence_goal):
-        # linear must be homed and motors active
-        # object must be in the TF tree
-        # for delivery, object must be in gripper
-        # for pickup, no object must be in the gripper
-
-        resp = self.front_loader_ready_srv()
-        if not resp.success:
-            rospy.logerr("Front loader not ready! %s" % str(resp.message))
-            return False
-        resp = self.chassis_ready_srv()
-        if not resp.success:
-            rospy.logerr("Chassis loader not ready! %s" % str(resp.message))
-            return False
-
-        if self.get_object_tf(sequence_goal) is None:
-            rospy.logerr("Object doesn't exist in TF tree!")
-            return False
-
-        # resp = self.gripper_grabbing_srv(self.force_threshold)
-        # if sequence_type == "pickup" and resp.is_grabbing:
-        #     rospy.logerr("Gripper is already grabbing something! Can't run pickup sequence")
-        #     return False
-        # if sequence_type == "delivery" and not resp.is_grabbing:
-        #     rospy.logerr("Gripper isn't grabbing anything! Can't run delivery sequence")
-        #     return False
-
-        return True
-
-    def check_sequence_postconditions(self, sequence_type):
-        resp = self.gripper_grabbing_srv(self.force_threshold)
-        if sequence_type == "pickup" and not resp.is_grabbing:
-            rospy.logerr("Gripper isn't grabbing anything! Pickup sequence failed")
-            return False
-        if sequence_type == "delivery" and resp.is_grabbing:
-            rospy.logerr("Gripper is still grabbing something! Delivery sequence failed")
-            return False
-
-        return True
-
-    def move_to_start_pose(self, tf_name):
-        goal_tf = self.attempt_get_tf(self.main_workspace_tf, tf_name, rospy.Duration(1.0))
-        if goal_tf is None:
-            return False
-
-        start_tf = self.attempt_get_tf(self.main_workspace_tf, self.base_link_tf, rospy.Duration(1.0))
-        if start_tf is None:
-            return False
-
-        start_pose = geometry_msgs.msg.PoseStamped()
-        start_pose.header.frame_id = self.main_workspace_tf
-        start_pose.pose.position = start_tf.transform.translation
-        start_pose.pose.orientation = start_tf.transform.rotation
-
-        goal_pose = geometry_msgs.msg.PoseStamped()
-        goal_pose.header.frame_id = self.main_workspace_tf
-        goal_pose.pose.position = goal_tf.transform.translation
-        goal_pose.pose.orientation = goal_tf.transform.rotation
-
-        req_plan = GetPlan()
-        req_plan.start = start_pose
-        req_plan.goal = goal_pose
-        req_plan.tolerance = self.sequence_start_radius
-        nav_plan = self.make_plan_srv(start_pose, goal_pose, self.sequence_start_radius)
-
-        if len(nav_plan.plan.poses) == 0:
-            rospy.logerr("Failed to produce a path to the object!")
-            return False
-
-        goal_point = self.pose_to_array(goal_pose.pose)
-        for pose in nav_plan.plan.poses[::-1]:  # iterate backwards through the plan
-            path_point = self.pose_to_array(pose.pose)
-
-            distance = np.linalg.norm(goal_point - path_point)
-            if distance <= self.sequence_start_radius:
-                move_base_goal_pose = pose
-
-        rospy.loginfo("Sequence start pose: %s" % move_base_goal_pose)
-
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = self.main_workspace_tf
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose = move_base_goal_pose.pose
-
-        self.move_action_client.send_goal(goal)
-        self.move_action_client.wait_for_result()
-        move_base_result = self.move_action_client.get_result()
-        return bool(move_base_result)
-
-    def update_object_pose(self, tf_name):
-        goal_tf = self.attempt_get_tf(self.main_workspace_tf, tf_name, rospy.Duration(1.0))
-        if goal_tf is None:
-            return False
-
-        start_tf = self.attempt_get_tf(self.main_workspace_tf, self.base_link_tf, rospy.Duration(1.0))
-        if start_tf is None:
-            return False
-
-        gripper_offset_tf = self.attempt_get_tf(self.gripper_link_tf, self.base_link_tf, rospy.Duration(1.0))
-        if gripper_offset_tf is None:
-            return False
-
-        unrotate_obj_tf = self.attempt_get_tf(tf_name, self.base_link_tf, rospy.Duration(1.0))
-        if unrotate_obj_tf is None:
-            return False
-
-        linear_tf = self.attempt_get_tf(self.linear_base_tf, tf_name, rospy.Duration(1.0))
-        if linear_tf is None:
-            return False
-
-        main_tf_mat = self.get_tf_matrix(goal_tf)
-
-        # apply object counter rotation to map -> object TF.
-        # main_tf_mat will TF using base_link's orientation
-        trans, rot = self.assign_tf_to_lists(unrotate_obj_tf)
-        unrotate_mat = tf.transformations.quaternion_matrix(rot)
-        main_tf_mat = np.dot(main_tf_mat, unrotate_mat)
-
-        # apply gripper backwards offset so that X=0.0, Y=0.0 is at the gripper
-        # center
-        gripper_offset_mat = tf.transformations.translation_matrix([
-            gripper_offset_tf.transform.translation.x,
-            gripper_offset_tf.transform.translation.y,
-            0.0,
-        ])
-        main_tf_mat = np.dot(main_tf_mat, gripper_offset_mat)
-
-        # get position component of linear to object TF. Sets Z=0.0 to the
-        # object's height
-        trans_m = tf.transformations.translation_matrix([
-            linear_tf.transform.translation.x,
-            linear_tf.transform.translation.y,
-            linear_tf.transform.translation.z,
-        ])
-        rot_m = tf.transformations.quaternion_matrix([
-            start_tf.transform.rotation.x,
-            start_tf.transform.rotation.y,
-            start_tf.transform.rotation.z,
-            start_tf.transform.rotation.w,
-        ])
-        linear_tf_mat = np.dot(trans_m, rot_m)
-
-        self.sequence_state.main_tf_mat = main_tf_mat
-        self.sequence_state.linear_tf_mat = linear_tf_mat
-
-        return True
-
-    def get_object_tf(self, tf_name):
-        return self.attempt_get_tf(self.camera_base_link_tf, tf_name, rospy.Duration(2.0))
-
-    def attempt_get_tf(self, parent_link, child_link, time_window=None, timeout=None):
-        if time_window is None:
-            time_window = rospy.Time(0)
-        else:
-            time_window = rospy.Time.now() - time_window
-
-        if timeout is None:
-            timeout = rospy.Duration(1.0)
-
-        try:
-            return self.tf_buffer.lookup_transform(parent_link, child_link, time_window, timeout)
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            rospy.logwarn("Failed to look up %s to %s" % (parent_link, child_link))
-            return None
-
-    def look_at_object(self, tf_name):
-        camera_base_tf = self.get_object_tf(tf_name)
-        if camera_base_tf is None:
-            return False
-
-        angle = math.atan2(camera_base_tf.transform.translation.z, camera_base_tf.transform.translation.x)
-
-        rospy.loginfo("Camera tilt angle (deg): %0.2f" % math.degrees(angle))
-
-        orientation = geometry_msgs.msg.Quaternion()
-        quaternion = tf_conversions.transformations.quaternion_from_euler(0.0, angle, 0.0)
-        orientation.x = quaternion[0]
-        orientation.y = quaternion[1]
-        orientation.z = quaternion[2]
-        orientation.w = quaternion[3]
-
-        self.tilter_pub.publish(orientation)
-        return True
-
-    def reset_tilter(self):
-        orientation = geometry_msgs.msg.Quaternion()
-        quaternion = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, 0.0)
-        orientation.x = quaternion[0]
-        orientation.y = quaternion[1]
-        orientation.z = quaternion[2]
-        orientation.w = quaternion[3]
-        self.tilter_pub.publish(orientation)
-
-    def pickup_action_sequence(self):
-        self.pickup_sequence.reload()
-        adj_sequence = self.adjust_sequence_into_main_tf(self.pickup_sequence)
-        for index, action in enumerate(adj_sequence):
-            rospy.loginfo("\n\n--- Running pickup action #%s: %s ---" % (index, action["comment"]))
-            result = self.run_action(action)
-
-            rospy.loginfo("--- Action #%s finished ---\n\n" % index)
-            if not result:
-                return index
-        return None
-
-    def delivery_action_sequence(self):
-        self.delivery_sequence.reload()
-        adj_sequence = self.adjust_sequence_into_main_tf(self.delivery_sequence)
-        for index, action in enumerate(adj_sequence):
-            rospy.loginfo("\n\n--- Running delivery action #%s: %s ---" % (index, action["comment"]))
-            result = self.run_action(action)
-            rospy.loginfo("--- Action #%s finished ---\n\n" % index)
-            if not result:
-                return index
-        return None
-
-    def run_action(self, action):
-        rospy.loginfo("Sending action %s" % str(action))
-        chassis_goal = self.get_goal_msg(ChassisGoal, action)
-        front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
-        gripper_goal = self.get_goal_msg(GripperGoal, action)
-
-        rospy.sleep(0.5)
-
-        self.chassis_action.send_goal(chassis_goal) #, feedback_callback=self.chassis_action_progress)
-        self.front_loader_action.send_goal(front_loader_goal) #, feedback_callback=self.front_loader_action_progress)
-        self.gripper_action.send_goal(gripper_goal)
-
-        self.front_loader_action.wait_for_result()
-        self.chassis_action.wait_for_result()
-        self.gripper_action.wait_for_result()
-
-        front_loader_result = self.front_loader_action.get_result()
-        chassis_result = self.chassis_action.get_result()
-        gripper_result = self.gripper_action.get_result()
-
-        rospy.loginfo("Results: \n\tFront loader:\t%s \n\tChassis:\t%s \n\tGripper:\t%s" % (
-            front_loader_result.success,
-            chassis_result.success,
-            gripper_result.success,
-        ))
-
-        if not front_loader_result.success or not chassis_result.success or not gripper_result.success:
-            # self.front_loader_action.cancel_goal()
-            # self.chassis_action.cancel_goal()
-            # self.gripper_action.cancel_goal()
-            self.play_sound("action_failed")
-            return False
-
-        self.play_sound("action_finished")
-        return True
-
-    def chassis_action_progress(self, msg):
-        rospy.loginfo("x: %s, y: %s" % (msg.current_x, msg.current_y))
-
-    def front_loader_action_progress(self, msg):
-        rospy.loginfo("z: %s" % (msg.current_z))
-
-    def get_goal_msg(self, goal_msg_class, action):
-        goal_msg = goal_msg_class()
-        for key, value in action.items():
-            try:
-                setattr(goal_msg, key, value)
-            except AttributeError:
-                pass
-        return goal_msg
-
-    def adjust_sequence_into_main_tf(self, sequence):
-        # adjust all actions while the tag is in view. If it's not, throw an error
-        adj_sequence = []
-
-        goal_tf_name = self.sequence_state.goal_tf_name
-
-        for action in sequence.sequence:
-            adj_sequence.append(self.get_action_goal_in_main_tf(action))
-        return adj_sequence
-
-    def pose_to_array(self, pose):
-        position = pose.position
-        return np.array([position.x, position.y, position.z])
-
-    def assign_pose_to_lists(self, pose):
-        trans_xyz = [
-            pose.position.x,
-            pose.position.y,
-            pose.position.z,
-        ]
-        quat_xyzw = [
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w,
-        ]
-        return trans_xyz, quat_xyzw
-
-    def assign_tf_to_lists(self, tf_obj):
-        trans_xyz = [
-            tf_obj.transform.translation.x,
-            tf_obj.transform.translation.y,
-            tf_obj.transform.translation.z,
-        ]
-        quat_xyzw = [
-            tf_obj.transform.rotation.x,
-            tf_obj.transform.rotation.y,
-            tf_obj.transform.rotation.z,
-            tf_obj.transform.rotation.w,
-        ]
-        return trans_xyz, quat_xyzw
-
-    def get_tf_matrix(self, tf_obj):
-        trans, rot = self.assign_tf_to_lists(tf_obj)
-        rot_m = tf.transformations.quaternion_matrix(rot)
-        trans_m = tf.transformations.translation_matrix(trans)
-        return np.dot(trans_m, rot_m)
-
-    def assign_to_pose(self, pose, trans_xyz, quat_xyzw):
-        pose.position.x = trans_xyz[0]
-        pose.position.y = trans_xyz[1]
-        pose.position.z = trans_xyz[2]
-        pose.orientation.x = quat_xyzw[0]
-        pose.orientation.y = quat_xyzw[1]
-        pose.orientation.z = quat_xyzw[2]
-        pose.orientation.w = quat_xyzw[3]
-
-    def quat_to_z_angle(self, orientation):
-        tfd_goal_angle = tf_conversions.transformations.euler_from_quaternion([
-            orientation.x,
-            orientation.y,
-            orientation.z,
-            orientation.w
-        ])
-        return tfd_goal_angle[2]
-
-    def tf_with_mat(self, pose, matrix):
-        trans, quat = self.assign_pose_to_lists(pose)
-        trans_m = tf.transformations.translation_matrix(trans)
-        rot_m = tf.transformations.quaternion_matrix(quat)
-        pose_matrix = np.dot(trans_m, rot_m)  # create full matrix
-        tfd_matrix = np.dot(matrix, pose_matrix)  # transform pose into the frame of "matrix"
-
-        tfd_trans = tf.transformations.translation_from_matrix(tfd_matrix)
-        tfd_quat = tf.transformations.quaternion_from_matrix(tfd_matrix)
-
-        pose = geometry_msgs.msg.Pose()
-        self.assign_to_pose(pose, tfd_trans, tfd_quat)
-
-        return pose
-
-    def get_action_goal_in_main_tf(self, action):
-        # all action coordinates are relative to the object's frame
-        # (with orientation set relative to map since I haven't figured out how
-        # to get object orientation yet)
-        # and need to be transformed into the main tf frame so goals can be sent.
-
-        # The robot's starting position isn't needed since we're computing from
-        # the object's frame. The robot will try to follow the path as closely
-        # as possible
-
-        pose = geometry_msgs.msg.Pose()
-        main_tf_required = False
-        linear_tf_required = False
-        if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
-            pose.position.x = action["goal_x"]
-            pose.position.y = action["goal_y"]
-            main_tf_required = True
-
-        if not math.isnan(action["goal_z"]):
-            pose.position.z = action["goal_z"]
-            linear_tf_required = True
-
-        if math.isnan(action["goal_angle"]):
-            pose.orientation.x = 0.0
-            pose.orientation.y = 0.0
-            pose.orientation.z = 0.0
-            pose.orientation.w = 1.0
-        else:
-            action_quaternion = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, action["goal_angle"])
-            pose.orientation.x = action_quaternion[0]
-            pose.orientation.y = action_quaternion[1]
-            pose.orientation.z = action_quaternion[2]
-            pose.orientation.w = action_quaternion[3]
-            main_tf_required = True
-
-        if main_tf_required:
-            # tfd_pose = tf2_geometry_msgs.do_transform_pose(pose, main_transform)
-            tfd_pose = self.tf_with_mat(pose, self.sequence_state.main_tf_mat)
-        else:
-            tfd_pose = None
-
-        if linear_tf_required:
-            # goal_z=0.0 is when the gripper is grabbing the target. Offset defined in db_planning.launch (tag_to_start_pos)
-            # This TF will translate goal_z to a Z height relative to the zero position of the linear slide
-            # tfd_linear_pose = tf2_geometry_msgs.do_transform_pose(pose, linear_transform)
-            tfd_linear_pose = self.tf_with_mat(pose, self.sequence_state.linear_tf_mat)
-        else:
-            tfd_linear_pose = None
-
-        tfd_action = {}
-        tfd_action.update(action)
-        if not math.isnan(action["goal_x"]) and not math.isnan(action["goal_y"]):
-            tfd_action["goal_x"] = tfd_pose.position.x
-            tfd_action["goal_y"] = tfd_pose.position.y
-        if not math.isnan(action["goal_z"]):
-            tfd_action["goal_z"] = tfd_linear_pose.position.z
-
-        if not math.isnan(action["goal_angle"]):
-            tfd_action["goal_angle"] = self.quat_to_z_angle(tfd_pose.orientation)
-            # if the original goal_angle is NaN, that value will be copied over
-
-        rospy.loginfo("x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f -> x: %0.4f, y: %0.4f, z: %0.4f, a: %0.4f" % (
-            action["goal_x"], action["goal_y"], action["goal_z"], action["goal_angle"],
-            tfd_action["goal_x"], tfd_action["goal_y"], tfd_action["goal_z"], tfd_action["goal_angle"],
-        ))
-        return tfd_action
-
-    def play_sound(self, name):
-        self.sound_pub.publish(name)
-
-    def look_at_object_demo(self):
-        rate = rospy.Rate(2.0)
-        rospy.loginfo("-----------------------------")
-        rospy.loginfo("Running 'look at object' demo")
-        rospy.loginfo("-----------------------------")
-        try:
-            while not rospy.is_shutdown():
-                self.look_at_object("Orange_0")
-                rate.sleep()
-        except BaseException as e:
-            rospy.logerr(e)
-
-    def test_tf(self):
-        self.update_object_pose("map")
-
-    def stress_test_linear(self):
-        sequence = [
-            dict(goal_z=0.15, z_speed=0.04424, z_accel=0.0017696),
-            dict(goal_z=0.0, z_speed=0.04424, z_accel=0.0017696),
-
-            dict(goal_z=0.0375, z_speed=0.03, z_accel=0.001),
-            dict(goal_z=0.075, z_speed=0.03, z_accel=0.001),
-            dict(goal_z=0.1125, z_speed=0.03, z_accel=0.001),
-            dict(goal_z=0.15, z_speed=0.03, z_accel=0.001),
-            dict(goal_z=0.0, z_speed=0.03, z_accel=0.001)
-        ]
-        sequence_index = 0
-        num_failures = 0
-        start_time = rospy.Time.now()
-        rospy.sleep(10.0)
-        try:
-            while not rospy.is_shutdown():
-                action = sequence[sequence_index]
-                front_loader_goal = self.get_goal_msg(FrontLoaderGoal, action)
-                self.front_loader_action.send_goal(front_loader_goal)
-                self.front_loader_action.wait_for_result()
-                front_loader_result = self.front_loader_action.get_result()
-                if not front_loader_result.success:
-                    num_failures += 1
-                    duration = (rospy.Time.now() - start_time).to_sec()
-                    rospy.logerr("Failed at index #%d after %ss: %s" % (sequence_index, duration, action))
-                else:
-                    num_failures = 0
-                    sequence_index += 1
-                    if sequence_index >= len(sequence):
-                        sequence_index = 0
-
-                if num_failures >= 10:
-                    rospy.logerr("Failed after 10 attempts at index #%d after %ss: %s" % (sequence_index, duration, action))
-                    break
-
-                rospy.sleep(0.25)
-        except BaseException as e:
-            rospy.logerr(e)
-        finally:
-            rospy.signal_shutdown("Exiting")
+        pass
 
     def run(self):
         rospy.spin()
 
-    def shutdown_hook(self):
-        pass
-
 if __name__ == "__main__":
     try:
         node = CentralPlanning()
-        # node.run()
-        # node.look_at_object_demo()
-        # node.test_tf()
-        node.stress_test_linear()
-
+        node.run()
     except rospy.ROSInterruptException:
         pass
-
     finally:
         rospy.loginfo("Exiting central_planning node")
