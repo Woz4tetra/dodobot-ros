@@ -10,8 +10,8 @@ min_vel_x: 0.01
 # min_in_place_vel_theta: 0.7
 
 # for recovery behaviors
-max_vel_theta: 7.0
-min_vel_theta: -7.0
+max_vel_theta: 2.0
+min_vel_theta: -2.0
 min_in_place_vel_theta: 0.5
 
 holonomic_robot: false
