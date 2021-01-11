@@ -22,5 +22,5 @@
         <param name="costmap_topic" value="/move_base/local_costmap/costmap" />
         <param name="odom_topic" value="/dodobot/odom" />
     </node>
-    <include file="$(find db_config)/launch/pointcloud_to_laserscan.launch"/>
+    <!-- <include file="$(find db_config)/launch/pointcloud_to_laserscan.launch"/> -->
 </launch>
