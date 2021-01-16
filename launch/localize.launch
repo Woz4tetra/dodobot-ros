@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="map_name" default="rtabmap.db"/>
-    <!-- <include file="$(find db_config)/launch/dodobot.launch"/> -->
+    <arg name="use_laser" default="true"/>
+    
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
         <arg name="database_path" value="$(arg map_name)"/>
     </include>
+    <include if="$(arg use_laser)" file="$(find db_config)/launch/rplidar.launch"/>
     <!-- <include file="$(find db_waypoints)/launch/db_waypoints.launch">
         <arg name="map_name" value="$(arg map_name)"/>
     </include> -->

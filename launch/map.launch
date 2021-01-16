@@ -2,9 +2,12 @@
 <launch>
     <arg name="map_name" default="rtabmap.db"/>
     <arg name="new_db" default="true"/>
+    <arg name="use_laser" default="true"/>
+
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="database_path" value="$(arg map_name)"/>
         <arg name="create_new_db" value="$(arg new_db)"/>
     </include>
+    <include if="$(arg use_laser)" file="$(find db_config)/launch/rplidar.launch"/>
 </launch>

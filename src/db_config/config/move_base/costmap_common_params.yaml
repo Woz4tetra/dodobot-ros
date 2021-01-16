@@ -47,5 +47,13 @@ obstacle_layer:
         topic: /dodobot/bumper_occupancy
         marking: true
         inflation_radius: 0.003
+    
+    bump_sensor:
+        sensor_frame: laser
+        data_type: LaserScan
+        topic: /scan_filtered
+        marking: true
+        clearing: true
+        inflation_radius: 0.005
 
 transform_tolerance: 0.5  # 0.2

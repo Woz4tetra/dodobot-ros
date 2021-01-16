@@ -15,6 +15,11 @@
             <param name="min_linear_speed" value="0.05"/>
             <param name="max_linear_speed" value="0.33"/>
 
+            <param name="tilter_lower_angle_deg" value="-50.0"/>
+            <param name="tilter_upper_angle_deg" value="0.0"/>
+            <param name="tilter_lower_command" value="10"/>
+            <param name="tilter_upper_command" value="135"/>
+
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <!-- <param name="odom_estimate_method" value="runge-kutta"/> -->
             <!-- <param name="odom_estimate_method" value="geometric"/> -->
