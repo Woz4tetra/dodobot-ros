@@ -5,6 +5,7 @@ Description=dodobot ros master
 [Service]
 Type=forking
 User=ben
+Group=ben
 # Start roscore as a fork and then wait for the tcp port to be opened
 # —————————————————————-
 # Source all the environment variables, start roscore in a fork

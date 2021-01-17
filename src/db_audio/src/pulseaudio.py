@@ -1,69 +1,197 @@
 import re
 import time
+import math
 import rospy
 from subprocess import Popen, PIPE
+from threading import Thread
 
+import pydub.utils
 from pydub import AudioSegment
-import pydub.playback
+
+import pyaudio
+
+from ctypes import *
+from contextlib import contextmanager
 
 # helpful forum posts:
 # how to get audio to play:
 # https://askubuntu.com/questions/14077/how-can-i-change-the-default-audio-device-from-command-line
 #   pacmd list-sinks
 #   pacmd set-default-sink 0
+
 # fix volume issue:
 # https://chrisjean.com/fix-for-usb-audio-is-too-loud-and-mutes-at-low-volume-in-ubuntu/
 
+# playing audio on threads:
+# https://stackoverflow.com/questions/60695093/play-audio-file-in-the-background
+
+# playing audio in chunks with pyaudio:
+# https://github.com/jiaaro/pydub/blob/master/pydub/playback.py
+
+# suppress warnings from alsa:
+# https://stackoverflow.com/questions/7088672/pyaudio-working-but-spits-out-error-messages-each-time
+
+
+# From alsa-lib Git 3fd4ab9be0db7c7430ebd258f2717a976381715d
+# $ grep -rn snd_lib_error_handler_t
+# include/error.h:59:typedef void (*snd_lib_error_handler_t)(const char *file, int line, const char *function, int err, const char *fmt, ...) /* __attribute__ ((format (printf, 5, 6))) */;
+# Define our error handler type
+ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+
+def py_error_handler(filename, line, function, err, fmt):
+    pass
+
+c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+
+@contextmanager
+def suppress_alsa_error():
+    asound = cdll.LoadLibrary("libasound.so")
+    asound.snd_lib_error_set_handler(c_error_handler)
+    yield
+    asound.snd_lib_error_set_handler(None)
+
+def enumerate_devices():
+    with suppress_alsa_error():
+        pyaudio_obj = pyaudio.PyAudio()
+    info = pyaudio_obj.get_host_api_info_by_index(0)
+    num_devices = info.get("deviceCount")
+    for index in xrange(num_devices):
+        yield index, pyaudio_obj.get_device_info_by_host_api_device_index(0, index)
+        
 
 class Audio:
+    device_info = 0
+
     def __init__(self):
         self.audio = None
-        self.playback = None
+        self._is_playing = False
+        self.thread = None
+    
+    @classmethod
+    def set_sink_by_name(cls, name):
+        for index, info in enumerate_devices():
+            if name in info.get("name"):
+                cls.set_sink(index)
+
+    @classmethod
+    def set_sink(cls, index):
+        with suppress_alsa_error():
+            pyaudio_obj = pyaudio.PyAudio()
+        cls.device_info = pyaudio_obj.get_device_info_by_host_api_device_index(0, index)
 
     @classmethod
     def load_from_path(cls, path):
-        return cls.load(AudioSegment.from_file(path))
+        self = cls()
+        self.reload_from_path(path)
+        return self
 
     @classmethod
     def load(cls, audio_segment):
         self = cls()
+        self.reload(audio_segment)
+        return self
+    
+    def reload(self, audio_segment):
         self.unload()
         self.audio = audio_segment
-        return self
+
+        # match sample rate with device
+        self.audio = self.audio.set_frame_rate(int(self.device_info.get("defaultSampleRate")))
+        self.audio = self.audio.set_channels(int(self.device_info.get("maxOutputChannels")))
+
+    def reload_from_path(self, path):
+        self.reload(AudioSegment.from_file(path))
+    
+    def _play_thread(self):
+        self.thread = Thread(target=self._play_task)
+        self.thread.daemon = True
+        self.thread.start()
+        self._is_playing = True
+    
+    def _play_task(self):
+        with suppress_alsa_error():
+            pyaudio_obj = pyaudio.PyAudio()
+        audio_format = pyaudio_obj.get_format_from_width(self.audio.sample_width)
+        
+        rospy.loginfo("Using device %s. Audio sample rate: %s, channels: %s" % (self.device_info, self.audio.frame_rate, self.audio.channels))
+        
+        stream = pyaudio_obj.open(
+            format=audio_format,
+            channels=self.audio.channels,
+            rate=self.audio.frame_rate,
+            output=True,
+            output_device_index=self.device_info.get("index")
+        )
+
+        try:
+            chunk = 250  # ms
+            # break audio into chunks (to allow keyboard interrupts)
+            for chunk in pydub.utils.make_chunks(self.audio, chunk):
+                stream.write(chunk._data)
+                if not self._is_playing:
+                    break
+        finally:
+            stream.stop_stream()
+            stream.close()
+
+            pyaudio_obj.terminate()
+            self._is_playing = False
 
     def unload(self):
         self.stop()
-        if self.audio is not None:
+        if self.is_loaded():
             del self.audio
             self.audio = None
+            return True
+        else:
+            return False
 
     def play(self):
         self.stop()
-        self.playback = pydub.playback.play(self.audio)
+        if self.is_loaded():
+            self._play_thread()
+        else:
+            raise Exception("Audio is not loaded. Can't play")
 
     def is_playing(self):
-        return self.playback is not None and self.playback.is_playing()
+        return self.is_loaded() and self.thread is not None and self._is_playing
+    
+    def is_loaded(self):
+        return self.audio is not None
 
     def wait(self):
         if self.is_playing():
-            self.playback.wait_done()
+            self.thread.join()
 
     def stop(self):
         if self.is_playing():
-            self.playback.stop()
+            self._is_playing = False
+    
+    def __del__(self):
+        self.stop()
 
 class Pacmd:
-    def __init__(self, sink):
+    def __init__(self, sink, pacmd_exec="/usr/bin/pacmd", timeout=5.0):
+        self.pacmd_exec = pacmd_exec
         self.sink = str(sink)
         self.max_volume = 0x10000
         self.volume = self.max_volume
-        self.sink_timeout_s = 30.0
+        self.sink_timeout_s = timeout
 
-        self.wait_for_sinks()
+        if self.check_exec():
+            raise Exception("Failed to get audio controller. Check executable path: %s" % str(pacmd_exec))
+
+        if self.wait_for_sinks() == 0:
+            raise Exception("Failed to find audio sinks!")
+
         self.set_sink()
 
     def list_sinks(self):
         return self._run_cmd(["list-sinks"])
+    
+    def check_exec(self):
+        output = self._run_cmd(["--help"])
+        return len(output) > 0
 
     def set_volume(self, percent):
         # percent is 0...1
@@ -83,6 +211,7 @@ class Pacmd:
                 if sinks > 0:
                     rospy.loginfo("Found %s available sinks" % sinks)
                     return sinks
+
         rospy.logerr("Failed to find sinks!")
         return 0
 
@@ -91,7 +220,7 @@ class Pacmd:
         self._run_cmd(["set-default-sink", self.sink])
 
     def _run_cmd(self, command, log_output=False):
-        p = Popen(["pacmd"] + command, stdout=PIPE)
+        p = Popen([self.pacmd_exec] + command, stdout=PIPE, shell=True)
         output = p.communicate()[0]
         output = output.decode()
         if log_output:

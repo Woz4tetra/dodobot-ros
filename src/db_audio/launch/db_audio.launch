@@ -1,7 +1,7 @@
 <launch>
     <group ns="dodobot" >
         <node name="db_audio" pkg="db_audio" type="sounds.py" output="screen" required="false">
-            <rosparam param="audio_paths" file="$(find db_audio)/config/sounds.yaml" command="load"/>
+            <param name="audio_dir" value="/home/ben/Music"/>
         </node>
     </group>
 </launch>

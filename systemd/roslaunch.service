@@ -7,6 +7,7 @@ Description=dodobot ros launch
 [Service]
 Type=simple
 User=ben
+Group=ben
 ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
 Restart=no
 KillSignal=SIGINT

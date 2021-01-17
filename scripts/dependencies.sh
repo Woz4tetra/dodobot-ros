@@ -18,3 +18,8 @@ for p in "${packages[@]}"; do
 done
 
 sudo apt install $package_list
+
+# see: https://stackoverflow.com/questions/48690984/portaudio-h-no-such-file-or-directory
+sudo apt-get install portaudio19-dev python-pyaudio
+
+pip install -r requirements.txt

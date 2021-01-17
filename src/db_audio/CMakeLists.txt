@@ -13,12 +13,16 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
-# generate_messages(
-#     DEPENDENCIES
-#     std_msgs
-#     geometry_msgs
-#     actionlib_msgs
-# )
+add_service_files(
+    FILES
+    PlayAudio.srv
+    StopAudio.srv
+)
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+)
 
 
 ## Specify additional locations of header files
