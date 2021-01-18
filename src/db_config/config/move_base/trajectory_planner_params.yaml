@@ -2,24 +2,24 @@
 acc_lim_x: 100.0
 acc_lim_theta:  100.0
 
-max_vel_x: 0.15  # max speed 0.33 m/s
-min_vel_x: 0.02
+max_vel_x: 0.2  # max speed 0.33 m/s
+min_vel_x: 0.01
 
 # max_vel_theta: 3.3
 # min_vel_theta: -3.3
 # min_in_place_vel_theta: 0.7
 
 # for recovery behaviors
-max_vel_theta: 0.75
-min_vel_theta: -0.75
+max_vel_theta: 2.0
+min_vel_theta: -2.0
 min_in_place_vel_theta: 0.5
 
 holonomic_robot: false
 escape_vel: -0.1
 
 # Goal Tolerance Parameters
-yaw_goal_tolerance: 0.02
-xy_goal_tolerance: 0.01
+yaw_goal_tolerance: 0.1
+xy_goal_tolerance: 0.1
 latch_xy_goal_tolerance: false
 
 # Forward Simulation Parameters

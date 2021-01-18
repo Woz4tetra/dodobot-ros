@@ -7,13 +7,13 @@
 ## Robot Configuration Parameters ##
 
 # Maximum translational acceleration of the robot in meters/sec^2
-acc_lim_x: 0.25 # 0.5
+acc_lim_x: 10.0 # 0.5
 
 # Maximum angular acceleration of the robot in radians/sec^2
-acc_lim_theta: 0.5 # 0.5
+acc_lim_theta: 1.0 # 0.5
 
 # Maximum translational velocity of the robot in meters/sec
-max_vel_x: 0.15 # max speed 0.33 m/s
+max_vel_x: 0.2 # max speed 0.33 m/s
 
 # Maximum absolute translational velocity of the robot while driving
 # backwards in meters/sec. See optimization parameter
@@ -63,7 +63,7 @@ acc_lim_y: 0.5 # 0.5
 # Different types are "point", "circular", "line", "two_circles" and
 # "polygon." The type of the model significantly influences the required
 # computation time.
-footprint_model/type: "point" # "point"
+footprint_model/type: "polygon" # "point"
 
 # This parameter is only relevant for type "circular". It contains the
 # radius of the circle. The center of the circle is located at the
@@ -101,7 +101,7 @@ footprint_model/rear_radius: 0.2 # 0.2
 # This parameter is only relevant for type "polygon". It contains the
 # list of polygon vertices (2d coordinates each). The polygon is always
 # closed: do not repeat the first vertex at the end.
-footprint_model/vertices: [ [0.25,-0.05], [...], ...] # [ [0.25,-0.05], [...], ...]
+footprint_model/vertices: [[-0.1556, -0.12], [-0.1556, 0.12], [0.1894, 0.12], [0.1894, -0.12]] # [ [0.25,-0.05], [...], ...]
 
 # If true, updates the footprint before checking trajectory feasibility
 is_footprint_dynamic: false # false
@@ -110,7 +110,7 @@ is_footprint_dynamic: false # false
 ## Goal Tolerance Parameters ##
 
 # Allowed final euclidean distance to the goal position in meters
-xy_goal_tolerance: 0.01 # 0.2
+xy_goal_tolerance: 0.05 # 0.2
 
 # Allowed final orientation error in radians
 yaw_goal_tolerance: 0.02 # 0.2
@@ -119,7 +119,11 @@ yaw_goal_tolerance: 0.02 # 0.2
 # the goal with maximum speed
 free_goal_vel: false # false
 
+complete_global_plan: true  # true
+
 ## Trajectory Configuration Parameters ##
+
+teb_autosize: True
 
 # Desired temporal resolution of the trajectory (the trajectory is not
 # fixed to dt_ref since the temporal resolution is part of the
@@ -159,7 +163,7 @@ force_reinit_new_goal_dist: 1.0 # 1.0
 
 # Specify up to which pose on the predicted plan the feasibility should
 # be checked each sampling interval.
-feasibility_check_no_poses: 4 # 4
+feasibility_check_no_poses: 5 # 4
 
 # Publish planner feedback containing the full trajectory and a list of
 # active obstacles (should be enabled only for evaluation or debugging).
@@ -187,7 +191,7 @@ exact_arc_length: false # false
 shrink_horizon_min_duration: 10.0 # 10.0
 
 # Minimum desired separation from obstacles in meters
-min_obstacle_dist: 0.5 # 0.5
+min_obstacle_dist: 0.02 # 0.5
 
 # Specify if obstacles of the local costmap should be taken into
 # account. Each cell that is marked as obstacle is considered as a
@@ -212,7 +216,7 @@ obstacle_poses_affected: 30 # 30
 # Buffer zone around obstacles with non-zero penalty costs (should be
 # larger than min_obstacle_dist in order to take effect). Also refer to
 # the weight weight_inflation.
-inflation_dist: 0.6 # 0.6
+inflation_dist: 0.15 # 0.6
 
 # If this parameter is set to true, the motion of obstacles with non-
 # zero velocity (provided via user-supplied obstacles on topic
@@ -261,6 +265,9 @@ costmap_converter_rate: 5.0 # 5.0
 
 ## Optimization Parameters ##
 
+optimization_activate: true  # true
+optimization_verbose: true  # false
+
 # Number of actual solver iterations called in each outerloop iteration.
 # See param no_outer_iterations.
 no_inner_iterations: 5 # 5
@@ -278,11 +285,11 @@ penalty_epsilon: 0.1 # 0.1
 
 # Optimization weight for satisfying the maximum allowed translational
 # velocity
-weight_max_vel_x: 1.0 # 2.0
+weight_max_vel_x: 2.0 # 2.0
 
 # Optimization weight for satisfying the maximum allowed angular
 # velocity
-weight_max_vel_theta: 2.0 # 1.0
+weight_max_vel_theta: 1.0 # 1.0
 
 # Optimization weight for satisfying the maximum allowed translational
 # acceleration
@@ -332,6 +339,8 @@ weight_adapt_factor: 2.0 # 2.0
 
 
 ## Parallel Planning in distinctive Topologies ##
+
+simple_exploration: false  # false
 
 # Activate parallel planning in distinctive topologies (requires much
 # more CPU resources, since multiple trajectories are optimized at once)
@@ -404,8 +413,62 @@ switching_blocking_period: 0.0 # 0.0
 
 # Topic name of the odometry message, provided by the robot driver or
 # simulator.
-odom_topic: "odom" # "odom"
+odom_topic: "/odom" # "odom"
 
 # Global planning frame (in case of a static map, this parameter must be
 # usually changed to "/map".
 map_frame: "map" # "odom"
+
+###########################################################################################
+## NOTE: Costmap conversion is experimental. Its purpose is to combine many point        ##
+## obstales into clusters, computed in a separate thread in order to improve the overall ## 
+## efficiency of local planning. However, the implemented conversion algorithms are in a ##
+## very early stage of development. Contributions are welcome!                           ##
+###########################################################################################
+
+## Costmap converter plugin   
+costmap_converter_plugin: "costmap_converter::CostmapToDynamicObstacles"
+costmap_converter_spin_thread: True
+costmap_converter_rate: 5
+
+
+## Configure plugins (namespace move_base/CostmapToDynamicObstacles)
+costmap_converter/CostmapToDynamicObstacles:
+  cluster_max_distance: 0.3
+  cluster_min_pts: 5
+  cluster_max_pts: 15
+  convex_hull_min_pt_separation: 0.0
+  static_converter_plugin: "costmap_converter::CostmapToPolygonsDBSConcaveHull"
+
+  # ransac_inlier_distance: 0.05
+  # ransac_min_inliers: 10
+  # ransac_no_iterations: 2000
+  # ransac_remainig_outliers: 3
+  # ransac_convert_outlier_pts: True
+  # ransac_filter_remaining_outlier_pts: False
+  # static_converter_plugin: "costmap_converter::CostmapToLinesDBSRANSAC"
+
+  # alpha_slow: 0.3
+  # alpha_fast: 0.85
+  # beta: 0.85
+  # min_sep_between_slow_and_fast_filter: 80
+  # min_occupancy_probability: 180
+  # max_occupancy_neighbors: 100
+  # morph_size: 1
+  # filter_by_area: True
+  # min_area: 3
+  # max_area: 300
+  # filter_by_circularity: True
+  # min_circularity: 0.2
+  # max_circularity: 1.0
+  # filter_by_inertia: True
+  # min_intertia_ratio: 0.2
+  # max_inertia_ratio: 1.0
+  # filter_by_convexity: False
+  # min_convexity: 0.0
+  # max_convexity: 1.0
+  # dt: 0.2
+  # dist_thresh: 60.0
+  # max_allowed_skipped_frames: 3
+  # max_trace_length: 10
+  # static_converter_plugin: "costmap_converter::CostmapToPolygonsDBSMCCH"

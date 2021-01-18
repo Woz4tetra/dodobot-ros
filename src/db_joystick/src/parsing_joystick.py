@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 import traceback
 import math
+import random
 
 import tf
 import time
@@ -18,7 +19,11 @@ from db_parsing.msg import DodobotTilter
 
 from db_chassis.msg import LinearVelocity, LinearPosition
 
-from db_parsing.srv import DodobotSetState, DodobotSetStateResponse
+from db_parsing.srv import DodobotSetState
+
+from db_audio.srv import PlayAudio
+from db_audio.srv import StopAudio
+
 
 MAX_INT32 = 0x7fffffff
 
@@ -41,6 +46,8 @@ class ParsingJoystick:
         self.prev_joy_msg = None
 
         self.motors_active = False
+        self.play_audio_srv = None
+        self.stop_audio_srv = None
 
         # parameters from launch file
         self.linear_axis = int(rospy.get_param("~linear_axis", 1))
@@ -56,6 +63,40 @@ class ParsingJoystick:
 
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
+
+        # https://play.pokemonshowdown.com/audio/cries/
+        self.soundboard_right = [
+            # "regirock-sound-1",
+            # "regirock-sound-2",
+            "chansey",
+            # "porygon",
+            # "porygon2",
+            # "porygonz",
+        ]
+        self.soundboard_left = [
+            "Bastion_-_15227",
+            # "Bastion_-_15303",
+            # "Bastion_-_4543",
+            # "Bastion_-_Beeple",
+            # "Bastion_-_Boo_boo_doo_de_doo",
+            # "Bastion_-_Bweeeeeeeeeee",
+            # "Bastion_-_Chirr_chirr_chirr",
+            # "Bastion_-_Dah-dah_weeeee",
+            # "Bastion_-_Doo-woo",
+            # "Bastion_-_Dun_dun_boop_boop",
+            # "Bastion_-_Dweet_dweet_dweet",
+            # "Bastion_-_Hee_hoo_hoo",
+            # "Bastion_-_Sh-sh-sh_dwee!",
+            # "Bastion_-_Zwee",
+        ]
+        
+        self.soundboard_up = [
+            "PuzzleDone",
+            # "got thing",
+            # "trident",
+            # "summon"
+        ]
+        self.soundboard_down = ["ring"]
 
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
@@ -90,11 +131,32 @@ class ParsingJoystick:
         self.prev_linear_vel_command = 0.0
 
         # Services
-        self.set_robot_state_service_name = "set_state"
-        rospy.loginfo("Waiting for service %s" % self.set_robot_state_service_name)
-        self.set_robot_state = rospy.ServiceProxy(self.set_robot_state_service_name, DodobotSetState)
-        rospy.loginfo("%s service is ready" % self.set_robot_state_service_name)
+        self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
+        self.play_audio_srv = self.make_service_client("play_audio", PlayAudio)
+        self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio)
 
+        self.play_audio("ba ding")
+
+    def play_audio(self, name):
+        if self.play_audio_srv is not None:
+            self.play_audio_srv(name)
+    
+    def stop_audio(self, name):
+        if self.stop_audio_srv is not None:
+            self.stop_audio_srv(name)
+    
+    def play_random_audio(self, names):
+        self.play_audio(random.choice(names))
+
+    def make_service_client(self, name, srv_type, timeout=None):
+        self.__dict__[name + "_service_name"] = name
+        srv_obj = rospy.ServiceProxy(name, srv_type)
+
+        rospy.loginfo("Waiting for service %s" % name)
+        rospy.wait_for_service(name, timeout=timeout)
+
+        rospy.loginfo("%s service is ready" % name)
+        return srv_obj
 
     def joy_to_speed(self, scale_factor, value):
         if abs(value) < self.deadzone_joy_val:
@@ -114,6 +176,10 @@ class ParsingJoystick:
 
     def did_button_change(self, msg, index):
         return self.prev_joy_msg.buttons[index] != msg.buttons[index]
+
+    def did_axis_change(self, msg, index):
+        return self.prev_joy_msg.axes[index] != msg.axes[index]
+
 
     def joystick_msg_callback(self, msg):
         try:
@@ -176,8 +242,11 @@ class ParsingJoystick:
         self.motors_active = msg.motors_active
 
     def toggle_active(self):
-        rospy.loginfo("Setting active to %s" % (not self.motors_active))
-        self.set_robot_state(True, not self.motors_active)
+        new_state = not self.motors_active
+        rospy.loginfo("Setting active to %s" % new_state)
+        self.set_robot_state(True, new_state)
+        if new_state:
+            self.play_audio("ding")
 
     def tilter_callback(self, msg):
         self.tilt_position = msg.position
@@ -224,6 +293,17 @@ class ParsingJoystick:
                 self.set_linear(0.0)
             else:
                 self.tilt_speed = 0
+
+        if self.did_axis_change(msg, 6):
+            if msg.axes[6] > 0:  # D-pad left
+                self.play_random_audio(self.soundboard_left)
+            elif msg.axes[6] < 0:  # D-pad right
+                self.play_random_audio(self.soundboard_right)
+        if self.did_axis_change(msg, 7):
+            if msg.axes[7] > 0:  # D-pad up
+                self.play_random_audio(self.soundboard_up)
+            elif msg.axes[7] < 0:  # D-pad down
+                self.play_random_audio(self.soundboard_down)
 
         linear_val = self.joy_to_speed(self.linear_scale, msg.axes[self.linear_axis])
         angular_val = self.joy_to_speed(self.angular_scale, msg.axes[self.angular_axis])

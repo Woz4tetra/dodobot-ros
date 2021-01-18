@@ -8,6 +8,8 @@
     </include>
 
     <include file="$(find db_joystick)/launch/parsing_joystick.launch"/>
+    <include file="$(find db_audio)/launch/db_audio.launch"/>
+
     <include file="$(find db_parsing)/launch/db_parsing.launch"/>
     <include file="$(find db_bumper)/launch/db_bumper.launch"/>
 

@@ -1,0 +1,9 @@
+<launch>
+    <arg name="waypoints_path" default="waypoints.yaml"/>
+    <group ns="dodobot" >
+        <node name="db_waypoints" pkg="db_waypoints" type="db_waypoints_node.py" output="screen" required="false">
+            <param name="waypoints_path" value="$(arg waypoints_path)"/>
+            <param name="intermediate_tolerance" value="0.0"/>
+        </node>
+    </group>
+</launch>

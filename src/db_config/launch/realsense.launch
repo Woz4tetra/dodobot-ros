@@ -26,10 +26,18 @@
 
         <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="downsample_rgb"
                 args="load image_proc/crop_decimate $(arg post_processing_manager_name)">
-            <param name="decimation_x" value="2"/>
-            <param name="decimation_y" value="2"/>
+            <param name="decimation_x" value="4"/>
+            <param name="decimation_y" value="4"/>
             <remap from="camera" to="color"/>
             <remap from="camera_out" to="color_decimate"/>
+        </node>
+
+        <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="downsample_depth"
+                args="load image_proc/crop_decimate $(arg post_processing_manager_name)">
+            <param name="decimation_x" value="4"/>
+            <param name="decimation_y" value="4"/>
+            <remap from="camera" to="aligned_depth_to_color"/>
+            <remap from="camera_out" to="aligned_depth_to_color_decimate"/>
         </node>
 
         <node if="$(eval depth_registered_processing and sw_registered_processing)" pkg="nodelet" type="nodelet" name="register_depth"
@@ -44,7 +52,7 @@
                 args="load depth_image_proc/point_cloud_xyzrgb $(arg post_processing_manager_name)" respawn="false">
             <remap from="rgb/image_rect_color"        to="color_decimate/image_raw" />
             <remap from="rgb/camera_info"             to="color_decimate/camera_info" />
-            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
+            <remap from="depth_registered/image_rect" to="aligned_depth_to_color_decimate/image_raw" />
             <!-- <remap from="depth_registered/points"     to="points" /> -->
         </node>
 

@@ -37,7 +37,7 @@ Vis/MinInliers: 12   # 20  Minimum feature correspondences to compute/accept the
 
 Mem/RehearsalSimilarity: 0.4   # Rehearsal similarity.
 
-Reg/Strategy: 0   # 0=Vis, 1=Icp, 2=VisIcp, Icp is for laser scans
+# Reg/Strategy: 0   # 0=Vis, 1=Icp, 2=VisIcp, Icp is for laser scans
 Reg/Force3DoF: true   # Force 3 degrees-of-freedom transform (3Dof: x,y and yaw). Parameters z, roll and pitch will be set to 0.
 
 GridGlobal/MinSize:  20.0   # Minimum map size (m).
@@ -50,3 +50,6 @@ Grid/MaxGroundHeight:  0.0   # Maximum ground height (0=disabled). Should be set
 Grid/MinGroundHeight: 0.01  # Minimum ground height (0=disabled).
 Grid/RayTracing: true   # Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If %s=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored.
 Grid/MaxObstacleHeight:  0.35   # Maximum obstacles height (0=disabled).
+
+Icp/VoxelSize: 0.05  # Uniform sampling voxel size (0=disabled).
+Icp/MaxCorrespondenceDistance: 0.1  # Max distance for point correspondences.

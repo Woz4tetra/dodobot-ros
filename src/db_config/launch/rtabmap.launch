@@ -3,6 +3,7 @@
     <arg name="localization"       default="false"/>
     <arg name="database_path"      default="rtabmap.db"/>
     <arg name="create_new_db"      default="$(eval not localization)"/>
+    <arg name="use_laser"          default="true"/>
 
     <arg     if="$(arg create_new_db)" name="rtabmap_args"  default="--delete_db_on_start"/>
     <arg unless="$(arg create_new_db)" name="rtabmap_args"  default=""/>
@@ -38,7 +39,7 @@
 
             <param name="subscribe_depth" type="bool" value="true"/>
             <param name="subscribe_rgb" type="bool" value="true"/>
-            <param name="approx_sync" type="bool" value="false"/>
+            <param name="approx_sync" type="bool" value="$(arg use_laser)"/>
             <param name="wait_for_transform_duration" type="double" value="0.1"/>
             <!-- <param name="odom_sensor_sync" type="bool" value="true"/> -->
 
@@ -56,6 +57,14 @@
 
             <!-- Remap to /map for move_base -->
             <remap from="grid_map" to="/map"/>
+
+            <!-- laser -->
+            <param name="subscribe_scan" type="bool" value="$(arg use_laser)"/>
+            <remap if="$(arg use_laser)" from="scan" to="/scan_filtered"/>
+
+            <!-- 0=Vis, 1=Icp, 2=VisIcp, Icp is for laser scans -->
+            <param     if="$(arg use_laser)" name="Reg/Strategy" type="string" value="2"/>
+            <param unless="$(arg use_laser)" name="Reg/Strategy" type="string" value="0"/>
         </node>
     </group>
 

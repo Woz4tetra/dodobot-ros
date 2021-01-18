@@ -82,7 +82,8 @@
     <joint name="base_link_to_tilt_base_joint" type="fixed">
         <parent link="wheel_center_link"/>
         <child link="tilt_base_link"/>
-        <origin xyz="0.04796 0.0 0.24785"/>
+        <!-- <origin xyz="0.04796 0.0 0.24785"/> -->  <!-- V1 offsets -->
+        <origin xyz="0.026965 0.0 0.252434"/>  <!-- V2 offsets -->
     </joint>
 
     <joint name="tilt_base_to_camera_rotate_joint" type="revolute">
