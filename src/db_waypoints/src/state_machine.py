@@ -1,3 +1,4 @@
+import math
 import rospy
 import actionlib
 
@@ -14,20 +15,30 @@ class GoToWaypointState(State):
         )
     
         self.move_base_namespace = rospy.get_param("~move_base_namespace", "/move_base")
-        self.goal_tolerance = rospy.get_param("~goal_tolerance", 0.0)
+        self.intermediate_tolerance = rospy.get_param("~intermediate_tolerance", 0.0)
         self.action_result = "success"
+        self.goal_pose_stamped = None
+        self.current_waypoint_index = 0
+        self.num_waypoints = 0
 
         self.move_base = actionlib.SimpleActionClient(self.move_base_namespace, MoveBaseAction)
         rospy.loginfo("Connecting to move_base...")
         self.move_base.wait_for_server()
         rospy.loginfo("move_base connected")
 
-
     def execute(self, userdata):
+        self.action_result = "success"
+        self.action_server = userdata.action_server
+
         if userdata.waypoint_index_in >= len(userdata.waypoints):
+            self.action_server.set_succeeded(True)
             return "finished"
         
         waypoint_pose = userdata.waypoints[userdata.waypoint_index_in]
+        self.goal_pose_stamped = waypoint_pose
+
+        self.num_waypoints = len(userdata.waypoints)
+        self.current_waypoint_index = userdata.waypoint_index_in
 
         goal = MoveBaseGoal()
         goal.target_pose.header.frame_id = waypoint_pose.header.frame_id
@@ -35,10 +46,6 @@ class GoToWaypointState(State):
         goal.target_pose.pose.orientation = waypoint_pose.pose.orientation
         
         rospy.loginfo("Going to position (%s, %s)" % (waypoint_pose.pose.position.x, waypoint_pose.pose.position.y))
-        rospy.loginfo("(Hint) to cancel the goal, run: 'rostopic pub -1 /move_base/cancel actionlib_msgs/GoalID -- {}'")
-
-        self.action_result = "success"
-        self.action_server = userdata.action_server
 
         self.move_base.send_goal(goal, feedback_cb=self.move_base_feedback, done_cb=self.move_base_done)
         self.move_base.wait_for_result()
@@ -46,7 +53,8 @@ class GoToWaypointState(State):
         if self.action_result != "success":
             return self.action_result
 
-        move_base_result = self.move_action_client.get_result()
+        move_base_result = self.move_base.get_result()
+        # rospy.loginfo("move_base_result: %s" % str(move_base_result))
         if bool(move_base_result):
             userdata.waypoint_index_out = userdata.waypoint_index_in + 1
             return "success"
@@ -65,15 +73,35 @@ class GoToWaypointState(State):
             self.action_server.set_preempted()
             self.action_result = "preempted"
             self.move_base.cancel_goal()
+        
+        # rospy.loginfo("feedback: %s" % str(feedback))
+        if self.intermediate_tolerance != 0.0 and self.current_waypoint_index < self.num_waypoints - 1:
+            dist = self.get_xy_dist(feedback.base_position, self.goal_pose_stamped)
+            if dist <= self.intermediate_tolerance:
+                rospy.loginfo("Robot is close enough to goal. Moving on")
+                self.move_base.cancel_goal()
+                self.action_result = "success"
+
     
-    def move_base_done(self):
+    def move_base_done(self, goal_status, result):
         rospy.loginfo("move_base finished")
+    
+    def get_xy_dist(self, pose1, pose2):
+        # pose1 and pose2 are PoseStamped
+        x1 = pose1.pose.position.x
+        y1 = pose1.pose.position.y
+        x2 = pose2.pose.position.x
+        y2 = pose2.pose.position.y
+        
+        dx = x2 - x1
+        dy = y2 - y1
+
+        return math.sqrt(dx * dx + dy * dy)
 
 
 class WaypointStateMachine(object):
     def __init__(self):
         self.sm = StateMachine(outcomes=["success", "failure", "preempted"])
-        self.sm.userdata.sm_waypoint_index = 0
         self.outcome = None
         self.action_server = None
 
@@ -95,6 +123,9 @@ class WaypointStateMachine(object):
             )
 
     def execute(self, waypoints, action_server):
+        rospy.loginfo("To cancel the waypoint follower, run: 'rostopic pub -1 /dodobot/follow_path/cancel actionlib_msgs/GoalID -- {}'")
+        rospy.loginfo("To cancel the current goal, run: 'rostopic pub -1 /move_base/cancel actionlib_msgs/GoalID -- {}'")
+        self.sm.userdata.sm_waypoint_index = 0
         self.sm.userdata.sm_waypoints = waypoints
         self.sm.userdata.sm_action_server = action_server
         self.outcome = self.sm.execute()

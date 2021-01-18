@@ -82,6 +82,9 @@ class DodobotWaypoints:
     def follow_path_callback(self, goal):
         waypoints = []
         for name in goal.waypoints:
+            if not self.check_name(name):
+                rospy.logwarn("Waypoint name '%s' is registered. Skipping" % name)
+                continue
             waypoint = self.get_waypoint(name)
             pose = self.waypoint_to_pose(waypoint)
             waypoints.append(pose)
@@ -98,11 +101,17 @@ class DodobotWaypoints:
         return GetAllWaypointsResponse(pose_array, names)
 
     def get_waypoint_callback(self, req):
+        if not self.check_name(req.name):
+            return False
+        
         waypoint = self.get_waypoint(req.name)
         pose = self.waypoint_to_pose(waypoint)
         return GetWaypointResponse(pose)
     
     def delete_waypoint_callback(self, req):
+        if not self.check_name(req.name):
+            return False
+
         success = self.pop_waypoint(req.name)
         return DeleteWaypointResponse(success)
 
@@ -198,6 +207,16 @@ class DodobotWaypoints:
     # ---
     # Node methods
     # ---
+
+    def check_name(self, name):
+        if name not in self.waypoint_config:
+            return False
+        if name not in self.marker_poses:
+            rospy.logwarn("Waypoint name %s was added, but wasn't a registered marker! Adding." % name)
+            pose = self.waypoint_to_pose(self.get_waypoint(name))
+            self.add_marker(name, pose)
+        return True
+        
 
     def save_from_pose(self, name, pose):
         # name: str, name of waypoint

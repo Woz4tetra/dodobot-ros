@@ -60,7 +60,7 @@ def enumerate_devices():
         
 
 class Audio:
-    device_info = 0
+    device_info = {}
 
     def __init__(self):
         self.audio = None
@@ -71,15 +71,21 @@ class Audio:
     
     @classmethod
     def set_sink_by_name(cls, name):
+        names = []
         for index, info in enumerate_devices():
-            if name in info.get("name"):
+            device_name = info.get("name")
+            names.append(device_name)
+            if name in device_name:
                 cls.set_sink(index)
+        if len(cls.device_info) == 0:
+            raise Exception("Failed to find device name '%s'. Available: %s" % (name, str(names)))
 
     @classmethod
     def set_sink(cls, index):
         with suppress_alsa_error():
             pyaudio_obj = pyaudio.PyAudio()
         cls.device_info = pyaudio_obj.get_device_info_by_host_api_device_index(0, index)
+        assert type(cls.device_info) == dict
 
     @classmethod
     def load_from_path(cls, path):
