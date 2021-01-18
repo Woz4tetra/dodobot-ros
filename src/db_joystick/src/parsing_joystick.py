@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 import traceback
 import math
+import random
 
 import tf
 import time
@@ -63,10 +64,39 @@ class ParsingJoystick:
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
 
-        self.soundboard_right = rospy.get_param("~soundboard_right", "regirock-sound-2")
-        self.soundboard_left = rospy.get_param("~soundboard_left", "got thing")
-        self.soundboard_up = rospy.get_param("~soundboard_up", "PuzzleDone")
-        self.soundboard_down = rospy.get_param("~soundboard_down", "ring")
+        # https://play.pokemonshowdown.com/audio/cries/
+        self.soundboard_right = [
+            # "regirock-sound-1",
+            # "regirock-sound-2",
+            "chansey",
+            # "porygon",
+            # "porygon2",
+            # "porygonz",
+        ]
+        self.soundboard_left = [
+            "Bastion_-_15227",
+            # "Bastion_-_15303",
+            # "Bastion_-_4543",
+            # "Bastion_-_Beeple",
+            # "Bastion_-_Boo_boo_doo_de_doo",
+            # "Bastion_-_Bweeeeeeeeeee",
+            # "Bastion_-_Chirr_chirr_chirr",
+            # "Bastion_-_Dah-dah_weeeee",
+            # "Bastion_-_Doo-woo",
+            # "Bastion_-_Dun_dun_boop_boop",
+            # "Bastion_-_Dweet_dweet_dweet",
+            # "Bastion_-_Hee_hoo_hoo",
+            # "Bastion_-_Sh-sh-sh_dwee!",
+            # "Bastion_-_Zwee",
+        ]
+        
+        self.soundboard_up = [
+            "PuzzleDone",
+            # "got thing",
+            # "trident",
+            # "summon"
+        ]
+        self.soundboard_down = ["ring"]
 
         # publishing topics
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
@@ -114,6 +144,9 @@ class ParsingJoystick:
     def stop_audio(self, name):
         if self.stop_audio_srv is not None:
             self.stop_audio_srv(name)
+    
+    def play_random_audio(self, names):
+        self.play_audio(random.choice(names))
 
     def make_service_client(self, name, srv_type, timeout=None):
         self.__dict__[name + "_service_name"] = name
@@ -262,15 +295,15 @@ class ParsingJoystick:
                 self.tilt_speed = 0
 
         if self.did_axis_change(msg, 6):
-            if msg.axes[6] > 0:  # D-pad right
-                self.play_audio(self.soundboard_right)
-            elif msg.axes[6] < 0:  # D-pad left
-                self.play_audio(self.soundboard_left)
+            if msg.axes[6] > 0:  # D-pad left
+                self.play_random_audio(self.soundboard_left)
+            elif msg.axes[6] < 0:  # D-pad right
+                self.play_random_audio(self.soundboard_right)
         if self.did_axis_change(msg, 7):
             if msg.axes[7] > 0:  # D-pad up
-                self.play_audio(self.soundboard_up)
+                self.play_random_audio(self.soundboard_up)
             elif msg.axes[7] < 0:  # D-pad down
-                self.play_audio(self.soundboard_down)
+                self.play_random_audio(self.soundboard_down)
 
         linear_val = self.joy_to_speed(self.linear_scale, msg.axes[self.linear_axis])
         angular_val = self.joy_to_speed(self.angular_scale, msg.axes[self.angular_axis])

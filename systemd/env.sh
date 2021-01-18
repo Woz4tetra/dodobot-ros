@@ -4,8 +4,19 @@ HOST_MACHINE=""
 
 stop_time=$((SECONDS+300))
 
-while [ -z ${HOST_MACHINE} ]; do
-    HOST_MACHINE=`ifconfig wlan0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
+echo "something"
+
+while true; do
+    # HOST_MACHINE=`ifconfig wlan0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
+    # if [ ! -z ${HOST_MACHINE} ]; then
+    #     break
+    # fi
+    HOST_MACHINE=`ifconfig wlan1 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
+    echo "HOST_MACHINE:"
+    echo $HOST_MACHINE
+    if [ ! -z ${HOST_MACHINE} ]; then
+        break
+    fi
     sleep 0.5
     if [ $SECONDS -gt $stop_time ]; then
         break

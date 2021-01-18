@@ -7,12 +7,20 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     message_generation
     genmsg
+    actionlib_msgs
+    actionlib
 )
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
+add_action_files(
+    DIRECTORY action
+    FILES
+    FollowPath.action
+)
+
 add_service_files(
     FILES
     GetAllWaypoints.srv
@@ -26,6 +34,8 @@ generate_messages(
     DEPENDENCIES
     std_msgs
     geometry_msgs
+    geometry_msgs
+    actionlib_msgs
 )
 
 

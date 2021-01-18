@@ -64,8 +64,10 @@ class Audio:
 
     def __init__(self):
         self.audio = None
-        self._is_playing = False
         self.thread = None
+
+        self._is_playing = False
+        self._jump_stream = None
     
     @classmethod
     def set_sink_by_name(cls, name):
@@ -124,18 +126,30 @@ class Audio:
         )
 
         try:
-            chunk = 250  # ms
+            chunk_size = 250  # ms
             # break audio into chunks (to allow keyboard interrupts)
-            for chunk in pydub.utils.make_chunks(self.audio, chunk):
+            chunks = pydub.utils.make_chunks(self.audio, chunk_size)
+            index = 0
+            while index < len(chunks):
+                chunk = chunks[index]
                 stream.write(chunk._data)
+                index += 1
+                
                 if not self._is_playing:
                     break
+                if self._jump_stream is not None:
+                    index = int(self._jump_stream / chunk_size)
+                    self._jump_stream = None
+
         finally:
             stream.stop_stream()
             stream.close()
 
             pyaudio_obj.terminate()
             self._is_playing = False
+    
+    def _jump_to(self, time_ms):
+        self._jump_stream = time_ms
 
     def unload(self):
         self.stop()
@@ -147,9 +161,12 @@ class Audio:
             return False
 
     def play(self):
-        self.stop()
         if self.is_loaded():
-            self._play_thread()
+            if self.is_playing():
+                rospy.loginfo("Audio playing. Jumping back to start")
+                self._jump_to(0)
+            else:
+                self._play_thread()
         else:
             raise Exception("Audio is not loaded. Can't play")
 

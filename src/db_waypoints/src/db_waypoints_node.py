@@ -5,6 +5,7 @@ import math
 from collections import OrderedDict 
 
 import rospy
+import actionlib
 
 import tf2_ros
 import tf_conversions
@@ -26,6 +27,10 @@ from db_waypoints.srv import DeleteWaypoint, DeleteWaypointResponse
 from db_waypoints.srv import SavePose, SavePoseResponse
 from db_waypoints.srv import SaveRobotPose, SaveRobotPoseResponse
 
+from db_waypoints.msg import FollowPathAction, FollowPathGoal, FollowPathResult
+
+from state_machine import WaypointStateMachine
+
 
 class DodobotWaypoints:
     def __init__(self):
@@ -35,8 +40,8 @@ class DodobotWaypoints:
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
-        self.map_path = rospy.get_param("~map_path", "~/.ros/rtabmap.db")
-        self.map_path = os.path.expanduser(self.map_path)
+        waypoints_path_param = rospy.get_param("~waypoints_path", "~/.ros/waypoints.yaml")
+        waypoints_path_param = os.path.expanduser(waypoints_path_param)
         
         self.map_frame = rospy.get_param("~map", "map")
         self.base_frame = rospy.get_param("~base_link", "base_link")
@@ -45,7 +50,7 @@ class DodobotWaypoints:
         assert (type(self.marker_color) == tuple or type(self.marker_color) == list), "type(%s) != tuple or list" % type(self.marker_color)
         assert len(self.marker_color) == 4, "len(%s) != 4" % len(self.marker_color)
         
-        self.waypoints_path = self.process_path(self.map_path)
+        self.waypoints_path = self.process_path(waypoints_path_param)
         self.waypoint_config = OrderedDict()
 
         self.markers = MarkerArray()
@@ -56,15 +61,31 @@ class DodobotWaypoints:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
+        self.state_machine = WaypointStateMachine()
+
+        self.marker_pub = rospy.Publisher("waypoint_markers", MarkerArray, queue_size=25)
+
         self.reload_waypoints_srv = self.create_service("reload_waypoints", Trigger, self.reload_waypoints_callback)
-        
         self.get_all_waypoints_srv = self.create_service("get_all_waypoints", GetAllWaypoints, self.get_all_waypoints_callback)
         self.get_waypoint_srv = self.create_service("get_waypoint", GetWaypoint, self.get_waypoint_callback)
         self.delete_waypoint_srv = self.create_service("delete_waypoint", DeleteWaypoint, self.delete_waypoint_callback)
         self.save_pose_srv = self.create_service("save_pose", SavePose, self.save_pose_callback)
         self.save_robot_pose_srv = self.create_service("save_robot_pose", SaveRobotPose, self.save_robot_pose_callback)
-    
-        self.marker_pub = rospy.Publisher("waypoint_markers", MarkerArray, queue_size=25)
+
+        self.follow_path_server = actionlib.SimpleActionServer("follow_path", FollowPathAction, self.follow_path_callback, auto_start=False)
+        self.follow_path_server.start()
+
+    # ---
+    # Action callback
+    # ---
+
+    def follow_path_callback(self, goal):
+        waypoints = []
+        for name in goal.waypoints:
+            waypoint = self.get_waypoint(name)
+            pose = self.waypoint_to_pose(waypoint)
+            waypoints.append(pose)
+        self.state_machine.execute(waypoints, self.follow_path_server)
 
     # ---
     # Service callbacks
@@ -154,9 +175,9 @@ class DodobotWaypoints:
         rospy.logwarn("Waypoints file '%s' doesn't exist. Creating file." % self.waypoints_path)
         return False
 
-    def process_path(self, map_path):
-        map_name = os.path.basename(map_path)
-        waypoints_dir = os.path.dirname(map_path)
+    def process_path(self, waypoints_path):
+        map_name = os.path.basename(waypoints_path)
+        waypoints_dir = os.path.dirname(waypoints_path)
         if len(waypoints_dir) == 0:
             waypoints_dir = os.path.expanduser("~/.ros")
         waypoints_name = os.path.splitext(map_name)[0]
