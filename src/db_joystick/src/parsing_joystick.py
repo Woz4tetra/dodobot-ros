@@ -75,26 +75,26 @@ class ParsingJoystick:
         ]
         self.soundboard_left = [
             "Bastion_-_15227",
-            # "Bastion_-_15303",
-            # "Bastion_-_4543",
-            # "Bastion_-_Beeple",
-            # "Bastion_-_Boo_boo_doo_de_doo",
-            # "Bastion_-_Bweeeeeeeeeee",
-            # "Bastion_-_Chirr_chirr_chirr",
-            # "Bastion_-_Dah-dah_weeeee",
-            # "Bastion_-_Doo-woo",
-            # "Bastion_-_Dun_dun_boop_boop",
-            # "Bastion_-_Dweet_dweet_dweet",
-            # "Bastion_-_Hee_hoo_hoo",
-            # "Bastion_-_Sh-sh-sh_dwee!",
-            # "Bastion_-_Zwee",
+            "Bastion_-_15303",
+            "Bastion_-_4543",
+            "Bastion_-_Beeple",
+            "Bastion_-_Boo_boo_doo_de_doo",
+            "Bastion_-_Bweeeeeeeeeee",
+            "Bastion_-_Chirr_chirr_chirr",
+            "Bastion_-_Dah-dah_weeeee",
+            "Bastion_-_Doo-woo",
+            "Bastion_-_Dun_dun_boop_boop",
+            "Bastion_-_Dweet_dweet_dweet",
+            "Bastion_-_Hee_hoo_hoo",
+            "Bastion_-_Sh-sh-sh_dwee!",
+            "Bastion_-_Zwee",
         ]
         
         self.soundboard_up = [
             "PuzzleDone",
-            # "got thing",
-            # "trident",
-            # "summon"
+            "got thing",
+            "trident",
+            "summon"
         ]
         self.soundboard_down = ["ring"]
 
@@ -132,30 +132,37 @@ class ParsingJoystick:
 
         # Services
         self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
-        self.play_audio_srv = self.make_service_client("play_audio", PlayAudio)
-        self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio)
+        self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
+        self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
         self.play_audio("ba ding")
 
     def play_audio(self, name):
-        if self.play_audio_srv is not None:
-            self.play_audio_srv(name)
+        try:
+            if self.play_audio_srv is not None:
+                self.play_audio_srv(name)
+        except rospy.ServiceException as e:
+            rospy.logwarn("Failed to play audio: %s: %s" % (name, e))
     
     def stop_audio(self, name):
-        if self.stop_audio_srv is not None:
-            self.stop_audio_srv(name)
+        try:
+            if self.stop_audio_srv is not None:
+                self.stop_audio_srv(name)
+        except rospy.ServiceException as e:
+            rospy.logwarn("Failed to play audio: %s: %s" % (name, e))
     
     def play_random_audio(self, names):
         self.play_audio(random.choice(names))
 
-    def make_service_client(self, name, srv_type, timeout=None):
+    def make_service_client(self, name, srv_type, timeout=None, wait=True):
         self.__dict__[name + "_service_name"] = name
+        rospy.loginfo("Connecting to %s service" % name)
         srv_obj = rospy.ServiceProxy(name, srv_type)
 
-        rospy.loginfo("Waiting for service %s" % name)
-        rospy.wait_for_service(name, timeout=timeout)
-
-        rospy.loginfo("%s service is ready" % name)
+        if wait:
+            rospy.loginfo("Waiting for service %s" % name)
+            rospy.wait_for_service(name, timeout=timeout)
+            rospy.loginfo("%s service is ready" % name)
         return srv_obj
 
     def joy_to_speed(self, scale_factor, value):

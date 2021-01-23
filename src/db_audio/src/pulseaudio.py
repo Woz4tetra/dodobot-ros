@@ -1,9 +1,10 @@
+import os
 import re
 import time
 import math
 import rospy
 from subprocess import Popen, PIPE
-from threading import Thread
+from threading import Thread, Lock
 
 import pydub.utils
 from pydub import AudioSegment
@@ -61,6 +62,7 @@ def enumerate_devices():
 
 class Audio:
     device_info = {}
+    play_lock = Lock()
 
     def __init__(self):
         self.audio = None
@@ -78,7 +80,7 @@ class Audio:
             if name in device_name:
                 cls.set_sink(index)
         if len(cls.device_info) == 0:
-            raise Exception("Failed to find device name '%s'. Available: %s" % (name, str(names)))
+            raise Exception("Failed to find device name '%s'. Available: %s" % (name, "\n\t".join(names)))
 
     @classmethod
     def set_sink(cls, index):
@@ -108,8 +110,21 @@ class Audio:
         self.audio = self.audio.set_channels(int(self.device_info.get("maxOutputChannels")))
 
     def reload_from_path(self, path):
-        self.reload(AudioSegment.from_file(path))
-    
+        filename = os.path.basename(path)
+        extension = os.path.splitext(filename)[1]
+        extension = extension.lower()
+        if extension == "mp3":
+            segment = AudioSegment.from_mp3(path)
+        elif extension == "wav":
+            segment = AudioSegment.from_wav(path)
+        elif extension == "ogg":
+            segment = AudioSegment.from_ogg(path)
+        elif extension == "flv":
+            segment = AudioSegment.from_flv(path)
+        else:
+            segment = AudioSegment.from_file(path)
+        self.reload(segment)
+
     def _play_thread(self):
         self.thread = Thread(target=self._play_task)
         self.thread.daemon = True
@@ -117,11 +132,15 @@ class Audio:
         self._is_playing = True
     
     def _play_task(self):
+        self.__class__.play_lock.acquire()
         with suppress_alsa_error():
             pyaudio_obj = pyaudio.PyAudio()
         audio_format = pyaudio_obj.get_format_from_width(self.audio.sample_width)
+        # audio_format = pyaudio.paInt16
         
-        rospy.loginfo("Using device %s. Audio sample rate: %s, channels: %s" % (self.device_info, self.audio.frame_rate, self.audio.channels))
+        rospy.loginfo("Audio sample rate: %s, channels: %s, format: %s, width: %s. Using device %s" % (
+            self.audio.frame_rate, self.audio.channels, audio_format, self.audio.sample_width, self.device_info
+        ))
         
         stream = pyaudio_obj.open(
             format=audio_format,
@@ -132,6 +151,9 @@ class Audio:
         )
 
         try:
+            if not self._is_playing:
+                return
+                
             chunk_size = 250  # ms
             # break audio into chunks (to allow keyboard interrupts)
             chunks = pydub.utils.make_chunks(self.audio, chunk_size)
@@ -153,6 +175,7 @@ class Audio:
 
             pyaudio_obj.terminate()
             self._is_playing = False
+            self.__class__.play_lock.release()
     
     def _jump_to(self, time_ms):
         self._jump_stream = time_ms

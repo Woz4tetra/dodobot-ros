@@ -117,7 +117,7 @@ yaw_goal_tolerance: 0.02 # 0.2
 
 # Remove the goal velocity constraint such that the robot can arrive at
 # the goal with maximum speed
-free_goal_vel: false # false
+free_goal_vel: true # false
 
 complete_global_plan: true  # true
 
@@ -147,14 +147,14 @@ global_plan_overwrite_orientation: true # true
 # separation between each two consecutive via-points along the global plan,
 # if negative: disabled). Refer to parameter weight_viapoint for adjusting
 # the intensity. New in version 0.4
-global_plan_viapoint_sep: -0.1 # -0.1 (disabled)
+global_plan_viapoint_sep: 0.05 # -0.1 (disabled)
 
 # Specify the maximum length (cumulative Euclidean distances) of the
 # subset of the global plan taken into account for optimization. The
 # actual length is than determined by the logical conjunction of the
 # local costmap size and this maximum bound. Set to zero or negative in
 # order to deactivate this limitation.
-max_global_plan_lookahead_dist: 3.0 # 3.0
+max_global_plan_lookahead_dist: 1.0 # 3.0
 
 # Reinitialize the trajectory if a previous goal is updated with a
 # separation of more than the specified value in meters (skip hot-
@@ -191,7 +191,7 @@ exact_arc_length: false # false
 shrink_horizon_min_duration: 10.0 # 10.0
 
 # Minimum desired separation from obstacles in meters
-min_obstacle_dist: 0.02 # 0.5
+min_obstacle_dist: 0.0 # 0.5
 
 # Specify if obstacles of the local costmap should be taken into
 # account. Each cell that is marked as obstacle is considered as a

@@ -29,7 +29,7 @@ old_navfn_behavior: false
 lethal_cost: 253  # 253
 
 # Neutral Cost (dynamic reconfigure)
-neutral_cost: 55  # 50
+neutral_cost: 66  # 50
 
 # Factor to multiply each cost from costmap by (dynamic reconfigure)
 cost_factor: 0.55  # 3.0

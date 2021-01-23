@@ -18,6 +18,7 @@ class Sounds:
         self.paths = paths
 
         self.max_loaded_num = 5
+        self.prev_sound = None
 
     def __del__(self):
         self.unload_all()
@@ -49,14 +50,25 @@ class Sounds:
     
     def check_available(self, name):
         return name in self.sounds
+    
+    def check_playing(self, name):
+        if self.prev_sound is None or self.prev_sound == name:
+            return
+        self.sounds[self.prev_sound].stop()
 
     def play(self, name):
         rospy.loginfo("Playing %s" % name)
         if not self.check_available(name):
             return False
+        
         self.check_loaded(name)
+        self.check_playing(name)
+
         self.sounds[name].play()
+        self.prev_sound = name
+        
         self.manage_loaded()
+        
         return True
     
     def stop(self, name):
