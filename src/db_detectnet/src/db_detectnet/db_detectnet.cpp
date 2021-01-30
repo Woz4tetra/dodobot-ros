@@ -263,7 +263,8 @@ void DodobotDetectNet::rgbd_callback(
         geometry_msgs::PoseWithCovariance pose_with_covar;
 
         ObjPoseDescription obj_desc = bbox_to_pose(depth_cv_image, msg.detections[n].bbox, depth_image->header.stamp, label, label_index);
-        publish_tf(color_info, obj_desc);
+        tf_obj_to_target(color_info, obj_desc);
+        // obj_desc now contains the object position in the target frame (if _publish_with_frame is true)
 
         pose_with_covar.pose = obj_desc.pose_stamped.pose;
         msg.detections[n].results[0].pose = pose_with_covar;
@@ -356,7 +357,7 @@ ObjPoseDescription DodobotDetectNet::bbox_to_pose(cv::Mat depth_cv_image, vision
     return desc;
 }
 
-void DodobotDetectNet::publish_tf(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc)
+void DodobotDetectNet::tf_obj_to_target(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc)
 {
     if (!_publish_with_frame) {
         return;
@@ -371,6 +372,8 @@ void DodobotDetectNet::publish_tf(const CameraInfoConstPtr color_info, ObjPoseDe
         );
         tf2::doTransform(obj_desc.pose_stamped, obj_desc.pose_stamped, transform_camera_to_target);
         // obj_desc now contains the object position in the target frame
+
+        obj_desc.pose_stamped.header.frame_id = _target_frame;
     }
     catch (tf2::TransformException &ex) {
         ROS_WARN("%s", ex.what());

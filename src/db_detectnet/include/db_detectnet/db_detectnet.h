@@ -173,7 +173,7 @@ private:
     ObjPoseDescription bbox_to_pose(cv::Mat depth_cv_image, vision_msgs::BoundingBox2D bbox, ros::Time stamp, string label, int label_index);
     visualization_msgs::Marker make_marker(ObjPoseDescription* desc);
     double get_z_dist(cv::Mat depth_cv_image, ObjPoseDescription* desc);
-    void publish_tf(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc);
+    void tf_obj_to_target(const CameraInfoConstPtr color_info, ObjPoseDescription& obj_desc);
 
 public:
     DodobotDetectNet(ros::NodeHandle* nodehandle);
