@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <group ns="dodobot" >
+        <node name="db_object_filter" pkg="db_object_filter" type="db_object_filter_node" output="screen">
+            <param name="class_label_param" value="class_labels_9515298830355294383"/>
+        </node>
+    </group>
+</launch>
