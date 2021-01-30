@@ -10,7 +10,8 @@
         <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="screen" required="true">
             <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
 
-            <param name="min_angular_speed" value="0.7"/>
+            <param name="min_angular_speed" value="0.5"/>
+            <!-- <param name="min_angular_speed" value="2.0"/> -->
             <param name="max_angular_speed" value="7.0"/>
             <param name="min_linear_speed" value="0.05"/>
             <param name="max_linear_speed" value="0.33"/>
