@@ -20,6 +20,7 @@
 #include "ObjectParticleFilter.h"
 
 #include <vision_msgs/Detection2DArray.h>
+#include <nav_msgs/Odometry.h>
 
 
 using namespace std;
@@ -38,20 +39,30 @@ public:
     // Launch parameters
     string _class_label_param;
     vector<string> _class_labels;
+    string _filter_frame;
 
-    // Particle filter
+    // Particle filter containers
     NonlinearSystemPdf *sys_pdf;
     SystemModel<ColumnVector> *sys_model;
     NonlinearMeasurementPdf *meas_pdf;
     MeasurementModel<ColumnVector,ColumnVector> *meas_model;
     MCPdf<ColumnVector> *prior_discr;
     ObjectParticleFilter *filter;
-    ros::Time prevDataTime;
-    double dt;
+
+    // Particle filter parameters
+    double MU_SYSTEM_NOISE_X, MU_SYSTEM_NOISE_Y, MU_SYSTEM_NOISE_Z;
+    double SIGMA_SYSTEM_NOISE_X, SIGMA_SYSTEM_NOISE_Y, SIGMA_SYSTEM_NOISE_Z;
+    double MU_MEAS_NOISE, SIGMA_MEAS_NOISE;
+    int MEAS_SIZE;
+
+    double PRIOR_MU_X, PRIOR_MU_Y, PRIOR_MU_Z;
+    double PRIOR_COV_X, PRIOR_COV_Y, PRIOR_COV_Z;
+    int STATE_SIZE;
+    int NUM_SAMPLES;
+    
+    ros::Time prev_odom_time;
 
     void create_particle_filter();
-    void measurement_callback(geometry_msgs::Pose pose);
-    void input_callback(geometry_msgs::Twist twist);
     void publish_particles();
     void publish_pose();
 
@@ -60,9 +71,11 @@ public:
 
     // Subscribers
     ros::Subscriber _detection_sub;
+    ros::Subscriber _odom_sub;
 
     // Callbacks
     void detections_callback(vision_msgs::Detection2DArray msg);
+    void odom_callback(nav_msgs::Odometry msg);
 
     int run();
 };
