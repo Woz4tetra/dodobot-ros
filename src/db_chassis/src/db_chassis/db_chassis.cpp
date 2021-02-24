@@ -580,8 +580,8 @@ void DodobotChassis::odom_estimator_update(double delta_left, double delta_right
     odom_state->theta += dtheta;
     odom_state->theta = fmod(odom_state->theta, 2.0 * M_PI);
 
-    odom_state->vx = v * cos(odom_state->theta);
-    odom_state->vy = v * sin(odom_state->theta);
+    // odom_state->vx = v * cos(odom_state->theta);
+    // odom_state->vy = v * sin(odom_state->theta);
 
     odom_state->v = v;
     odom_state->w = w;
@@ -648,16 +648,16 @@ void DodobotChassis::publish_chassis_data()
     odom_msg.header.stamp = now;
     odom_msg.pose.pose.position.x = odom_state->x;
     odom_msg.pose.pose.position.y = odom_state->y;
-    odom_msg.pose.pose.position.z = 0.0;
+    // odom_msg.pose.pose.position.z = 0.0;
 
     odom_msg.pose.pose.orientation = quat_msg;
 
-    odom_msg.twist.twist.linear.x = odom_state->vx;
-    odom_msg.twist.twist.linear.y = odom_state->vy;
-    odom_msg.twist.twist.linear.z = 0.0;
+    odom_msg.twist.twist.linear.x = odom_state->v;
+    // odom_msg.twist.twist.linear.y = 0.0;
+    // odom_msg.twist.twist.linear.z = 0.0;
 
-    odom_msg.twist.twist.angular.x = 0.0;
-    odom_msg.twist.twist.angular.y = 0.0;
+    // odom_msg.twist.twist.angular.x = 0.0;
+    // odom_msg.twist.twist.angular.y = 0.0;
     odom_msg.twist.twist.angular.z = odom_state->w;
 
     // odom_msg.pose.covariance = odom_covariance;
