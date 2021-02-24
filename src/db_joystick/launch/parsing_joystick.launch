@@ -18,8 +18,8 @@
         <node name="db_joystick_parsing" pkg="db_joystick" type="parsing_joystick.py" output="screen" required="false">
             <param name="deadzone_joy_val" value="$(arg deadzone_val)" />
             <param name="joystick_topic" value="/joy_throttled" />
-            <param name="linear_scale" value="0.4" />
-            <param name="angular_scale" value="3.0" />
+            <param name="linear_scale" value="1.0" />
+            <param name="angular_scale" value="6.0" />
 
             <param name="linear_axis" value="$(arg joystick_linear_axis)" />
             <param name="angular_axis" value="$(arg joystick_angular_axis)" />

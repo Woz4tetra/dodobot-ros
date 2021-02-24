@@ -8,8 +8,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     // Odometry parameters
     ros::param::param<double>("~wheel_radius_mm", wheel_radius_mm, 30.0) ;
     ros::param::param<double>("~wheel_distance_mm", wheel_distance_mm, 183.21);
-    ros::param::param<double>("~ticks_per_rotation", ticks_per_rotation, 3840.0);
-    ros::param::param<double>("~max_speed_tps", max_speed_tps, 9000.0);
+    ros::param::param<double>("~ticks_per_rotation", ticks_per_rotation, 341.2 * 4.0);
+    ros::param::param<double>("~max_speed_tps", max_speed_tps, 5000.0);
 
     // Odometry speed parameters
     ros::param::param<double>("~min_angular_speed", min_angular_speed, 0.0);
@@ -68,8 +68,6 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
 
     m_to_tick_factor = ticks_per_rotation / (2.0 * wheel_radius_m * M_PI);
     tick_to_m_factor = 1.0 / m_to_tick_factor;
-
-    max_speed_mps = max_speed_tps * tick_to_m_factor;
 
     // Tilt conversions
     camera_tilt_angle = tilter_upper_angle;
