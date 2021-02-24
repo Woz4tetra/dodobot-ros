@@ -7,7 +7,7 @@
 ## Robot Configuration Parameters ##
 
 # The x acceleration limit of the robot in meters/sec^2
-acc_lim_x: 10.0
+acc_lim_x: 1.0
 
 # The y acceleration limit of the robot in meters/sec^2
 acc_lim_y: 0.0
@@ -16,16 +16,16 @@ acc_lim_y: 0.0
 acc_lim_th: 1.0
 
 # The absolute value of the maximum translational velocity for the robot in m/s
-max_vel_trans: 0.33  # 0.2  # 0.15  # max speed 0.33 m/s
+max_vel_trans: 0.5  # max speed 0.69 m/s
 
 # The absolute value of the minimum translational velocity for the robot in m/s
-min_vel_trans: 0.05  # 0.01
+min_vel_trans: 0.07  # 0.06
 
 # The maximum x velocity for the robot in m/s.
-max_vel_x: 0.33  # 0.2  # 0.15  # 0.33
+max_vel_x: 0.5  # 0.69
 
 # The minimum x velocity for the robot in m/s, negative for backwards motion.
-min_vel_x: -0.1  # -0.075  # -0.05
+min_vel_x: -0.15  # -0.075  # -0.05
 
 # The maximum y velocity for the robot in m/s
 max_vel_y: 0.0
@@ -34,10 +34,10 @@ max_vel_y: 0.0
 min_vel_y: 0.0
 
 # The absolute value of the maximum rotational velocity for the robot in rad/s
-max_vel_theta: 7.0  # 3.3  # 7.0
+max_vel_theta: 6.0  # 6.0
 
 # The absolute value of the minimum rotational velocity for the robot in rad/s
-min_vel_theta: 1.0  # 0.5  # 0.15
+min_vel_theta: 1.0  # 1.0
 
 
 ## Goal Tolerance Parameters ##
