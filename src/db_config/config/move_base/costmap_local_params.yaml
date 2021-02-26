@@ -9,8 +9,13 @@ height: 2.0
 resolution: 0.05
 # static_map: false  # unnecessary with plugins
 rolling_window: true
-cost_scaling_factor: 2.5
-inflation_radius: 0.0
+
+footprint_padding: 0.0
+
+inflation:
+    enabled: true
+    cost_scaling_factor: 10.0
+    inflation_radius: 0.1
 
 plugins:
     - {name: static,                    type: "costmap_2d::StaticLayer"}

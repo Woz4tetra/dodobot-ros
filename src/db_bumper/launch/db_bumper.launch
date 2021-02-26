@@ -4,7 +4,7 @@
         <node name="db_bumper" pkg="db_bumper" type="db_bumper_node" output="screen" required="false">
             <!-- <param name="bumper_scan_topic" value="bumper_occupancy"/> -->
             <param name="bumper_frame" value="base_link"/>
-            <param name="scan_count" value="50"/>
+            <param name="scan_count" value="100"/>
             <!-- <param name="range_max" value="100.0"/> -->
             <rosparam param="left_bumper_x_points">[-0.164, -0.172, -0.174, -0.174]</rosparam>
             <rosparam param="left_bumper_y_points">[-0.120, -0.108, -0.095, 0.0]</rosparam>
