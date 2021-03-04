@@ -19,21 +19,20 @@
 #include "NonLinearSystemPdf.h"
 #include "ObjectParticleFilter.h"
 
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <vision_msgs/Detection2DArray.h>
 #include <nav_msgs/Odometry.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 
 using namespace std;
 using namespace MatrixWrapper;
 using namespace BFL;
 
-#define GET_VECTOR_PARAM(name, expected_length)  if (!ros::param::search("~##name", key)) { \
-        THROW_EXCEPTION("Failed to find ##name parameter"); \
-    } \
-    nh.getParam(key, _##name_param); \
-    if (_##name_param.size() != expected_length) { \
-        THROW_EXCEPTION("##name.size() != ##expected_length. %d", _##name_param.size()); \
-    }
+#define THROW_EXCEPTION(msg)  throw std::runtime_error(msg)
 
 class DodobotObjectFilter {
 private:
@@ -52,9 +51,10 @@ public:
     vector<double> _sys_noise_mu_param;
     vector<double> _meas_noise_mu_param;
     vector<double> _meas_noise_cov_param;
-    vector<double> _meas_noise_cov_param;
     vector<double> _prior_mu_param;
     vector<double> _prior_cov_param;
+
+    void get_vector_param(string vector_name, vector<double> *param, int expected_size);
 
     // Particle filter containers
     NonlinearSystemPdf *sys_pdf;
@@ -81,6 +81,10 @@ public:
     // Subscribers
     ros::Subscriber _detection_sub;
     ros::Subscriber _odom_sub;
+
+    // Publisher
+    ros::Publisher _particle_pub;
+    ros::Publisher _pose_pub;
 
     // Callbacks
     void detections_callback(vision_msgs::Detection2DArray msg);

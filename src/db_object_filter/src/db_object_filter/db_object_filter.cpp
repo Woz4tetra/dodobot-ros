@@ -26,29 +26,50 @@ nh(*nodehandle)
     // if (_sys_noise_cov_param.size() != 9) {
     //     THROW_EXCEPTION("sys_noise_cov.size() != 9. %d", _sys_noise_cov_param.size());
     // }
-    GET_VECTOR_PARAM(sys_noise_mu, STATE_SIZE);
-    GET_VECTOR_PARAM(sys_noise_cov, STATE_SIZE * STATE_SIZE);
+    get_vector_param("sys_noise_mu", &_sys_noise_mu_param, STATE_SIZE);
+    get_vector_param("sys_noise_cov", &_sys_noise_cov_param, STATE_SIZE * STATE_SIZE);
 
-    GET_VECTOR_PARAM(meas_noise_mu, MEAS_SIZE);
-    GET_VECTOR_PARAM(meas_noise_cov, MEAS_SIZE * MEAS_SIZE);
+    get_vector_param("meas_noise_mu", &_meas_noise_mu_param, MEAS_SIZE);
+    get_vector_param("meas_noise_cov", &_meas_noise_cov_param, MEAS_SIZE * MEAS_SIZE);
 
-    GET_VECTOR_PARAM(prior_mu, STATE_SIZE);
-    GET_VECTOR_PARAM(prior_cov, STATE_SIZE * STATE_SIZE);
+    get_vector_param("prior_mu", &_prior_mu_param, STATE_SIZE);
+    get_vector_param("prior_cov", &_prior_cov_param, STATE_SIZE * STATE_SIZE);
 
     ROS_INFO_STREAM("db_object_filter found the class list parameter: " << key);
     nh.getParam(key, _class_labels);
 
     _detection_sub = nh.subscribe<vision_msgs::Detection2DArray>("detections", 25, &DodobotObjectFilter::detections_callback, this);
     _odom_sub = nh.subscribe<nav_msgs::Odometry>("odom", 25, &DodobotObjectFilter::odom_callback, this);
+
+    _particle_pub = nh.advertise<geometry_msgs::PoseArray>("pf_particles", 25);
+    _pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pf_pose", 25);
+
+    create_particle_filter();
+
     ROS_INFO("db_object_filter init done");
 }
 
-~DodobotObjectFilter::DodobotObjectFilter()
+DodobotObjectFilter::~DodobotObjectFilter()
 {
     delete sys_model;
     delete meas_model;
     delete filter;
 }
+
+void DodobotObjectFilter::get_vector_param(string vector_name, vector<double> *param, int expected_size)
+{
+    string key;
+    if (!ros::param::search(vector_name, key)) {
+        ROS_ERROR_STREAM("Failed to find " << vector_name << " parameter");
+        THROW_EXCEPTION("Failed to find key");
+    }
+    nh.getParam(key, *param);
+    if (param->size() != expected_size) {
+        ROS_ERROR_STREAM(vector_name << " size !=  " << expected_size << ". " << param->size());
+        THROW_EXCEPTION("Vector was unexpected size");
+    }
+}
+
 
 void DodobotObjectFilter::create_particle_filter()
 {
@@ -134,16 +155,18 @@ void DodobotObjectFilter::create_particle_filter()
     // Discrete prior for Particle filter (using the continuous Gaussian prior)
     vector<Sample<ColumnVector> > prior_samples(NUM_SAMPLES);
     prior_discr = new MCPdf<ColumnVector>(NUM_SAMPLES, STATE_SIZE);
-    prior_cont.SampleFrom(prior_samples, NUM_SAMPLES, SampleMthd::CHOLESKY, NULL);
+    prior_cont.SampleFrom(prior_samples, NUM_SAMPLES, CHOLESKY, NULL);
     prior_discr->ListOfSamplesSet(prior_samples);
 
     /******************************
     * Construction of the Filter *
     ******************************/
-    filter = new CustomParticleFilter(prior_discr, 0.5, NUM_SAMPLES / 4.0);
+    filter = new ObjectParticleFilter(prior_discr, 0.5, NUM_SAMPLES / 4.0);
+
+    ROS_INFO("Particle filter initialized");
 }
 
-void publish_particles()
+void DodobotObjectFilter::publish_particles()
 {
     geometry_msgs::PoseArray particles_msg;
     particles_msg.header.stamp = ros::Time::now();
@@ -165,10 +188,10 @@ void publish_particles()
 
         particles_msg.poses.insert(particles_msg.poses.begin(), pose);
     }
-    particle_pub.publish(particles_msg);
+    _particle_pub.publish(particles_msg);
 }
 
-void publish_pose()
+void DodobotObjectFilter::publish_pose()
 {
     Pdf<ColumnVector> * posterior = filter->PostGet();
     ColumnVector pose = posterior->ExpectedValueGet();
@@ -182,7 +205,7 @@ void publish_pose()
     pose_msg.pose.position.y = pose(2);
     pose_msg.pose.position.z = pose(3);
 
-    pose_pub.publish(pose_msg);
+    _pose_pub.publish(pose_msg);
 }
 
 
@@ -200,7 +223,7 @@ void DodobotObjectFilter::detections_callback(vision_msgs::Detection2DArray msg)
             // TODO: add more object types
             continue;
         }
-        geometry_msgs::Pose obj_pose = obj.pose.pose.pose;
+        geometry_msgs::Pose obj_pose = obj.pose.pose;
 
         ColumnVector measurement(3);
         measurement(1) = obj_pose.position.x;
@@ -214,11 +237,10 @@ void DodobotObjectFilter::detections_callback(vision_msgs::Detection2DArray msg)
 
 void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
 {
-    if (prev_odom_time.isZero())  {
+    double dt = (msg.header.stamp - prev_odom_time).toSec();
+    if (dt == 0.0) {
         return;
     }
-
-    double dt = (msg.header.stamp - prev_odom_time).toSec();
     prev_odom_time = msg.header.stamp;
 
     tf2::Transform rotate_tf, odom_velocity, base_link_velocity;
