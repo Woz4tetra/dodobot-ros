@@ -27,6 +27,5 @@ public:
 
 private:
     Gaussian _additiveNoise;
-    Sample<ColumnVector> _noise;
 
 };

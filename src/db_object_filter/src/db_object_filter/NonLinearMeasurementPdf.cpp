@@ -25,8 +25,8 @@ Probability NonlinearMeasurementPdf::ProbabilityGet(const ColumnVector& measurem
     expected_measurement(1) = state(1);
     expected_measurement(2) = state(2);
     expected_measurement(2) = state(3);
-    ROS_INFO("state(1): %f, state(2): %f, state(3): %f", state(1), state(2), state(3));
-    ROS_INFO("meas(1): %f, meas(2): %f, meas(3): %f", measurement(1), measurement(2), measurement(3));
+    // ROS_INFO("1: state(1): %f, state(2): %f, state(3): %f", state(1), state(2), state(3));
+    // ROS_INFO("1: meas(1): %f, meas(2): %f, meas(3): %f", measurement(1), measurement(2), measurement(3));
 
 
     Probability prb = _measNoise.ProbabilityGet(measurement - expected_measurement);

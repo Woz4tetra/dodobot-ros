@@ -24,15 +24,18 @@ bool NonlinearSystemPdf::SampleFrom(Sample<ColumnVector> &one_sample, int method
     // vel is the input vector:
     // [vx * dt, vt * dt]
 
-    ROS_INFO("vel(1): %f, vel(2): %f", vel(1), vel(2));
-    ROS_INFO("state(1): %f, state(2): %f, state(3): %f", state(1), state(2), state(3));
+    // ROS_INFO("vel(1): %f, vel(2): %f", vel(1), vel(2));
+    // ROS_INFO("state(1): %f, state(2): %f, state(3): %f", state(1), state(2), state(3));
 
     // system update
-    state(1) += state(1) * cos(vel(2)) - state(2) * sin(vel(2));
-    state(2) += state(1) * sin(vel(2)) + state(2) * cos(vel(2));
+    state(1) = state(1) * cos(vel(2)) - state(2) * sin(vel(2));
+    state(2) = state(1) * sin(vel(2)) + state(2) * cos(vel(2));
+
+    state(1) += vel(1);
     state(3) = 0.0;  // Z component of input is always 0
 
     // sample from additive noise
+    Sample<ColumnVector> _noise;
     _additiveNoise.SampleFrom(_noise, method, args);
 
     // store results in one_sample

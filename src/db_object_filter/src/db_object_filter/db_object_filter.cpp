@@ -229,6 +229,7 @@ void DodobotObjectFilter::detections_callback(vision_msgs::Detection2DArray msg)
         measurement(1) = obj_pose.position.x;
         measurement(2) = obj_pose.position.y;
         measurement(3) = obj_pose.position.z;
+        // ROS_INFO("2: meas(1): %f, meas(2): %f, meas(3): %f", measurement(1), measurement(2), measurement(3));
         filter->Update(meas_model, measurement);
         publish_particles();
         publish_pose();
@@ -270,6 +271,7 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
     ColumnVector input(2);
     input(1) = -msg.twist.twist.linear.x * dt;
     input(2) = -msg.twist.twist.angular.z * dt;
+    // ROS_INFO("input(1): %f, input(2): %f", input(1), input(2));
     filter->Update(sys_model, input);
 }
 
