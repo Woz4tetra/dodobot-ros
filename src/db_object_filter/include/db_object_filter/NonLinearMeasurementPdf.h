@@ -5,6 +5,9 @@
 #include <math.h>
 #include <wrappers/rng/rng.h> // Wrapper around several rng libraries
 
+#include "ros/ros.h"
+#include "ros/console.h"
+
 using namespace BFL;
 
 /// Non Linear Conditional Gaussian

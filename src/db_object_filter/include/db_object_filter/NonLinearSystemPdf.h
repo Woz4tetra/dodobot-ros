@@ -4,6 +4,10 @@
 #include <pdf/gaussian.h>
 #include <wrappers/rng/rng.h> // Wrapper around several rng libraries
 
+#include "ros/ros.h"
+#include "ros/console.h"
+
+
 using namespace BFL;
 
 // NonLinear Conditional Gaussian
@@ -23,5 +27,6 @@ public:
 
 private:
     Gaussian _additiveNoise;
+    Sample<ColumnVector> _noise;
 
 };

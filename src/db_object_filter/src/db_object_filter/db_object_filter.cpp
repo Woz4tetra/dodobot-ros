@@ -107,7 +107,7 @@ void DodobotObjectFilter::create_particle_filter()
     ********************************/
 
 
-    // Construct the measurement noise (a scalar in this case)
+    // Construct the measurement noise
     ColumnVector meas_noise_Mu(MEAS_SIZE);
     meas_noise_Mu(1) = _meas_noise_mu_param[0];  // X
     meas_noise_Mu(2) = _meas_noise_mu_param[1];  // Y
@@ -243,11 +243,10 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
     }
     prev_odom_time = msg.header.stamp;
 
-    tf2::Transform rotate_tf, odom_velocity, base_link_velocity;
-
     // odometry velocities are in base_link frame
 
     /*
+    tf2::Transform rotate_tf, odom_velocity, base_link_velocity;
     // convert odometry velocities to be in the base_link frame
     geometry_msgs::Vector3 odom_vel_vector;
     odom_vel_vector.x = -msg.twist.twist.linear.x;
@@ -269,9 +268,8 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
     */
 
     ColumnVector input(2);
-    // input(1) = base_vel_vector.x;
-    input(1) = msg.twist.twist.linear.x;
-    input(2) = msg.twist.twist.angular.z;
+    input(1) = -msg.twist.twist.linear.x * dt;
+    input(2) = -msg.twist.twist.angular.z * dt;
     filter->Update(sys_model, input);
 }
 
