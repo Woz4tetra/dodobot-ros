@@ -3,6 +3,7 @@
     <arg name="map_path"           default="map.yaml"/>
 
     <include file="$(find db_config)/launch/rplidar.launch"/>
+    <include file="$(find db_config)/launch/realsense.launch"/>
 
     <node if="$(arg localization)" pkg="amcl" type="amcl" name="amcl" output="screen">
         <rosparam file="$(find db_config)/config/laser_slam/amcl.yaml" command="load"/>

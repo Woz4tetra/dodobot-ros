@@ -8,8 +8,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     // Odometry parameters
     ros::param::param<double>("~wheel_radius_mm", wheel_radius_mm, 30.0) ;
     ros::param::param<double>("~wheel_distance_mm", wheel_distance_mm, 183.21);
-    ros::param::param<double>("~ticks_per_rotation", ticks_per_rotation, 3840.0);
-    ros::param::param<double>("~max_speed_tps", max_speed_tps, 9000.0);
+    ros::param::param<double>("~ticks_per_rotation", ticks_per_rotation, 341.2 * 4.0);
+    ros::param::param<double>("~max_speed_tps", max_speed_tps, 5000.0);
 
     // Odometry speed parameters
     ros::param::param<double>("~min_angular_speed", min_angular_speed, 0.0);
@@ -68,8 +68,6 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
 
     m_to_tick_factor = ticks_per_rotation / (2.0 * wheel_radius_m * M_PI);
     tick_to_m_factor = 1.0 / m_to_tick_factor;
-
-    max_speed_mps = max_speed_tps * tick_to_m_factor;
 
     // Tilt conversions
     camera_tilt_angle = tilter_upper_angle;
@@ -580,8 +578,8 @@ void DodobotChassis::odom_estimator_update(double delta_left, double delta_right
     odom_state->theta += dtheta;
     odom_state->theta = fmod(odom_state->theta, 2.0 * M_PI);
 
-    odom_state->vx = v * cos(odom_state->theta);
-    odom_state->vy = v * sin(odom_state->theta);
+    // odom_state->vx = v * cos(odom_state->theta);
+    // odom_state->vy = v * sin(odom_state->theta);
 
     odom_state->v = v;
     odom_state->w = w;
@@ -648,16 +646,16 @@ void DodobotChassis::publish_chassis_data()
     odom_msg.header.stamp = now;
     odom_msg.pose.pose.position.x = odom_state->x;
     odom_msg.pose.pose.position.y = odom_state->y;
-    odom_msg.pose.pose.position.z = 0.0;
+    // odom_msg.pose.pose.position.z = 0.0;
 
     odom_msg.pose.pose.orientation = quat_msg;
 
-    odom_msg.twist.twist.linear.x = odom_state->vx;
-    odom_msg.twist.twist.linear.y = odom_state->vy;
-    odom_msg.twist.twist.linear.z = 0.0;
+    odom_msg.twist.twist.linear.x = odom_state->v;
+    // odom_msg.twist.twist.linear.y = 0.0;
+    // odom_msg.twist.twist.linear.z = 0.0;
 
-    odom_msg.twist.twist.angular.x = 0.0;
-    odom_msg.twist.twist.angular.y = 0.0;
+    // odom_msg.twist.twist.angular.x = 0.0;
+    // odom_msg.twist.twist.angular.y = 0.0;
     odom_msg.twist.twist.angular.z = odom_state->w;
 
     // odom_msg.pose.covariance = odom_covariance;

@@ -123,7 +123,6 @@ private:
     double wheel_radius_m;
     double m_to_tick_factor;
     double tick_to_m_factor;
-    double max_speed_mps;
     double wheel_distance_m;
 
     double tilter_upper_angle;

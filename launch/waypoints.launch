@@ -11,8 +11,6 @@
         <arg name="localization" value="true"/>
     </include>
     
-    <include file="$(find db_config)/launch/realsense.launch"/>
-
     <include file="$(find db_waypoints)/launch/db_waypoints.launch">
         <arg name="waypoints_path" value="$(arg waypoints_path)"/>
     </include>

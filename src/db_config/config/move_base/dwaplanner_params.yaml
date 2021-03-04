@@ -7,25 +7,25 @@
 ## Robot Configuration Parameters ##
 
 # The x acceleration limit of the robot in meters/sec^2
-acc_lim_x: 100.0
+acc_lim_x: 1.0
 
 # The y acceleration limit of the robot in meters/sec^2
 acc_lim_y: 0.0
 
 # The rotational acceleration limit of the robot in radians/sec^2
-acc_lim_th: 100.0
+acc_lim_th: 1.0
 
 # The absolute value of the maximum translational velocity for the robot in m/s
-max_vel_trans: 0.2  # 0.15  # max speed 0.33 m/s
+max_vel_trans: 0.5  # max speed 0.69 m/s
 
 # The absolute value of the minimum translational velocity for the robot in m/s
-min_vel_trans: 0.01  # 0.05
+min_vel_trans: 0.07  # 0.06
 
 # The maximum x velocity for the robot in m/s.
-max_vel_x: 0.2  # 0.15  # 0.33
+max_vel_x: 0.5  # 0.69
 
 # The minimum x velocity for the robot in m/s, negative for backwards motion.
-min_vel_x: -0.075  # -0.05
+min_vel_x: -0.15  # -0.075  # -0.05
 
 # The maximum y velocity for the robot in m/s
 max_vel_y: 0.0
@@ -34,10 +34,10 @@ max_vel_y: 0.0
 min_vel_y: 0.0
 
 # The absolute value of the maximum rotational velocity for the robot in rad/s
-max_vel_theta: 7.0  # 3.3  # 7.0
+max_vel_theta: 6.0  # 6.0
 
 # The absolute value of the minimum rotational velocity for the robot in rad/s
-min_vel_theta: 0.5  # 0.15
+min_vel_theta: 1.0  # 1.0
 
 
 ## Goal Tolerance Parameters ##
@@ -57,13 +57,13 @@ latch_xy_goal_tolerance: false
 ## Forward Simulation Parameters ##
 
 # The amount of time to forward-simulate trajectories in seconds
-sim_time: 2.0  # 1.7
+sim_time: 1.7  # 1.7
 
 # The step size, in meters, to take between points on a given trajectory
 sim_granularity: 0.01  # 0.025
 
 # The number of samples to use when exploring the x velocity space
-vx_samples: 3  # 3
+vx_samples: 10  # 3
 
 # The number of samples to use when exploring the y velocity space
 vy_samples: 0  # 10
@@ -95,14 +95,14 @@ goal_distance_bias: 20.0  # 24.0
 occdist_scale: 0.02  # 0.01
 
 # The distance from the center point of the robot to place an additional scoring point, in meters
-forward_point_distance: 0.325
+forward_point_distance: 0.1
 
 # The amount of time that the robot must stop before a collision in order for a
 # trajectory to be considered valid in seconds
-stop_time_buffer: 0.2
+stop_time_buffer: 0.3
 
 # The absolute value of the velocity at which to start scaling the robot's footprint, in m/s
-scaling_speed: 0.25
+scaling_speed: 1.5
 
 # The maximum factor to scale the robot's footprint by
 max_scaling_factor: 0.2
@@ -114,7 +114,7 @@ publish_cost_grid: false
 ## Oscillation Prevention Parameters ##
 
 # How far the robot must travel in meters before oscillation flags are reset
-oscillation_reset_dist: 0.05
+oscillation_reset_dist: 0.075
 
 ## Global Plan Parameters ##
 
