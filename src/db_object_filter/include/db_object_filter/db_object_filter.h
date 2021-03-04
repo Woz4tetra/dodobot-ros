@@ -27,6 +27,14 @@ using namespace std;
 using namespace MatrixWrapper;
 using namespace BFL;
 
+#define GET_VECTOR_PARAM(name, expected_length)  if (!ros::param::search("~##name", key)) { \
+        THROW_EXCEPTION("Failed to find ##name parameter"); \
+    } \
+    nh.getParam(key, _##name_param); \
+    if (_##name_param.size() != expected_length) { \
+        THROW_EXCEPTION("##name.size() != ##expected_length. %d", _##name_param.size()); \
+    }
+
 class DodobotObjectFilter {
 private:
     ros::NodeHandle nh;  // ROS node handle
@@ -40,6 +48,13 @@ public:
     string _class_label_param;
     vector<string> _class_labels;
     string _filter_frame;
+    vector<double> _sys_noise_cov_param;
+    vector<double> _sys_noise_mu_param;
+    vector<double> _meas_noise_mu_param;
+    vector<double> _meas_noise_cov_param;
+    vector<double> _meas_noise_cov_param;
+    vector<double> _prior_mu_param;
+    vector<double> _prior_cov_param;
 
     // Particle filter containers
     NonlinearSystemPdf *sys_pdf;
@@ -50,13 +65,7 @@ public:
     ObjectParticleFilter *filter;
 
     // Particle filter parameters
-    double MU_SYSTEM_NOISE_X, MU_SYSTEM_NOISE_Y, MU_SYSTEM_NOISE_Z;
-    double SIGMA_SYSTEM_NOISE_X, SIGMA_SYSTEM_NOISE_Y, SIGMA_SYSTEM_NOISE_Z;
-    double MU_MEAS_NOISE, SIGMA_MEAS_NOISE;
     int MEAS_SIZE;
-
-    double PRIOR_MU_X, PRIOR_MU_Y, PRIOR_MU_Z;
-    double PRIOR_COV_X, PRIOR_COV_Y, PRIOR_COV_Z;
     int STATE_SIZE;
     int NUM_SAMPLES;
     

@@ -7,13 +7,13 @@ using namespace BFL;
 using namespace MatrixWrapper;
 
 NonlinearMeasurementPdf::NonlinearMeasurementPdf(const Gaussian& measNoise)
-: ConditionalPdf<ColumnVector,ColumnVector>(MEASMODEL_DIMENSION_MOBILE,MEASMODEL_NUMCONDARGUMENTS_MOBILE)
+: ConditionalPdf<ColumnVector,ColumnVector>(MEASMODEL_DIMENSION_MOBILE, MEASMODEL_NUMCONDARGUMENTS_MOBILE)
 {
     _measNoise = measNoise;
 }
 
 
-NonlinearMeasurementPdf::~NonlinearMeasurementPdf(){}
+NonlinearMeasurementPdf::~NonlinearMeasurementPdf() {  }
 
 Probability NonlinearMeasurementPdf::ProbabilityGet(const ColumnVector& measurement) const
 {
@@ -21,12 +21,12 @@ Probability NonlinearMeasurementPdf::ProbabilityGet(const ColumnVector& measurem
 
     ColumnVector expected_measurement(3);
 
-    // Compute the range according to the map
-    expected_measurement(1) = map_calc_range(state(1), state(2), state(3) + 0, 10.0); //front
-    expected_measurement(2) = map_calc_range(state(1), state(2), state(3) + M_PI_2, 10.0); //left
-    expected_measurement(2) = map_calc_range(state(1), state(2), state(3) - M_PI_2, 10.0); //right
+    // Eventually put predictions based on object velocity
+    expected_measurement(1) = state(1);
+    expected_measurement(2) = state(2);
+    expected_measurement(2) = state(3);
 
-    Probability prb = _measNoise.ProbabilityGet(measurement-expected_measurement);
+    Probability prb = _measNoise.ProbabilityGet(measurement - expected_measurement);
 
     return prb;
 }

@@ -15,6 +15,26 @@ nh(*nodehandle)
         ros::Duration(0.05).sleep();
     }
 
+    STATE_SIZE = 3;
+    MEAS_SIZE = 3;
+    NUM_SAMPLES = 500;
+
+    // if (!ros::param::search("~sys_noise_cov", key)) {
+    //     THROW_EXCEPTION("Failed to find sys_noise_cov parameter");
+    // }
+    // nh.getParam(key, _sys_noise_cov_param);
+    // if (_sys_noise_cov_param.size() != 9) {
+    //     THROW_EXCEPTION("sys_noise_cov.size() != 9. %d", _sys_noise_cov_param.size());
+    // }
+    GET_VECTOR_PARAM(sys_noise_mu, STATE_SIZE);
+    GET_VECTOR_PARAM(sys_noise_cov, STATE_SIZE * STATE_SIZE);
+
+    GET_VECTOR_PARAM(meas_noise_mu, MEAS_SIZE);
+    GET_VECTOR_PARAM(meas_noise_cov, MEAS_SIZE * MEAS_SIZE);
+
+    GET_VECTOR_PARAM(prior_mu, STATE_SIZE);
+    GET_VECTOR_PARAM(prior_cov, STATE_SIZE * STATE_SIZE);
+
     ROS_INFO_STREAM("db_object_filter found the class list parameter: " << key);
     nh.getParam(key, _class_labels);
 
@@ -38,21 +58,21 @@ void DodobotObjectFilter::create_particle_filter()
 
     // create gaussian
     ColumnVector sys_noise_Mu(STATE_SIZE);
-    sys_noise_Mu(1) = MU_SYSTEM_NOISE_X;
-    sys_noise_Mu(2) = MU_SYSTEM_NOISE_Y;
-    sys_noise_Mu(3) = MU_SYSTEM_NOISE_Z;
+    sys_noise_Mu(1) = _sys_noise_mu_param[0];  // X
+    sys_noise_Mu(2) = _sys_noise_mu_param[1];  // Y
+    sys_noise_Mu(3) = _sys_noise_mu_param[2];  // Z
 
     SymmetricMatrix sys_noise_Cov(STATE_SIZE);
     sys_noise_Cov = 0.0;
-    sys_noise_Cov(1,1) = SIGMA_SYSTEM_NOISE_X;
-    sys_noise_Cov(1,2) = 0.0;
-    sys_noise_Cov(1,3) = 0.0;
-    sys_noise_Cov(2,1) = 0.0;
-    sys_noise_Cov(2,2) = SIGMA_SYSTEM_NOISE_Y;
-    sys_noise_Cov(2,3) = 0.0;
-    sys_noise_Cov(3,1) = 0.0;
-    sys_noise_Cov(3,2) = 0.0;
-    sys_noise_Cov(3,3) = SIGMA_SYSTEM_NOISE_Z;
+    sys_noise_Cov(1,1) = _sys_noise_cov_param[0];
+    sys_noise_Cov(1,2) = _sys_noise_cov_param[1];
+    sys_noise_Cov(1,3) = _sys_noise_cov_param[2];
+    sys_noise_Cov(2,1) = _sys_noise_cov_param[3];
+    sys_noise_Cov(2,2) = _sys_noise_cov_param[4];
+    sys_noise_Cov(2,3) = _sys_noise_cov_param[5];
+    sys_noise_Cov(3,1) = _sys_noise_cov_param[6];
+    sys_noise_Cov(3,2) = _sys_noise_cov_param[7];
+    sys_noise_Cov(3,3) = _sys_noise_cov_param[8];
 
     Gaussian system_Uncertainty(sys_noise_Mu, sys_noise_Cov);
 
@@ -68,24 +88,25 @@ void DodobotObjectFilter::create_particle_filter()
 
     // Construct the measurement noise (a scalar in this case)
     ColumnVector meas_noise_Mu(MEAS_SIZE);
-    meas_noise_Mu(1) = MU_MEAS_NOISE;
-    meas_noise_Mu(2) = MU_MEAS_NOISE;
-    meas_noise_Mu(3) = MU_MEAS_NOISE;
+    meas_noise_Mu(1) = _meas_noise_mu_param[0];  // X
+    meas_noise_Mu(2) = _meas_noise_mu_param[1];  // Y
+    meas_noise_Mu(3) = _meas_noise_mu_param[2];  // Z
+
     SymmetricMatrix meas_noise_Cov(MEAS_SIZE);
-    meas_noise_Cov(1,1) = SIGMA_MEAS_NOISE;
-    meas_noise_Cov(1,2) = 0.0;
-    meas_noise_Cov(1,3) = 0.0;
-    meas_noise_Cov(2,1) = 0.0;
-    meas_noise_Cov(2,2) = SIGMA_MEAS_NOISE;
-    meas_noise_Cov(2,3) = 0.0;
-    meas_noise_Cov(3,1) = 0.0;
-    meas_noise_Cov(3,2) = 0.0;
-    meas_noise_Cov(3,3) = SIGMA_MEAS_NOISE;
+    meas_noise_Cov(1,1) = _meas_noise_cov_param[0];
+    meas_noise_Cov(1,2) = _meas_noise_cov_param[1];
+    meas_noise_Cov(1,3) = _meas_noise_cov_param[2];
+    meas_noise_Cov(2,1) = _meas_noise_cov_param[3];
+    meas_noise_Cov(2,2) = _meas_noise_cov_param[4];
+    meas_noise_Cov(2,3) = _meas_noise_cov_param[5];
+    meas_noise_Cov(3,1) = _meas_noise_cov_param[6];
+    meas_noise_Cov(3,2) = _meas_noise_cov_param[7];
+    meas_noise_Cov(3,3) = _meas_noise_cov_param[8];
 
     Gaussian measurement_Uncertainty(meas_noise_Mu, meas_noise_Cov);
 
 
-    meas_pdf = new NonlinearMeasurementPdf(measurement_Uncertainty, map_);
+    meas_pdf = new NonlinearMeasurementPdf(measurement_Uncertainty);
     meas_model = new MeasurementModel<ColumnVector,ColumnVector>(meas_pdf);
 
     /***************************
@@ -93,25 +114,27 @@ void DodobotObjectFilter::create_particle_filter()
      ***************************/
     // Continuous Gaussian prior (for Kalman filters)
     ColumnVector prior_Mu(STATE_SIZE);
-    prior_Mu(1) = PRIOR_MU_X;
-    prior_Mu(2) = PRIOR_MU_Y;
-    prior_Mu(3) = PRIOR_MU_Z;
+    prior_Mu(1) = _prior_mu_param[0];
+    prior_Mu(2) = _prior_mu_param[1];
+    prior_Mu(3) = _prior_mu_param[2];
+
     SymmetricMatrix prior_Cov(STATE_SIZE);
-    prior_Cov(1,1) = PRIOR_COV_X;
-    prior_Cov(1,2) = 0.0;
-    prior_Cov(1,3) = 0.0;
-    prior_Cov(2,1) = 0.0;
-    prior_Cov(2,2) = PRIOR_COV_Y;
-    prior_Cov(2,3) = 0.0;
-    prior_Cov(3,1) = 0.0;
-    prior_Cov(3,2) = 0.0;
-    prior_Cov(3,3) = PRIOR_COV_Z;
-    Gaussian prior_cont(prior_Mu,prior_Cov);
+    prior_Cov(1,1) = _prior_cov_param[0];
+    prior_Cov(1,2) = _prior_cov_param[1];
+    prior_Cov(1,3) = _prior_cov_param[2];
+    prior_Cov(2,1) = _prior_cov_param[3];
+    prior_Cov(2,2) = _prior_cov_param[4];
+    prior_Cov(2,3) = _prior_cov_param[5];
+    prior_Cov(3,1) = _prior_cov_param[6];
+    prior_Cov(3,2) = _prior_cov_param[7];
+    prior_Cov(3,3) = _prior_cov_param[8];
+
+    Gaussian prior_cont(prior_Mu, prior_Cov);
 
     // Discrete prior for Particle filter (using the continuous Gaussian prior)
     vector<Sample<ColumnVector> > prior_samples(NUM_SAMPLES);
     prior_discr = new MCPdf<ColumnVector>(NUM_SAMPLES, STATE_SIZE);
-    prior_cont.SampleFrom(prior_samples, NUM_SAMPLES, CHOLESKY, NULL);
+    prior_cont.SampleFrom(prior_samples, NUM_SAMPLES, SampleMthd::CHOLESKY, NULL);
     prior_discr->ListOfSamplesSet(prior_samples);
 
     /******************************
@@ -184,8 +207,8 @@ void DodobotObjectFilter::detections_callback(vision_msgs::Detection2DArray msg)
         measurement(2) = obj_pose.position.y;
         measurement(3) = obj_pose.position.z;
         filter->Update(meas_model, measurement);
-        // publish_particles();
-        // publish_pose();
+        publish_particles();
+        publish_pose();
     }
 }
 
@@ -200,6 +223,9 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
 
     tf2::Transform rotate_tf, odom_velocity, base_link_velocity;
 
+    // odometry velocities are in base_link frame
+
+    /*
     // convert odometry velocities to be in the base_link frame
     geometry_msgs::Vector3 odom_vel_vector;
     odom_vel_vector.x = -msg.twist.twist.linear.x;
@@ -218,10 +244,12 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
     
     geometry_msgs::Vector3 base_vel_vector;
     base_vel_vector = base_link_velocity.getOrigin();
+    */
 
     ColumnVector input(2);
-    input(1) = base_vel_vector.x;
-    input(2) = -msg.twist.twist.angular.z;
+    // input(1) = base_vel_vector.x;
+    input(1) = msg.twist.twist.linear.x;
+    input(2) = msg.twist.twist.angular.z;
     filter->Update(sys_model, input);
 }
 
