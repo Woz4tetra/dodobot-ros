@@ -3,7 +3,6 @@
     <node pkg="rosbag" type="record" name="rosbag_record_objects"
        args="record -o $(find db_config)/bags/objects
             /dodobot/odom
-            /dodobot/cmd_vel
             /dodobot/detections
             " />
 </launch>

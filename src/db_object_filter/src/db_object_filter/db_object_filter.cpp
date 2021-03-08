@@ -44,7 +44,8 @@ nh(*nodehandle)
     _particle_pub = nh.advertise<geometry_msgs::PoseArray>("pf_particles", 25);
     _pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pf_pose", 25);
 
-    create_particle_filter();
+    _filter_initialized = false;
+    // create_particle_filter();
 
     ROS_INFO("db_object_filter init done");
 }
@@ -71,7 +72,7 @@ void DodobotObjectFilter::get_vector_param(string vector_name, vector<double> *p
 }
 
 
-void DodobotObjectFilter::create_particle_filter()
+void DodobotObjectFilter::create_particle_filter(double x0, double y0, double z0)
 {
     /**************************
     * NonLinear system model *
@@ -133,11 +134,13 @@ void DodobotObjectFilter::create_particle_filter()
     /***************************
      * Linear prior DENSITY    *
      ***************************/
-    // Continuous Gaussian prior (for Kalman filters)
     ColumnVector prior_Mu(STATE_SIZE);
-    prior_Mu(1) = _prior_mu_param[0];
-    prior_Mu(2) = _prior_mu_param[1];
-    prior_Mu(3) = _prior_mu_param[2];
+    // prior_Mu(1) = _prior_mu_param[0];
+    // prior_Mu(2) = _prior_mu_param[1];
+    // prior_Mu(3) = _prior_mu_param[2];
+    prior_Mu(1) = x0;
+    prior_Mu(2) = y0;
+    prior_Mu(3) = z0;
 
     SymmetricMatrix prior_Cov(STATE_SIZE);
     prior_Cov(1,1) = _prior_cov_param[0];
@@ -161,13 +164,18 @@ void DodobotObjectFilter::create_particle_filter()
     /******************************
     * Construction of the Filter *
     ******************************/
-    filter = new ObjectParticleFilter(prior_discr, 0.5, NUM_SAMPLES / 4.0);
+    filter = new ObjectParticleFilter(prior_discr, 0, NUM_SAMPLES / 4.0);
+
+    _filter_initialized = true;
 
     ROS_INFO("Particle filter initialized");
 }
 
 void DodobotObjectFilter::publish_particles()
 {
+    if (!_filter_initialized) {
+        return;
+    }
     geometry_msgs::PoseArray particles_msg;
     particles_msg.header.stamp = ros::Time::now();
     particles_msg.header.frame_id = _filter_frame;
@@ -193,6 +201,10 @@ void DodobotObjectFilter::publish_particles()
 
 void DodobotObjectFilter::publish_pose()
 {
+    if (!_filter_initialized) {
+        return;
+    }
+
     Pdf<ColumnVector> * posterior = filter->PostGet();
     ColumnVector pose = posterior->ExpectedValueGet();
     SymmetricMatrix pose_cov = posterior->CovarianceGet();
@@ -229,10 +241,13 @@ void DodobotObjectFilter::detections_callback(vision_msgs::Detection2DArray msg)
         measurement(1) = obj_pose.position.x;
         measurement(2) = obj_pose.position.y;
         measurement(3) = obj_pose.position.z;
+
+        if (!_filter_initialized) {
+            create_particle_filter(obj_pose.position.x, obj_pose.position.y, obj_pose.position.z);
+        }
+        
         // ROS_INFO("2: meas(1): %f, meas(2): %f, meas(3): %f", measurement(1), measurement(2), measurement(3));
         filter->Update(meas_model, measurement);
-        publish_particles();
-        publish_pose();
     }
 }
 
@@ -243,6 +258,9 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
         return;
     }
     prev_odom_time = msg.header.stamp;
+    if (!_filter_initialized) {
+        return;
+    }
 
     // odometry velocities are in base_link frame
 
@@ -278,7 +296,18 @@ void DodobotObjectFilter::odom_callback(nav_msgs::Odometry msg)
 
 int DodobotObjectFilter::run()
 {
-    ros::spin();
+    // ros::spin();
+
+    ros::Rate clock_rate(15);  // run loop at 15 Hz
+    while (ros::ok())
+    {
+        // let ROS process any events
+        ros::spinOnce();
+        clock_rate.sleep();
+
+        publish_particles();
+        publish_pose();
+    }
 
     return 0;
 }

@@ -2,6 +2,6 @@
 <launch>
     <param name="use_sim_time" value="true"/>
     <include file="$(find db_object_filter)/launch/db_object_filter.launch"/>
-    <node name="objects_bag" pkg="rosbag" type="play" output="screen" args="$(find db_config)/bags/objects_2021-03-04-12-15-37.bag --clock"/>
+    <node name="objects_bag" pkg="rosbag" type="play" output="screen" args="$(find db_config)/bags/objects_2021-03-07-19-45-36.bag --clock"/>
     
 </launch>

@@ -63,6 +63,7 @@ public:
     MeasurementModel<ColumnVector,ColumnVector> *meas_model;
     MCPdf<ColumnVector> *prior_discr;
     ObjectParticleFilter *filter;
+    bool _filter_initialized;
 
     // Particle filter parameters
     int MEAS_SIZE;
@@ -71,7 +72,7 @@ public:
     
     ros::Time prev_odom_time;
 
-    void create_particle_filter();
+    void create_particle_filter(double x0, double y0, double z0);
     void publish_particles();
     void publish_pose();
 
