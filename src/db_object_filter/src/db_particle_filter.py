@@ -78,7 +78,8 @@ class ParticleFilter:
 
     def estimate(self):
         """ returns mean and variance """
-        pos = self.particles[:, 0:3]
+        # pos = self.particles[:, 0:3]
+        pos = self.particles
         mu = np.average(pos, weights=self.weights, axis=0)
         var = np.average((pos - mu) ** 2, weights=self.weights, axis=0)
 
@@ -86,7 +87,8 @@ class ParticleFilter:
 
     def mean(self):
         """ returns weighted mean position"""
-        return np.average(self.particles[:, 0:3], weights=self.weights, axis=0)
+        # return np.average(self.particles[:, 0:3], weights=self.weights, axis=0)
+        return np.average(self.particles, weights=self.weights, axis=0)
 
 
     def neff(self):
