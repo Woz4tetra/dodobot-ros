@@ -10,7 +10,7 @@ class ObjectFilter(object):
         self.name = name
         self.label = label
         self.pf = ParticleFilter(num_particles, meas_std_val, input_std)
-        self.pf.create_uniform_particles(initial_state, self.initial_range)
+        self.pf.create_uniform_particles(initial_state, initial_range)
         self.lock = threading.Lock()
     
     def update(self, measurement):
@@ -34,7 +34,7 @@ class ObjectFilter(object):
             return self.pf.particles
     
     def check_resample(self):
-        with self.pf_lock:
+        with self.lock:
             self.pf.check_resample()
 
 
@@ -63,6 +63,9 @@ class FilterFactory(object):
                 filter_index += 1
         filter_name = self.get_filter_name(label, filter_index)
 
+        if label not in self.filters:
+            self.filters[label] = []
+        
         while len(self.filters[label]) >= self.max_num_filters:
             self.remove_least_confidence_filter(label)
 
@@ -72,8 +75,6 @@ class FilterFactory(object):
             self.meas_std_val, self.input_std,
             initial_state, self.initial_range
         )
-        if label not in self.filters:
-            self.filters[label] = []
         self.filters[label].append(obj_filter)
     
     def remove_least_confidence_filter(self, label):
@@ -116,14 +117,15 @@ class FilterFactory(object):
         return means
 
     def update(self, label, measurement):
-        if len(self.filters[label]) == 0:
+        if len(self.filters) == 0 or len(self.filters[label]) == 0:
             self.init_filter(label, measurement)
             return
 
         means = self.get_label_means(label)
         for filter_index, mean in enumerate(means):
-            # confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
-            confidence = scipy.stats.multivariate_normal.cdf(measurement, mean=mean, cov=self.match_cov)
+            confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
+            rospy.loginfo("%s confidence: %s" % (label, confidence))
+            # confidence = scipy.stats.multivariate_normal.cdf(measurement, mean=mean, cov=self.match_cov)
             if confidence > self.match_threshold:
                 obj_filter = self.filters[label][filter_index]
                 rospy.loginfo("Measurement matches %s" % obj_filter.name)

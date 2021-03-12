@@ -52,8 +52,8 @@ class ObjectFilterNode:
         self.num_particles = rospy.get_param("~num_particles", 100)
 
         self.input_std = rospy.get_param("~input_std", None)
-        self.match_cov = rospy.get_param("~match_cov", 1.0)
-        self.match_threshold = rospy.get_param("~match_threshold", 0.1)
+        self.match_cov = rospy.get_param("~match_cov", 0.1)
+        self.match_threshold = rospy.get_param("~match_threshold", 0.03)
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.01)
         self.max_num_filters = rospy.get_param("~max_num_filters_per_label", 5)
 
@@ -72,7 +72,7 @@ class ObjectFilterNode:
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
             self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_num_filters
         )
-        self.prev_pf_time = rospy.Time.now()
+        self.prev_pf_time = rospy.Time.now().to_sec()
 
         self.detections_sub = rospy.Subscriber("detections", Detection2DArray, self.detections_callback, queue_size=25)
         self.odom_sub = rospy.Subscriber("odom", Odometry, self.odom_callback, queue_size=25)
@@ -82,8 +82,9 @@ class ObjectFilterNode:
 
         self.broadcaster = tf2_ros.TransformBroadcaster()
 
-        self.set_particle_display_name_srv = self.create_service("set_particle_display_name", ObjectLabel, self.set_particle_display_name_callback)
+        # self.set_particle_display_name_srv = self.create_service("set_particle_display_name", ObjectLabel, self.set_particle_display_name_callback)
 
+        rospy.loginfo("%s init done" % self.node_name)
     
     def create_service(self, name, srv_type, callback):
         name = self.node_name + "/" + name
