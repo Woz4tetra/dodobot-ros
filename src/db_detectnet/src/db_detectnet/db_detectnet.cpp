@@ -83,7 +83,7 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
 
     // Publishers
     _detection_pub = nh.advertise<vision_msgs::Detection2DArray>("detections", 25);
-    _marker_pub = nh.advertise<visualization_msgs::MarkerArray>("markers", 25);
+    _marker_pub = nh.advertise<visualization_msgs::MarkerArray>("obj_markers", 25);
     _overlay_pub = _image_transport.advertise("detect_overlay", 2);
 
     // Subscribers

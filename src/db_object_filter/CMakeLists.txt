@@ -13,10 +13,9 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
-add_service_files(
-    FILES
-    ObjectLabel.srv
-)
+# add_service_files(
+#     FILES
+# )
 
 generate_messages(
     DEPENDENCIES

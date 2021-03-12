@@ -42,9 +42,9 @@ class ObjectFilterNode:
         self.class_labels = rospy.get_param("~class_labels", None)
         self.filter_frame = rospy.get_param("~filter_frame", "base_link")
 
-        self.marker_color = rospy.get_param("~marker_color", (1.0, 0.0, 0.0, 1.0))
-        self.marker_size = rospy.get_param("~marker_size", 0.25)
-        self.show_particles = rospy.get_param("~show_particles", True)
+        self.marker_color = rospy.get_param("~marker_color", (1.0, 1.0, 1.0, 0.75))
+        self.marker_size = rospy.get_param("~marker_size", 0.1)
+        self.show_particles = rospy.get_param("~publish_particles", True)
 
         self.initial_range = rospy.get_param("~initial_range", None)
         self.input_std = rospy.get_param("~input_std", None)
@@ -53,8 +53,8 @@ class ObjectFilterNode:
 
         self.input_std = rospy.get_param("~input_std", None)
         self.match_cov = rospy.get_param("~match_cov", 0.1)
-        self.match_threshold = rospy.get_param("~match_threshold", 0.03)
-        self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.01)
+        self.match_threshold = rospy.get_param("~match_threshold", 0.95)
+        self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
         self.max_num_filters = rospy.get_param("~max_num_filters_per_label", 5)
 
         assert self.class_labels is not None
@@ -65,9 +65,6 @@ class ObjectFilterNode:
         if self.input_std is None:
             self.input_std = [0.007, 0.007, 0.007, 0.007]
         
-        self.pose_array_label = ""
-        self.pose_array_index = 0
-
         self.factory = FilterFactory(
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
             self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_num_filters
@@ -82,33 +79,7 @@ class ObjectFilterNode:
 
         self.broadcaster = tf2_ros.TransformBroadcaster()
 
-        # self.set_particle_display_name_srv = self.create_service("set_particle_display_name", ObjectLabel, self.set_particle_display_name_callback)
-
         rospy.loginfo("%s init done" % self.node_name)
-    
-    def create_service(self, name, srv_type, callback):
-        name = self.node_name + "/" + name
-        service_name = name + "_service_name"
-        self.__dict__[service_name] = name
-        rospy.loginfo("Setting up service %s" % name)
-
-        srv_obj = rospy.Service(name, srv_type, callback)
-        rospy.loginfo("%s service is ready" % name)
-        return srv_obj
-
-    def set_particle_display_name_callback(self, req):
-        self.pose_array_label = req.label
-        self.pose_array_index = req.index
-        if len(self.pose_array_label) == 0:
-            rospy.loginfo("Disabling particle display")
-            return True
-        particles = self.factory.get_particles(self.pose_array_label, self.pose_array_index)
-        if particles:
-            rospy.loginfo("%s_%s is a registered particle filter. Displaying particles" % (self.pose_array_label, self.pose_array_index))
-            return True
-        else:
-            rospy.loginfo("%s_%s is not a registered particle filter." % (self.pose_array_label, self.pose_array_index))
-            return False
 
     def to_label(self, obj_id):
         return self.class_labels[obj_id]
@@ -242,9 +213,6 @@ class ObjectFilterNode:
             self.publish_all_poses()
             
             if self.show_particles:
-                # particles = self.factory.get_particles(self.pose_array_label, self.pose_array_index)
-                # if particles:
-                #     self.publish_particles(particles)
                 self.publish_particles(self.factory.get_all_particles())
         # rospy.spin()
 

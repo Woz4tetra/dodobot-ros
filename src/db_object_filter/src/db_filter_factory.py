@@ -53,6 +53,8 @@ class FilterFactory(object):
 
         self.filters = {}
 
+        self.compute_max_confidence(len(self.initial_range))
+
     def get_filter_name(self, label, index):
         return "%s_%s" % (label, index)
 
@@ -123,9 +125,8 @@ class FilterFactory(object):
 
         means = self.get_label_means(label)
         for filter_index, mean in enumerate(means):
-            confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
+            confidence = self.get_confidences(measurement, mean)
             rospy.loginfo("%s confidence: %s" % (label, confidence))
-            # confidence = scipy.stats.multivariate_normal.cdf(measurement, mean=mean, cov=self.match_cov)
             if confidence > self.match_threshold:
                 obj_filter = self.filters[label][filter_index]
                 rospy.loginfo("Measurement matches %s" % obj_filter.name)
@@ -135,6 +136,16 @@ class FilterFactory(object):
                 rospy.loginfo("Measurement doesn't match filter. Creating a new one")
                 self.init_filter(label, measurement)
                 break
+    
+    def get_confidences(self, measurement, mean):
+        confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
+        confidence /= self.max_confidence
+        return confidence
+    
+    def compute_max_confidence(self, dims):
+        # for normalizing confidence
+        zeros = np.zeros(dims)
+        self.max_confidence = scipy.stats.multivariate_normal.pdf(zeros, mean=zeros, cov=self.match_cov)
 
     def predict(self, input_vector, dt):
         for label in self.filters:
