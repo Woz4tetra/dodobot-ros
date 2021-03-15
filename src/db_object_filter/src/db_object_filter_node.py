@@ -52,8 +52,8 @@ class ObjectFilterNode:
         self.num_particles = rospy.get_param("~num_particles", 100)
 
         self.input_std = rospy.get_param("~input_std", None)
-        self.match_cov = rospy.get_param("~match_cov", 0.1)
-        self.match_threshold = rospy.get_param("~match_threshold", 0.95)
+        self.match_cov = rospy.get_param("~match_cov", 0.05)
+        self.match_threshold = rospy.get_param("~match_threshold", 0.90)
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
         self.max_num_filters = rospy.get_param("~max_num_filters_per_label", 5)
 
@@ -85,6 +85,7 @@ class ObjectFilterNode:
         return self.class_labels[obj_id]
         
     def detections_callback(self, msg):
+        rospy.loginfo("\n\nNew measurement")
         for detection in msg.detections:
             obj = detection.results[0]
             label_name = self.to_label(obj.id)

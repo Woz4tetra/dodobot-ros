@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 class ParticleFilter(object):
     def __init__(self, num_particles, measure_std_error, input_std_error):
         self.num_states = 3  # x, y, z
-        self.particles = np.empty((num_particles, self.num_states))
+        self.particles = np.zeros((num_particles, self.num_states))
         self.num_particles = num_particles
         self.measure_std_error = measure_std_error
         self.input_std_error = input_std_error
 
         # distribute particles randomly with uniform weight
-        self.weights = np.empty(num_particles)
+        self.weights = np.ones(num_particles)
+        self.weights /= sum(self.weights)
         
     def create_uniform_particles(self, initial_state, state_range):
         assert len(initial_state) == self.num_states
@@ -34,7 +35,6 @@ class ParticleFilter(object):
         with noise std
         u[0, 1, 2, 3] = linear_vx * dt, 0.0 (no Y component), 0.0 (no Z component), angular_z * dt
         """
-        
         # angular update
         th_dot = u[3] * dt + randn(self.num_particles) * self.input_std_error[3]
         self.particles[:, 0] = self.particles[:, 0] * np.cos(th_dot) - self.particles[:, 1] * np.sin(th_dot)
@@ -47,22 +47,23 @@ class ParticleFilter(object):
 
     def update(self, z):
         """Update particle filter according to measurement z (object position)"""
-        self.weights.fill(1.0)
+        # self.weights.fill(1.0)
 
         # weight according to how far away the particle is from the measurement in x, y, z
-        for axis in range(3):
+        for axis in range(self.num_states):
             axis_val = self.particles[:, axis]
             self.weights *= scipy.stats.norm(axis_val, self.measure_std_error).pdf(z[axis])
 
         self.weights += 1.e-300  # avoid divide by zero error
         self.weights /= sum(self.weights)  # normalize
+        # print "weights:", self.weights
 
     def neff(self):
         return 1.0 / np.sum(np.square(self.weights))
 
     def resample(self):
         cumulative_sum = np.cumsum(self.weights)
-        cumulative_sum[-1] = 1.  # avoid round-off error
+        cumulative_sum[-1] = 1.0  # avoid round-off error
         indexes = np.searchsorted(cumulative_sum, random(self.num_particles))
 
         # resample according to indexes
@@ -79,7 +80,6 @@ class ParticleFilter(object):
 
     def estimate(self):
         """ returns mean and variance """
-        # pos = self.particles[:, 0:3]
         mu = self.mean()
         var = np.average((self.particles - mu) ** 2, weights=self.weights, axis=0)
 
@@ -87,12 +87,14 @@ class ParticleFilter(object):
 
     def mean(self):
         """ returns weighted mean position"""
-        # return np.average(self.particles[:, 0:3], weights=self.weights, axis=0)
         return np.average(self.particles, weights=self.weights, axis=0)
 
     def check_resample(self):
         if self.neff() < self.num_particles / 2:
             self.resample()
+            return True
+        else:
+            return False
 
     def systemic_resample(self, w):
         N = len(w)

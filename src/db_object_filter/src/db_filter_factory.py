@@ -10,32 +10,33 @@ class ObjectFilter(object):
         self.name = name
         self.label = label
         self.pf = ParticleFilter(num_particles, meas_std_val, input_std)
-        self.pf.create_uniform_particles(initial_state, initial_range)
-        self.lock = threading.Lock()
+        # self.pf.create_uniform_particles(initial_state, initial_range)
+        self.pf.create_gaussian_particles(initial_state, initial_range)
+        # self.lock = threading.Lock()
     
     def update(self, measurement):
-        with self.lock:
-            self.pf.update(measurement)
+        # with self.lock:
+        self.pf.update(measurement)
 
     def predict(self, input_vector, dt):
-        with self.lock:
-            self.pf.predict(input_vector, dt)
+        # with self.lock:
+        self.pf.predict(input_vector, dt)
         
     def mean(self):
-        with self.lock:
-            return self.pf.mean()
+        # with self.lock:
+        return self.pf.mean()
     
     def estimate(self):
-        with self.lock:
-            return self.pf.estimate()
+        # with self.lock:
+        return self.pf.estimate()
     
     def particles(self):
-        with self.lock:
-            return self.pf.particles
+        # with self.lock:
+        return self.pf.particles
     
     def check_resample(self):
-        with self.lock:
-            self.pf.check_resample()
+        # with self.lock:
+        self.pf.check_resample()
 
 
 class FilterFactory(object):
@@ -52,24 +53,25 @@ class FilterFactory(object):
         self.max_num_filters = max_num_filters
 
         self.filters = {}
+        self.lock = threading.Lock()
 
-        self.compute_max_confidence(len(self.initial_range))
+        self._compute_max_confidence(len(self.initial_range))
 
     def get_filter_name(self, label, index):
         return "%s_%s" % (label, index)
 
-    def init_filter(self, label, initial_state):
+    def _init_filter(self, label, initial_state):
+        if label not in self.filters:
+            self.filters[label] = []
+        
         filter_index = 0
-        for obj_filter in self.filters:
+        for obj_filter in self.filters[label]:
             if obj_filter.label == label:
                 filter_index += 1
         filter_name = self.get_filter_name(label, filter_index)
 
-        if label not in self.filters:
-            self.filters[label] = []
-        
         while len(self.filters[label]) >= self.max_num_filters:
-            self.remove_least_confidence_filter(label)
+            self._remove_least_confidence_filter(label)
 
         obj_filter = ObjectFilter(
             filter_name, label,
@@ -79,81 +81,96 @@ class FilterFactory(object):
         )
         self.filters[label].append(obj_filter)
     
-    def remove_least_confidence_filter(self, label):
+    def _remove_least_confidence_filter(self, label):
         index_to_remove = None
         smallest_variance = None
         for index, obj_filter in enumerate(self.filters[label]):
             mean, variance = obj_filter.estimate()
+            variance = np.linalg.norm(variance)
             if smallest_variance is None:
                 smallest_variance = variance
                 index_to_remove = index
             elif variance < smallest_variance:
                 smallest_variance = variance
                 index_to_remove = index
-        self.filters.pop(index_to_remove)
+        self.filters[label].pop(index_to_remove)
     
     def get_particles(self, label, filter_index):
-        if label in self.filters and 0 <= filter_index < len(self.filters[label]):
-            return self.filters[label][filter_index].particles()
-        else:
-            return None
+        with self.lock:
+            if label in self.filters and 0 <= filter_index < len(self.filters[label]):
+                return self.filters[label][filter_index].particles()
+            else:
+                return None
     
     def get_all_particles(self):
-        particles = []
-        for label in self.filters:
-            for obj_filter in self.filters[label]:
-                particles.extend(obj_filter.particles())
-        return particles
+        with self.lock:
+            particles = []
+            for label in self.filters:
+                for obj_filter in self.filters[label]:
+                    particles.extend(obj_filter.particles())
+            return particles
         
     def get_means(self):
-        means = {}
-        for label in self.filters:
-            for obj_filter in self.filters[label]:
-                means[obj_filter.name] = obj_filter.mean()
-        return means
+        with self.lock:
+            means = {}
+            for label in self.filters:
+                for obj_filter in self.filters[label]:
+                    means[obj_filter.name] = obj_filter.mean()
+            return means
 
-    def get_label_means(self, label):
+    def _get_label_means(self, label):
         means = []
         for obj_filter in self.filters[label]:
             means.append(obj_filter.mean())
         return means
+    
+    def is_label_initialized(self, label):
+        return len(self.filters) != 0 and label in self.filters and len(self.filters[label]) != 0
 
     def update(self, label, measurement):
-        if len(self.filters) == 0 or len(self.filters[label]) == 0:
-            self.init_filter(label, measurement)
-            return
+        with self.lock:
+            rospy.loginfo("%s Measurement: %s" % (label, measurement))
+            if not self.is_label_initialized(label):
+                self._init_filter(label, measurement)
+                rospy.loginfo("%s mean: %s" % (self.filters[label][0].name, self.filters[label][0].mean()))
+                rospy.loginfo("%s weights: %s" % (self.filters[label][0].name, self.filters[label][0].pf.weights))
+                return
 
-        means = self.get_label_means(label)
-        for filter_index, mean in enumerate(means):
-            confidence = self.get_confidences(measurement, mean)
-            rospy.loginfo("%s confidence: %s" % (label, confidence))
-            if confidence > self.match_threshold:
+            measurement_matched = False
+            means = self._get_label_means(label)
+            for filter_index, mean in enumerate(means):
                 obj_filter = self.filters[label][filter_index]
-                rospy.loginfo("Measurement matches %s" % obj_filter.name)
-                obj_filter.update(measurement)
-                break
-            elif confidence < self.new_filter_threshold:
+                confidence = self._get_confidences(measurement, mean)
+                rospy.loginfo("%s confidence: %s. %s Mean: %s" % (label, confidence, obj_filter.name, mean))
+                if confidence > self.match_threshold:
+                    rospy.loginfo("Measurement matches %s" % obj_filter.name)
+                    obj_filter.update(measurement)
+                    measurement_matched = True
+                    break
+            if not measurement_matched and confidence < self.new_filter_threshold:
                 rospy.loginfo("Measurement doesn't match filter. Creating a new one")
-                self.init_filter(label, measurement)
-                break
+                self._init_filter(label, measurement)
     
-    def get_confidences(self, measurement, mean):
+    def _get_confidences(self, measurement, mean):
         confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
         confidence /= self.max_confidence
         return confidence
     
-    def compute_max_confidence(self, dims):
+    def _compute_max_confidence(self, dims):
         # for normalizing confidence
         zeros = np.zeros(dims)
         self.max_confidence = scipy.stats.multivariate_normal.pdf(zeros, mean=zeros, cov=self.match_cov)
 
     def predict(self, input_vector, dt):
-        for label in self.filters:
-            for obj_filter in self.filters[label]:
-                obj_filter.predict(input_vector, dt)
+        with self.lock:
+            for label in self.filters:
+                for obj_filter in self.filters[label]:
+                    rospy.loginfo("%s predict: %s, %s" % (obj_filter.name, input_vector, dt))
+                    obj_filter.predict(input_vector, dt)
 
     def check_resample(self):
-        for label in self.filters:
-            for obj_filter in self.filters[label]:
-                obj_filter.check_resample()
+        with self.lock:
+            for label in self.filters:
+                for obj_filter in self.filters[label]:
+                    obj_filter.check_resample()
 
