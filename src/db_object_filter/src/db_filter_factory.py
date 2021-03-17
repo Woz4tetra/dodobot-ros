@@ -28,7 +28,7 @@ class FilterFactory(object):
         self.filters = {}
         for label in self.class_labels:
             self.filters[label] = []
-            for filter_index in self.max_num_filters:
+            for filter_index in xrange(self.max_num_filters):
                 obj_filter = ParticleFilter(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
@@ -39,6 +39,7 @@ class FilterFactory(object):
     def _init_filter(self, label, initial_state):
         filter_index = self._get_least_confidence_filter(label)
         obj_filter = self.filters[label][filter_index]
+        rospy.loginfo("Reinitializing %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
         obj_filter.create_gaussian_particles(initial_state, self.initial_range)
     
     def _get_least_confidence_filter(self, label):
@@ -63,31 +64,38 @@ class FilterFactory(object):
         with self.lock:
             for label in self.filters:
                 for obj_filter in self.filters[label]:
-                    yield obj_filter
-        
-    def update(self, measurements):
-        with self.lock:
-            for label, measurement in measurements.items():
-                # if none of the filters for this label are initialized, initialize automatically
-                if all([not obj_filter.is_initialized() for obj_filter in self.filters[label]]):
-                    self._init_filter(label, measurement)
-                    return
-                
-                largest_confidence = 0.0
-                largest_index = None
-                for obj_filter in self.filters[label]:
                     if not obj_filter.is_initialized():
                         continue
-                    mean = obj_filter.mean()
-                    confidence = self._get_confidences(measurement, mean)
-                    if confidence > largest_confidence:
-                        largest_confidence = confidence
-                        largest_index = obj_filter.serial.index
+                    yield obj_filter
+        
+    def update(self, all_measurements):
+        with self.lock:
+            for label, measurements in all_measurements.items():
+                for measurement in measurements:
+                    self._analyze_measurement(label, measurement)
+    
+    def _analyze_measurement(self, label, measurement):
+        # if none of the filters for this label are initialized, initialize automatically
+        if all([not obj_filter.is_initialized() for obj_filter in self.filters[label]]):
+            self._init_filter(label, measurement)
+            return
+        
+        largest_confidence = 0.0
+        largest_index = None
+        for obj_filter in self.filters[label]:
+            if not obj_filter.is_initialized():
+                continue
+            mean = obj_filter.mean()
+            confidence = self._get_confidences(measurement, mean)
+            if confidence > largest_confidence:
+                largest_confidence = confidence
+                largest_index = obj_filter.serial.index
 
-                if largest_index is not None and largest_confidence > self.match_threshold:
-                    self.filters[label][largest_index].update(measurement)
-                if largest_confidence < self.new_filter_threshold:
-                    self._init_filter()
+        rospy.loginfo("%s[%s]: %s, %s" % (label, measurement, largest_index, largest_confidence))
+        if largest_index is not None and largest_confidence > self.match_threshold:
+            self.filters[label][largest_index].update(measurement)
+        if largest_confidence < self.new_filter_threshold:
+            self._init_filter(label, measurement)
 
     def _get_confidences(self, measurement, mean):
         confidence = scipy.stats.multivariate_normal.pdf(measurement, mean=mean, cov=self.match_cov)
@@ -101,12 +109,10 @@ class FilterFactory(object):
 
     def predict(self, input_vector, dt):
         for obj_filter in self.iter_filters():
-            if not obj_filter.is_initialized():
-                continue
             obj_filter.predict(input_vector, dt)
 
     def check_resample(self):
         for obj_filter in self.iter_filters():
-            if not obj_filter.is_initialized():
-                continue
-            obj_filter.check_resample()
+            if obj_filter.check_resample():
+                rospy.loginfo("Resampling %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
+
