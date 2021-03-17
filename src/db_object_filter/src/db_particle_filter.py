@@ -1,21 +1,34 @@
 import numpy as np
 from numpy.random import randn, random, uniform
 import scipy.stats
-import matplotlib.pyplot as plt
+import collections
+
+
+FilterSerial = collections.namedtuple("FilterSerial", "label index")
+
 
 
 class ParticleFilter(object):
-    def __init__(self, num_particles, measure_std_error, input_std_error):
+    def __init__(self, serial, num_particles, measure_std_error, input_std_error):
+        self.serial = serial
         self.num_states = 3  # x, y, z
         self.particles = np.zeros((num_particles, self.num_states))
         self.num_particles = num_particles
         self.measure_std_error = measure_std_error
         self.input_std_error = input_std_error
 
-        # distribute particles randomly with uniform weight
-        self.weights = np.ones(num_particles)
+        self.measure_distribution = scipy.stats.norm(0.0, self.measure_std_error)
+
+        self.initialize_weights()
+    
+    def is_initialized(self):
+        return not np.all(self.particles == 0.0)
+
+    def initialize_weights(self):
+        # initialize with uniform weight
+        self.weights = np.ones(self.num_particles)
         self.weights /= sum(self.weights)
-        
+
     def create_uniform_particles(self, initial_state, state_range):
         assert len(initial_state) == self.num_states
         assert len(state_range) == self.num_states
@@ -46,15 +59,12 @@ class ParticleFilter(object):
         self.particles[:, 2] += u[2] * dt + randn(self.num_particles) * self.input_std_error[2]
 
     def update(self, z):
-        """Update particle filter according to measurement z (object position)"""
-        # self.weights.fill(1.0)
-
+        """Update particle filter according to measurement z (object position: [x, y, z])"""
         # weight according to how far away the particle is from the measurement in x, y, z
-        for axis in range(self.num_states):
-            axis_val = self.particles[:, axis]
-            self.weights *= scipy.stats.norm(axis_val, self.measure_std_error).pdf(z[axis])
+        distances = np.linalg.norm(self.particles - z, axis=1)
+        self.weights *= self.measure_distribution.pdf(distances)
 
-        self.weights += 1.e-300  # avoid divide by zero error
+        self.weights += 1.e-12  # avoid divide by zero error
         self.weights /= sum(self.weights)  # normalize
         # print "weights:", self.weights
 
@@ -62,21 +72,19 @@ class ParticleFilter(object):
         return 1.0 / np.sum(np.square(self.weights))
 
     def resample(self):
-        cumulative_sum = np.cumsum(self.weights)
-        cumulative_sum[-1] = 1.0  # avoid round-off error
-        indexes = np.searchsorted(cumulative_sum, random(self.num_particles))
-        # indexes = self.systemic_resample(self.weights)
+        # indices = self.simple_resample()
+        indices = self.systematic_resample()
 
-        # resample according to indexes
-        self.particles = self.particles[indexes]
-        self.weights = self.weights[indexes]
+        # resample according to indices
+        self.particles = self.particles[indices]
+        self.weights = self.weights[indices]
         self.weights /= np.sum(self.weights)  # normalize
 
-    def resample_from_index(self, indexes):
-        assert len(indexes) == self.num_particles
+    def resample_from_index(self, indices):
+        assert len(indices) == self.num_particles
 
-        self.particles = self.particles[indexes]
-        self.weights = self.weights[indexes]
+        self.particles = self.particles[indices]
+        self.weights = self.weights[indices]
         self.weights /= np.sum(self.weights)
 
     def estimate(self):
@@ -97,17 +105,22 @@ class ParticleFilter(object):
         else:
             return False
 
-    def systemic_resample(self, w):
-        N = len(w)
-        Q = np.cumsum(w)
-        indexes = np.zeros(N, 'int')
-        t = np.linspace(0, 1 - 1 / N, N) + random() / N
+    def simple_resample(self):
+        cumulative_sum = np.cumsum(self.weights)
+        cumulative_sum[-1] = 1.0  # avoid round-off error
+        indices = np.searchsorted(cumulative_sum, random(self.num_particles))
+        return indices
+
+    def systematic_resample(self):
+        cumulative_sum = np.cumsum(self.weights)
+        indices = np.zeros(self.num_particles, 'int')
+        t = np.linspace(0, 1 - 1 / self.num_particles, self.num_particles) + random() / self.num_particles
 
         i, j = 0, 0
-        while i < N and j < N:
-            while Q[j] < t[i]:
+        while i < self.num_particles and j < self.num_particles:
+            while cumulative_sum[j] < t[i]:
                 j += 1
-            indexes[i] = j
+            indices[i] = j
             i += 1
 
-        return indexes
+        return indices

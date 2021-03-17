@@ -26,8 +26,6 @@ import tf2_geometry_msgs
 
 from db_filter_factory import FilterFactory
 
-from db_object_filter.srv import ObjectLabel, ObjectLabelResponse
-
 
 class ObjectFilterNode:
     def __init__(self):
@@ -53,7 +51,7 @@ class ObjectFilterNode:
 
         self.input_std = rospy.get_param("~input_std", None)
         self.match_cov = rospy.get_param("~match_cov", 0.05)
-        self.match_threshold = rospy.get_param("~match_threshold", 0.90)
+        self.match_threshold = rospy.get_param("~match_threshold", 0.7)
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
         self.max_num_filters = rospy.get_param("~max_num_filters_per_label", 5)
 
@@ -66,6 +64,7 @@ class ObjectFilterNode:
             self.input_std = [0.007, 0.007, 0.007, 0.007]
         
         self.factory = FilterFactory(
+            self.class_labels,
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
             self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_num_filters
         )
@@ -85,21 +84,25 @@ class ObjectFilterNode:
         return self.class_labels[obj_id]
         
     def detections_callback(self, msg):
-        rospy.loginfo("\n\nNew measurement")
+        measurements = {}
         for detection in msg.detections:
             obj = detection.results[0]
-            label_name = self.to_label(obj.id)
+            label = self.to_label(obj.id)
             obj_pose = obj.pose.pose
-            measurement = [
+            measurement = (
                 obj_pose.position.x,
                 obj_pose.position.y,
                 obj_pose.position.z,
-            ]
-            self.factory.update(label_name, measurement)
+            )
+            if label not in measurements:
+                measurements[label] = []
+            measurements[label].append(measurement)
+        self.factory.update(measurements)
 
     def odom_callback(self, msg):
-        dt = msg.header.stamp.to_sec() - self.prev_pf_time
-        self.prev_pf_time = msg.header.stamp.to_sec()
+        current_time = msg.header.stamp.to_sec()
+        dt = current_time - self.prev_pf_time
+        self.prev_pf_time = current_time
 
         input_vector = [
             -msg.twist.twist.linear.x,
@@ -110,10 +113,12 @@ class ObjectFilterNode:
         self.factory.predict(input_vector, dt)
 
     def publish_all_poses(self):
-        means = self.factory.get_means()
         markers = MarkerArray()
 
-        for name, mean in means.items():
+        for obj_filter in self.factory.iter_filters():
+            mean = obj_filter.mean()
+            name = f"{obj_filter.serial.name}_{obj_filter.serial.index}"
+
             msg = TransformStamped()
             msg.header.stamp = rospy.Time.now()
             msg.header.frame_id = self.filter_frame
@@ -188,17 +193,18 @@ class ObjectFilterNode:
 
         return marker
     
-    def publish_particles(self, particles):
+    def publish_particles(self):
         particles_msg = PoseArray()
         particles_msg.header.frame_id = self.filter_frame
         particles_msg.header.stamp = rospy.Time.now()
 
-        for particle in particles:
-            pose_msg = Pose()
-            pose_msg.position.x = particle[0]
-            pose_msg.position.y = particle[1]
-            pose_msg.position.z = particle[2]
-            particles_msg.poses.append(pose_msg)
+        for obj_filter in self.factory.iter_filters():
+            for particle in  obj_filter.particles:
+                pose_msg = Pose()
+                pose_msg.position.x = particle[0]
+                pose_msg.position.y = particle[1]
+                pose_msg.position.z = particle[2]
+                particles_msg.poses.append(pose_msg)
 
         self.particles_pub.publish(particles_msg)
 
@@ -214,7 +220,7 @@ class ObjectFilterNode:
             self.publish_all_poses()
             
             if self.show_particles:
-                self.publish_particles(self.factory.get_all_particles())
+                self.publish_particles()
         # rospy.spin()
 
 
