@@ -65,6 +65,7 @@ class ParticleFilter(object):
         cumulative_sum = np.cumsum(self.weights)
         cumulative_sum[-1] = 1.0  # avoid round-off error
         indexes = np.searchsorted(cumulative_sum, random(self.num_particles))
+        # indexes = self.systemic_resample(self.weights)
 
         # resample according to indexes
         self.particles = self.particles[indexes]
