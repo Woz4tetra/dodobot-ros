@@ -28,7 +28,7 @@ class FilterFactory(object):
         self.filters = {}
         for label in self.class_labels:
             self.filters[label] = []
-            for filter_index in xrange(self.max_num_filters):
+            for filter_index in range(self.max_num_filters):
                 obj_filter = ParticleFilter(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
