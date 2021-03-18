@@ -33,12 +33,14 @@ class ParticleFilter(object):
         assert len(initial_state) == self.num_states
         assert len(state_range) == self.num_states
 
+        self.initialize_weights()
         for state_num in range(self.num_states):
             min_val = initial_state[state_num] - state_range[state_num]
             max_val = initial_state[state_num] + state_range[state_num]
             self.particles[:, state_num] = uniform(min_val, max_val, size=self.num_particles)
 
     def create_gaussian_particles(self, mean, var):
+        self.initialize_weights()
         for state_num in range(self.num_states):
             self.particles[:, state_num] = mean[state_num] + randn(self.num_particles) * var[state_num]
 
@@ -61,10 +63,11 @@ class ParticleFilter(object):
     def update(self, z):
         """Update particle filter according to measurement z (object position: [x, y, z])"""
         # weight according to how far away the particle is from the measurement in x, y, z
+        self.weights.fill(1.0)
         distances = np.linalg.norm(self.particles - z, axis=1)
         self.weights *= self.measure_distribution.pdf(distances)
 
-        self.weights += 1.e-12  # avoid divide by zero error
+        self.weights += 1.e-300  # avoid divide by zero error
         self.weights /= sum(self.weights)  # normalize
         # print "weights:", self.weights
 
@@ -99,7 +102,9 @@ class ParticleFilter(object):
         return np.average(self.particles, weights=self.weights, axis=0)
 
     def check_resample(self):
-        if self.neff() < self.num_particles / 2:
+        neff = self.neff()
+        # print "neff:", neff
+        if neff < self.num_particles / 2.0:
             self.resample()
             return True
         else:
@@ -114,7 +119,7 @@ class ParticleFilter(object):
     def systematic_resample(self):
         cumulative_sum = np.cumsum(self.weights)
         indices = np.zeros(self.num_particles, 'int')
-        t = np.linspace(0, 1 - 1 / self.num_particles, self.num_particles) + random() / self.num_particles
+        t = np.linspace(0, 1.0 - 1.0 / self.num_particles, self.num_particles) + random() / self.num_particles
 
         i, j = 0, 0
         while i < self.num_particles and j < self.num_particles:
