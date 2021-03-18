@@ -531,4 +531,5 @@ bool DodobotDetectNet::publish_overlay(detectNet::Detection* detections, int num
 	// publish the message
 	_overlay_pub.publish(msg);
 	ROS_DEBUG("publishing %ux%u overlay image", width, height);
+	return true;
 }

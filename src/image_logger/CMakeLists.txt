@@ -19,10 +19,10 @@ catkin_package(
 # set_target_properties(${PROJECT_NAME}_node PROPERTIES LINKER_LANGUAGE py)
 # set_target_properties(${PROJECT_NAME}_node PROPERTIES LINKER_LANGUAGE CMAKE_py_LINK_EXECUTABLE)
 
-catkin_install_python(
-    PROGRAMS
-    src/image_logger.py
-    src/image_publisher.py
-    # src/keyboard_listener.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# catkin_install_python(
+#     PROGRAMS
+#     src/image_logger.py
+#     src/image_publisher.py
+#     # src/keyboard_listener.py
+#     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )

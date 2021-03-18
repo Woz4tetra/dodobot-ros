@@ -17,10 +17,10 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 #     FILES
 # )
 
-generate_messages(
-    DEPENDENCIES
-    std_msgs
-)
+# generate_messages(
+#     DEPENDENCIES
+#     std_msgs
+# )
 
 
 ## Specify additional locations of header files
@@ -38,9 +38,9 @@ catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime
 )
 
-catkin_install_python(PROGRAMS src/db_object_filter_node.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# catkin_install_python(PROGRAMS src/db_object_filter_node.py
+#     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
 
 # add_library(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)
 # add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)

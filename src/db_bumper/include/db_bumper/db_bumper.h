@@ -52,7 +52,7 @@ private:
     double dot(point p1, point p2);
 
     point get_line_intersection(point l11, point l12, point l21, point l22);
-    double to_points_vector(vector<double>* input_x, vector<double>* input_y, vector<point>* output);
+    void to_points_vector(vector<double>* input_x, vector<double>* input_y, vector<point>* output);
     double get_scan_dist(point p);
     void apply_scan(bool left, bool right);
 

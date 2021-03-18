@@ -54,9 +54,9 @@ catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime
 )
 
-catkin_install_python(PROGRAMS src/db_waypoints_node.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# catkin_install_python(PROGRAMS src/db_waypoints_node.py
+#     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
 
 # add_library(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)
 # add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)

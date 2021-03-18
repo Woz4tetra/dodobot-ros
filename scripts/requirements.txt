@@ -1,3 +1,5 @@
 numpy
 PyYAML
 pydub
+pyaudio
+scipy

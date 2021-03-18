@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import rospy
 
 import std_msgs.msg
 
-from pulseaudio import Audio, Pacmd
+from pulseaudio import Audio
 
 from db_audio.srv import PlayAudio, PlayAudioResponse
 from db_audio.srv import StopAudio, StopAudioResponse
@@ -12,7 +12,8 @@ from db_audio.srv import StopAudio, StopAudioResponse
 
 class Sounds:
     def __init__(self, audio_sink, paths):
-        self.controller = Pacmd(audio_sink, 63119, 65536)
+        # self.controller = Pacmd(audio_sink, "/usr/bin/pacmd", 5.0)
+        Audio.set_sink_by_name(audio_sink)
         self.sounds = {name: Audio() for name in paths.keys()}
         self.paths = paths
 
@@ -129,7 +130,7 @@ def main():
     )
     rospy.loginfo("%s is initializing" % node_name)
 
-    audio_sink = rospy.get_param("~audio_sink", "alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo")
+    audio_sink = rospy.get_param("~audio_sink", "USB2.0 Device: Audio (hw:2,0)")
     audio_paths = load_paths()
     try:
         SOUNDS = Sounds(audio_sink, audio_paths)
