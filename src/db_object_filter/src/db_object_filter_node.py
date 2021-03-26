@@ -2,6 +2,8 @@
 
 import rospy
 
+import numpy as np
+
 from vision_msgs.msg import Detection2DArray
 
 from nav_msgs.msg import Odometry
@@ -24,7 +26,7 @@ class ObjectFilterNode:
         rospy.init_node(
             self.node_name,
             # disable_signals=True
-            log_level=rospy.DEBUG
+            # log_level=rospy.DEBUG
         )
         # rospy.on_shutdown(self.shutdown_hook)
 
@@ -55,7 +57,8 @@ class ObjectFilterNode:
             self.initial_range = [1.0, 1.0, 1.0]
         if self.input_std is None:
             self.input_std = [0.007, 0.007, 0.007, 0.007]
-        
+        self.input_vector = np.zeros(len(self.input_std))
+
         self.factory = FilterFactory(
             self.class_labels,
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
@@ -82,11 +85,11 @@ class ObjectFilterNode:
             obj = detection.results[0]
             label = self.to_label(obj.id)
             obj_pose = obj.pose.pose
-            measurement = (
+            measurement = np.array([
                 obj_pose.position.x,
                 obj_pose.position.y,
                 obj_pose.position.z,
-            )
+            ])
             if label not in measurements:
                 measurements[label] = []
             measurements[label].append(measurement)
@@ -97,13 +100,9 @@ class ObjectFilterNode:
         dt = current_time - self.prev_pf_time
         self.prev_pf_time = current_time
 
-        input_vector = [
-            -msg.twist.twist.linear.x,
-            0.0,
-            0.0,
-            -msg.twist.twist.angular.z,
-        ]
-        self.factory.predict(input_vector, dt)
+        self.input_vector[0] = -msg.twist.twist.linear.x
+        self.input_vector[3] = -msg.twist.twist.angular.z
+        self.factory.predict(self.input_vector, dt)
 
     def publish_all_poses(self):
         for obj_filter in self.factory.iter_filters():

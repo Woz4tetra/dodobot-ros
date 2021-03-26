@@ -18,5 +18,8 @@ done
 
 sudo apt install $package_list
 
+sudo apt -y install llvm-9
+LLVM_CONFIG=llvm-config-9 pip3 install llvmlite
+
 sudo apt -y install portaudio19-dev python3-pyaudio
-sudo pip3 install -r requirements.txt
+pip3 install -r requirements.txt

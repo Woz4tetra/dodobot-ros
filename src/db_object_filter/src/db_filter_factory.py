@@ -2,12 +2,13 @@ import rospy
 import threading
 import numpy as np
 import scipy.stats
-from db_particle_filter import ParticleFilter, FilterSerial
+from db_particle_filter import ParticleFilter, JitParticleFilter, FilterSerial
+
 
 
 class FilterFactory(object):
     def __init__(self, class_labels, num_particles, meas_std_val, input_std, initial_range, 
-            match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold):
+            match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold, use_numba=True):
         self.class_labels = class_labels
         self.num_particles = num_particles
         self.meas_std_val = meas_std_val
@@ -23,6 +24,11 @@ class FilterFactory(object):
 
         self.lock = threading.Lock()
 
+        if use_numba:
+            self.ParticleFilterClass = JitParticleFilter
+        else:
+            self.ParticleFilterClass = ParticleFilter
+
         self._init_filter_container()
         self._compute_max_confidence(len(self.initial_range))
 
@@ -35,7 +41,7 @@ class FilterFactory(object):
                 rospy.logwarn("Encountered negative number for max item count for label '%s'. Setting to 0" % label)
                 max_num_filters = 0
             for filter_index in range(max_num_filters):
-                obj_filter = ParticleFilter(
+                obj_filter = self.ParticleFilterClass(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
                     self.meas_std_val, self.input_std

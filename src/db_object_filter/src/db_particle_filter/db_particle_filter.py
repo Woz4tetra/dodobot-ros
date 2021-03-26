@@ -15,7 +15,7 @@ class ParticleFilter(object):
         self.particles = np.zeros((num_particles, self.num_states))
         self.num_particles = num_particles
         self.measure_std_error = measure_std_error
-        self.input_std_error = input_std_error
+        self.input_std_error = np.array(input_std_error)
 
         self.measure_distribution = scipy.stats.norm(0.0, self.measure_std_error)
 
@@ -27,7 +27,7 @@ class ParticleFilter(object):
     def initialize_weights(self):
         # initialize with uniform weight
         self.weights = np.ones(self.num_particles)
-        self.weights /= sum(self.weights)
+        self.weights /= np.sum(self.weights)
 
     def create_uniform_particles(self, initial_state, state_range):
         assert len(initial_state) == self.num_states
@@ -68,7 +68,7 @@ class ParticleFilter(object):
         self.weights *= self.measure_distribution.pdf(distances)
 
         self.weights += 1.e-300  # avoid divide by zero error
-        self.weights /= sum(self.weights)  # normalize
+        self.weights /= np.sum(self.weights)  # normalize
         # print "weights:", self.weights
 
     def neff(self):
