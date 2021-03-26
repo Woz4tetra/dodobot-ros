@@ -7,7 +7,7 @@ from db_particle_filter import ParticleFilter, FilterSerial
 
 class FilterFactory(object):
     def __init__(self, class_labels, num_particles, meas_std_val, input_std, initial_range, 
-            match_cov, match_threshold, new_filter_threshold, max_item_count):
+            match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold):
         self.class_labels = class_labels
         self.num_particles = num_particles
         self.meas_std_val = meas_std_val
@@ -19,6 +19,7 @@ class FilterFactory(object):
         self.new_filter_threshold = new_filter_threshold
         self.max_item_count = max_item_count
         self.default_max_num_filters = 1
+        self.confident_filter_threshold = confident_filter_threshold
 
         self.lock = threading.Lock()
 
@@ -29,7 +30,7 @@ class FilterFactory(object):
         self.filters = {}
         for label in self.class_labels:
             self.filters[label] = []
-            max_num_filters = self.max_item_count.get(label, default=self.default_max_num_filters)
+            max_num_filters = self.max_item_count.get(label, self.default_max_num_filters)
             if max_num_filters < 0:
                 rospy.logwarn("Encountered negative number for max item count for label '%s'. Setting to 0" % label)
                 max_num_filters = 0
@@ -46,8 +47,12 @@ class FilterFactory(object):
             rospy.logdebug("Ignoring filter initialization. Max item count for label is zero.")
             return
         filter_index = self._get_least_confidence_filter(label)
+        if filter_index is None:
+            rospy.logdebug("All existing filters are highly confident. Ignoring measurement: %s, %s" % (label, initial_state))
+            return
+
         obj_filter = self.filters[label][filter_index]
-        rospy.loginfo("Reinitializing %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
+        rospy.logdebug("Reinitializing %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
         obj_filter.create_gaussian_particles(initial_state, self.initial_range)
     
     def _get_least_confidence_filter(self, label):
@@ -60,12 +65,17 @@ class FilterFactory(object):
 
             mean, variance = obj_filter.estimate()
             variance = np.linalg.norm(variance)
+
+            # don't consider filter for removal if its variance is small
+            if variance < self.confident_filter_threshold:
+                continue
             if smallest_variance is None:
                 smallest_variance = variance
                 index_to_remove = obj_filter.serial.index
             elif variance < smallest_variance:
                 smallest_variance = variance
                 index_to_remove = obj_filter.serial.index
+        rospy.logdebug("%s_%s's variance was %s" % (label, index_to_remove, smallest_variance))
         return index_to_remove
     
     def iter_filters(self):
@@ -99,10 +109,10 @@ class FilterFactory(object):
                 largest_confidence = confidence
                 largest_index = obj_filter.serial.index
 
-        rospy.loginfo("%s[%s]: %s, %s" % (label, measurement, largest_index, largest_confidence))
+        rospy.logdebug("%s[%s]: %s, %s" % (label, measurement, largest_index, largest_confidence))
         if largest_index is not None and largest_confidence > self.match_threshold:
             self.filters[label][largest_index].update(measurement)
-        if largest_confidence < self.new_filter_threshold:
+        elif largest_confidence < self.new_filter_threshold:
             self._init_filter(label, measurement)
 
     def _get_confidences(self, measurement, mean):
@@ -122,5 +132,5 @@ class FilterFactory(object):
     def check_resample(self):
         for obj_filter in self.iter_filters():
             if obj_filter.check_resample():
-                rospy.loginfo("Resampling %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
+                rospy.logdebug("Resampling %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
 

@@ -31,9 +31,9 @@ class ObjectFilterNode:
     def __init__(self):
         self.node_name = "db_object_filter"
         rospy.init_node(
-            self.node_name
+            self.node_name,
             # disable_signals=True
-            # log_level=rospy.DEBUG
+            log_level=rospy.DEBUG
         )
         # rospy.on_shutdown(self.shutdown_hook)
 
@@ -53,6 +53,7 @@ class ObjectFilterNode:
         self.match_cov = rospy.get_param("~match_cov", 0.05)
         self.match_threshold = rospy.get_param("~match_threshold", 0.7)
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
+        self.confident_filter_threshold = rospy.get_param("~confident_filter_threshold", 0.005)
         self.max_item_count = rospy.get_param("~max_item_count", None)
 
         assert self.class_labels is not None
@@ -69,7 +70,8 @@ class ObjectFilterNode:
         self.factory = FilterFactory(
             self.class_labels,
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
-            self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_item_count
+            self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_item_count,
+            self.confident_filter_threshold,
         )
         self.prev_pf_time = rospy.Time.now().to_sec()
 
