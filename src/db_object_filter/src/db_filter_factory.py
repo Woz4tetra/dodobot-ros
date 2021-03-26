@@ -7,7 +7,7 @@ from db_particle_filter import ParticleFilter, FilterSerial
 
 class FilterFactory(object):
     def __init__(self, class_labels, num_particles, meas_std_val, input_std, initial_range, 
-            match_cov, match_threshold, new_filter_threshold, max_num_filters):
+            match_cov, match_threshold, new_filter_threshold, max_item_count):
         self.class_labels = class_labels
         self.num_particles = num_particles
         self.meas_std_val = meas_std_val
@@ -17,7 +17,8 @@ class FilterFactory(object):
         self.match_cov = match_cov
         self.match_threshold = match_threshold
         self.new_filter_threshold = new_filter_threshold
-        self.max_num_filters = max_num_filters
+        self.max_item_count = max_item_count
+        self.default_max_num_filters = 1
 
         self.lock = threading.Lock()
 
@@ -28,7 +29,11 @@ class FilterFactory(object):
         self.filters = {}
         for label in self.class_labels:
             self.filters[label] = []
-            for filter_index in range(self.max_num_filters):
+            max_num_filters = self.max_item_count.get(label, default=self.default_max_num_filters)
+            if max_num_filters < 0:
+                rospy.logwarn("Encountered negative number for max item count for label '%s'. Setting to 0" % label)
+                max_num_filters = 0
+            for filter_index in range(max_num_filters):
                 obj_filter = ParticleFilter(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
@@ -37,6 +42,9 @@ class FilterFactory(object):
                 self.filters[label].append(obj_filter)
 
     def _init_filter(self, label, initial_state):
+        if len(self.filters[label]) == 0:
+            rospy.logdebug("Ignoring filter initialization. Max item count for label is zero.")
+            return
         filter_index = self._get_least_confidence_filter(label)
         obj_filter = self.filters[label][filter_index]
         rospy.loginfo("Reinitializing %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))

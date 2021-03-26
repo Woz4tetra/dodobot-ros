@@ -8,3 +8,12 @@ match_cov: 0.1
 match_threshold: 0.9
 new_filter_threshold: 0.9
 max_num_filters_per_label: 3
+
+max_item_count:
+  cozmo_cube: 0
+  blue_cut_sphere: 2
+  red_cut_sphere: 1
+  blue_low_bin: 1
+  red_low_bin: 1
+  blue_cube: 1
+  red_cube: 1

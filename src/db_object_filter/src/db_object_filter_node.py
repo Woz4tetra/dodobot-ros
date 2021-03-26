@@ -53,10 +53,13 @@ class ObjectFilterNode:
         self.match_cov = rospy.get_param("~match_cov", 0.05)
         self.match_threshold = rospy.get_param("~match_threshold", 0.7)
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
-        self.max_num_filters = rospy.get_param("~max_num_filters_per_label", 3)
+        self.max_item_count = rospy.get_param("~max_item_count", None)
 
         assert self.class_labels is not None
         assert len(self.class_labels) > 0
+
+        if self.max_item_count is None:
+            self.max_item_count = {}
 
         if self.initial_range is None:
             self.initial_range = [1.0, 1.0, 1.0]
@@ -66,7 +69,7 @@ class ObjectFilterNode:
         self.factory = FilterFactory(
             self.class_labels,
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
-            self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_num_filters
+            self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_item_count
         )
         self.prev_pf_time = rospy.Time.now().to_sec()
 
@@ -88,8 +91,6 @@ class ObjectFilterNode:
         for detection in msg.detections:
             obj = detection.results[0]
             label = self.to_label(obj.id)
-            if label != "blue_cut_sphere":
-                continue
             obj_pose = obj.pose.pose
             measurement = (
                 obj_pose.position.x,

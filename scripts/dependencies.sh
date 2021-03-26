@@ -18,4 +18,5 @@ done
 
 sudo apt install $package_list
 
+sudo apt -y install portaudio19-dev python3-pyaudio
 sudo pip3 install -r requirements.txt
