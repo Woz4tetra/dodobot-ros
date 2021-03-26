@@ -2,22 +2,13 @@
 
 import rospy
 
-from std_msgs.msg import ColorRGBA
-from std_msgs.msg import String
-
 from vision_msgs.msg import Detection2DArray
 
 from nav_msgs.msg import Odometry
 
 from geometry_msgs.msg import PoseArray
-from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Pose
-from geometry_msgs.msg import Vector3
-from geometry_msgs.msg import Point
 from geometry_msgs.msg import TransformStamped
-
-from visualization_msgs.msg import MarkerArray
-from visualization_msgs.msg import Marker
 
 import tf
 import tf2_ros
@@ -40,8 +31,6 @@ class ObjectFilterNode:
         self.class_labels = rospy.get_param("~class_labels", None)
         self.filter_frame = rospy.get_param("~filter_frame", "base_link")
 
-        self.marker_color = rospy.get_param("~marker_color", (1.0, 1.0, 1.0, 0.75))
-        self.marker_size = rospy.get_param("~marker_size", 0.1)
         self.show_particles = rospy.get_param("~publish_particles", True)
 
         self.initial_range = rospy.get_param("~initial_range", None)
@@ -79,7 +68,6 @@ class ObjectFilterNode:
         self.odom_sub = rospy.Subscriber("odom", Odometry, self.odom_callback, queue_size=25)
 
         self.particles_pub = rospy.Publisher("pf_particles", PoseArray, queue_size=5)
-        self.marker_pub = rospy.Publisher("pf_markers", MarkerArray, queue_size=50)
 
         self.broadcaster = tf2_ros.TransformBroadcaster()
 
@@ -118,8 +106,6 @@ class ObjectFilterNode:
         self.factory.predict(input_vector, dt)
 
     def publish_all_poses(self):
-        markers = MarkerArray()
-
         for obj_filter in self.factory.iter_filters():
             mean = obj_filter.mean()
             name = "%s_%s" % (obj_filter.serial.label, obj_filter.serial.index)
@@ -133,70 +119,6 @@ class ObjectFilterNode:
             msg.transform.translation.z = mean[2]
             msg.transform.rotation.w = 1.0
             self.broadcaster.sendTransform(msg)
-
-            pose = Pose()
-            pose.position.x = mean[0]
-            pose.position.y = mean[1]
-            pose.position.z = mean[2]
-            pose.orientation.w = 1.0
-            arrow_marker = self.make_marker(name, pose)
-            label_marker = self.make_marker(name, pose)
-
-            self.prep_arrow_marker(arrow_marker)
-            self.prep_label_marker(name, label_marker)
-
-            markers.markers.append(arrow_marker)
-            markers.markers.append(label_marker)
-        
-        self.marker_pub.publish(markers)
-    
-    def prep_arrow_marker(self, arrow_marker):
-        arrow_marker.type = Marker.ARROW
-        arrow_marker.ns = "pos" + arrow_marker.ns
-        arrow_marker.color.a = 0.75
-        arrow_marker.scale.x = self.marker_size / 4.0
-        arrow_marker.scale.y = self.marker_size / 2.5
-        arrow_marker.scale.z = self.marker_size / 2.0
-        
-        p1 = Point()
-        p2 = Point()
-        
-        p2.x = self.marker_size
-
-        arrow_marker.points.append(p1)
-        arrow_marker.points.append(p2)
-    
-    def prep_label_marker(self, label, label_marker):
-        label_marker.type = Marker.TEXT_VIEW_FACING
-        label_marker.ns = "text" + label_marker.ns
-        label_marker.text = label
-        label_marker.scale.x = 0.0
-        label_marker.scale.y = 0.0
-    
-    def make_marker(self, name, pose):
-        # name: str, marker name
-        # pose: geometry_msgs.msg.Pose
-        marker = Marker()
-        marker.action = Marker.ADD
-        marker.pose = pose
-        marker.header.frame_id = self.filter_frame
-        marker.lifetime = rospy.Duration(0.25)  # seconds
-        marker.ns = name
-        marker.id = 0  # all names should have index in the name already
-
-        scale_vector = Vector3()
-        scale_vector.x = self.marker_size
-        scale_vector.y = self.marker_size
-        scale_vector.z = self.marker_size
-        marker.scale = scale_vector
-        marker.color = ColorRGBA(
-            r=self.marker_color[0],
-            g=self.marker_color[1],
-            b=self.marker_color[2],
-            a=self.marker_color[3],
-        )
-
-        return marker
     
     def publish_particles(self):
         particles_msg = PoseArray()
