@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-from __future__ import print_function
-
-import os
-import cv2
 import math
-import datetime
 import numpy as np
 
 import rospy
-import rosservice
 import actionlib
 
-import tf
 import tf2_ros
 import tf_conversions
 import tf2_geometry_msgs
+import tf.transformations
 
-import geometry_msgs
+import dynamic_reconfigure.client
+
+from geometry_msgs.msg import PoseStamped, Quaternion
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
@@ -68,24 +64,26 @@ class CentralPlanning:
         self.map_frame = rospy.get_param("~global_frame", "map")
         self.base_link_frame = rospy.get_param("~robot_frame", "base_link")
         self.gripper_frame = rospy.get_param("~gripper_frame", "gripper_link")
-        self.camera_frame = rospy.get_param("~camera_frame", "camera_link")
+        self.tilt_base_frame = rospy.get_param("~tilt_base_frame", "tilt_base_link")
         self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
 
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
 
         self.goal_distance_offset = 0.1
-        self.near_object_distance = 0.25
+        self.near_object_distance = 0.75
         
         self.pickup_z_offset = 0.02
         self.deliver_z_offset = 0.02
 
         self.transport_z_height = 0.08
 
+        self.local_costmap_enabled_state = None
+
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.valid_action_types = SequenceRequestAction.PICKUP, SequenceRequestAction.DELIVER
-        self.valid_goal_types = SequenceRequestAction.NAMED_GOAL, SequenceRequestAction.POSE_GOAL
+        self.valid_action_types = SequenceRequestGoal.PICKUP, SequenceRequestGoal.DELIVER
+        self.valid_goal_types = SequenceRequestGoal.NAMED_GOAL, SequenceRequestGoal.POSE_GOAL
 
         self.sequence_sm = SequenceStateMachine(self)
 
@@ -107,8 +105,11 @@ class CentralPlanning:
         # move_base make_plan service
         self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
 
+        # move_base dynamic reconfigure
+        self.obstacle_layer_dyn_client = dynamic_reconfigure.client.Client("/move_base/local_costmap/obstacle_layer", timeout=30, config_callback=self.dyn_obstacle_layer_callback)
+
         # camera tilter service
-        self.tilter_pub = rospy.Publisher("tilter_orientation", geometry_msgs.msg.Quaternion, queue_size=100)
+        self.tilter_pub = rospy.Publisher("tilter_orientation", Quaternion, queue_size=100)
 
         # are robot motors enabled service
         self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
@@ -148,6 +149,9 @@ class CentralPlanning:
             rospy.wait_for_service(name, timeout=timeout)
             rospy.loginfo("%s service is ready" % name)
         return srv_obj
+    
+    def dyn_obstacle_layer_callback(self, config):
+        rospy.loginfo("Config set to %s" % str(config))
 
     def is_gripper_ok(self, goal):
         """
@@ -156,9 +160,9 @@ class CentralPlanning:
         """
         is_grabbing = self.is_gripper_grabbing()
 
-        if goal.action == SequenceRequestAction.PICKUP and not is_grabbing:
+        if goal.action == SequenceRequestGoal.PICKUP and not is_grabbing:
             return True
-        elif goal.action == SequenceRequestAction.DELIVER and is_grabbing:
+        elif goal.action == SequenceRequestGoal.DELIVER and is_grabbing:
             return True
         else:
             return False
@@ -184,7 +188,7 @@ class CentralPlanning:
         if parent_frame is None:
             parent_frame = self.map_frame
 
-        if goal.goal_type == SequenceRequestAction.POSE_GOAL:
+        if goal.type == SequenceRequestGoal.POSE_GOAL:
             goal_frame = goal.pose_stamped.header.frame_id
             if goal_frame == parent_frame:
                 return goal.pose_stamped
@@ -195,7 +199,7 @@ class CentralPlanning:
                 pose_map_frame = tf2_geometry_msgs.do_transform_pose(goal.pose_stamped, transform)
                 return pose_map_frame
 
-        elif goal.goal_type == SequenceRequestAction.NAMED_GOAL:
+        elif goal.type == SequenceRequestGoal.NAMED_GOAL:
             return self.get_pose_in_frame(parent_frame, goal.name)
         
         rospy.logwarn("Incorrect goal_type. This should have been checked in the precheck state!")
@@ -208,7 +212,7 @@ class CentralPlanning:
         transform = self.lookup_transform(parent_frame, child_frame)
         if transform is None:
             return None
-        zero_pose = geometry_msgs.PoseStamped()
+        zero_pose = PoseStamped()
         zero_pose.header.frame_id = child_frame
         pose_map_frame = tf2_geometry_msgs.do_transform_pose(zero_pose, transform)
         return pose_map_frame
@@ -272,26 +276,24 @@ class CentralPlanning:
             rospy.logwarn("Failed to get path to goal. Goal pose is not valid")
             return None
 
-        req = GetPlan()
-        req.start = start_pose
-        req.goal = goal_pose
-        req.tolerance = 0.0
-        resp = self.make_plan_srv(req)
+        resp = self.make_plan_srv(start=start_pose, goal=goal_pose, tolerance=0.0)
         
-        if resp and len(resp.path.poses) > 0:
+        if resp and len(resp.plan.poses) > 0:
             if distance == 0.0:
-                return resp.path.poses[-1]
+                final_pose = resp.plan.poses[-1]
             else:
-                path_index = len(resp.path.poses) - 1
-                while self.get_pose_distance(start_pose, resp.path.poses[path_index]) > distance:
+                path_index = len(resp.plan.poses) - 1
+                while self.get_pose_distance(start_pose, resp.plan.poses[path_index]) > distance:
                     path_index -= 1
                     if path_index < 0:
                         rospy.logwarn("All poses in the plan are less than the distance threshold '%s'. "
                                     "Using starting pose." % distance)
                         path_index = 0
                         break
-                final_pose = resp.path.poses[path_index]
-                return final_pose
+                final_pose = resp.plan.poses[path_index]
+            
+            goal_pose.pose.orientation = final_pose.pose.orientation  # copy just the orientation from the final pose
+            return goal_pose
         else:
             rospy.logwarn("Failed to get path to goal")
             return None
@@ -321,22 +323,41 @@ class CentralPlanning:
         """
         Offset the pose_stamped object by the offset between base_link and gripper_link
         """
-        # TODO: verify that this actually works as expected
+        goal_to_gripper = self.lookup_transform(self.gripper_frame, pose_stamped.header.frame_id)
+        gripper_to_base_link = self.lookup_transform(self.gripper_frame, self.base_link_frame)
+        gripper_to_goal = self.lookup_transform(pose_stamped.header.frame_id, self.gripper_frame)
+        if goal_to_gripper is None or gripper_to_base_link is None or gripper_to_goal is None:
+            return None
 
-        transform = self.lookup_transform(self.base_link_frame, self.gripper_frame)
+        # the goal pose in the gripper frame
+        pose_gripper = tf2_geometry_msgs.do_transform_pose(pose_stamped, goal_to_gripper)
+
+        # offset the goal in the gripper frame by the offset between base_link and gripper_link
+        pose_gripper.pose.position.x += gripper_to_base_link.transform.translation.x
+        pose_gripper.pose.position.y += gripper_to_base_link.transform.translation.y
+        pose_gripper.pose.position.z += gripper_to_base_link.transform.translation.z
+
+        # rotate the goal in the gripper frame by the rotation between base_link and gripper_link (should be no change)
+        pose_gripper.pose.orientation = self.list_to_quat(tf.transformations.quaternion_multiply(
+            self.quat_to_list(pose_gripper.pose.orientation),
+            self.quat_to_list(gripper_to_base_link.transform.rotation)
+        ))
+
+        # transform goal pose from gripper_link back to the global frame
+        pose_stamped_gripper_offset = tf2_geometry_msgs.do_transform_pose(pose_gripper, gripper_to_goal)
         
-        # rotate_quat = tf2_geometry_msgs.Quaternion()
-        # rotate_quat.w = pose_stamped.pose.orientation.w
-        # rotate_quat.x = pose_stamped.pose.orientation.x
-        # rotate_quat.y = pose_stamped.pose.orientation.y
-        # rotate_quat.z = pose_stamped.pose.orientation.z
-
-        # zero_pose = geometry_msgs.PoseStamped()
-        # transform.transform.rotation *= rotate_quat
-        
-        pose_gripper = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
-
-        return pose_gripper
+        return pose_stamped_gripper_offset
+    
+    def quat_to_list(self, quat):
+        return [quat.x, quat.y, quat.z, quat.w]
+    
+    def list_to_quat(self, quat_list):
+        quat = Quaternion()
+        quat.x = quat_list[0]
+        quat.y = quat_list[1]
+        quat.z = quat_list[2]
+        quat.w = quat_list[3]
+        return quat
     
     def lookup_transform(self, parent_link, child_link, time_window=None, timeout=None):
         """
@@ -361,18 +382,18 @@ class CentralPlanning:
         Point the camera at the goal.
         Compute the TF from the goal pose/name to the camera and calculate the angle.
         """
-        if goal.goal_type == SequenceRequestAction.POSE_GOAL:
+        if goal.type == SequenceRequestGoal.POSE_GOAL:
             
             # TODO: verify that this actually works as expected
 
-            camera_base_tf = self.lookup_transform(self.map_frame, self.camera_frame)
+            camera_base_tf = self.lookup_transform(self.map_frame, self.tilt_base_frame)
             if camera_base_tf is None:
                 return
-            pose_camera_frame = tf2_geometry_msgs.do_transform_pose(goal.pose_stamped, camera_base_tf)
-            object_x = pose_camera_frame.pose.position.x
-            object_z = pose_camera_frame.pose.position.z
-        elif goal.goal_type == SequenceRequestAction.NAMED_GOAL:
-            camera_base_tf = self.lookup_transform(self.camera_frame, goal.name)
+            pose_tilt_base_frame = tf2_geometry_msgs.do_transform_pose(goal.pose_stamped, camera_base_tf)
+            object_x = pose_tilt_base_frame.pose.position.x
+            object_z = pose_tilt_base_frame.pose.position.z
+        elif goal.type == SequenceRequestGoal.NAMED_GOAL:
+            camera_base_tf = self.lookup_transform(self.tilt_base_frame, goal.name)
             if camera_base_tf is None:
                 return
             object_x = camera_base_tf.transform.translation.x
@@ -395,7 +416,7 @@ class CentralPlanning:
         """
         rospy.loginfo("Camera tilt angle (deg): %0.2f" % math.degrees(angle))
 
-        orientation = geometry_msgs.msg.Quaternion()
+        orientation = Quaternion()
         quaternion = tf_conversions.transformations.quaternion_from_euler(0.0, angle, 0.0)
         orientation.x = quaternion[0]
         orientation.y = quaternion[1]
@@ -452,6 +473,17 @@ class CentralPlanning:
     def is_gripper_grabbing(self):
         result = self.gripper_grabbing_srv(-1)  # check with default gripping threshold
         return result.is_grabbing
+    
+    def toggle_local_costmap(self, state):
+        state = bool(state)
+        if state != self.local_costmap_enabled_state:
+            self.local_costmap_enabled_state = state
+        else:
+            return
+        self.obstacle_layer_dyn_client.update_configuration({"enabled": state})
+
+    def cancel_move_base(self):
+        self.move_action_client.cancel_all_goals()
 
     def run(self):
         rospy.spin()

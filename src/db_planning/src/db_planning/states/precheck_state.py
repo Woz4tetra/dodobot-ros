@@ -1,19 +1,18 @@
 import rospy
 from smach import State
 
-from db_planning.msg import SequenceRequestAction
+from db_planning.msg import SequenceRequestGoal
 
 
 class PrecheckState(State):
-    def __init__(self):
+    def __init__(self, central_planning):
         super(PrecheckState, self).__init__(
             outcomes=["success", "failure"],
-            input_keys=["sequence_goal", "central_planning"],
+            input_keys=["sequence_goal"],
         )
-        self.central_planning = None
+        self.central_planning = central_planning
 
     def execute(self, userdata):
-        self.central_planning = userdata.central_planning
         if self.sequence_prechecks(userdata.sequence_goal):
             return "success"
         else:
@@ -34,17 +33,22 @@ class PrecheckState(State):
             rospy.logwarn("Invalid action type: %s" % goal.action)
             return False
         
-        if goal.goal_type not in self.central_planning.valid_goal_types:
-            rospy.logwarn("Invalid goal type: %s" % goal.goal_type)
+        if goal.type not in self.central_planning.valid_goal_types:
+            rospy.logwarn("Invalid goal type: %s" % goal.type)
             return False
         
         if not self.central_planning.is_gripper_ok(goal):
             rospy.logwarn("Gripper is not ready to start sequence")
             return False
         
+        if goal.action == SequenceRequestGoal.PICKUP:
+            self.central_planning.open_gripper()
+            if not self.central_planning.wait_for_gripper():
+                return False
+        
         if not self.central_planning.does_goal_exist(goal):
             rospy.logwarn("Goal does not exist: %s"  % (
-                goal.pose_stamped if goal.goal_type == SequenceRequestAction.POSE_GOAL else goal.name
+                goal.pose_stamped if goal.type == SequenceRequestGoal.POSE_GOAL else goal.name
             ))
             return False
 

@@ -11,9 +11,11 @@ class SequenceStateMachine(ActionServerWrapper):
     def __init__(self, central_planning):
         sm = StateMachine(outcomes=["success", "failure", "preempted"])
 
+        self.central_planning = central_planning
+
         with sm:
             StateMachine.add(
-                "PRECHECK", PrecheckState(),
+                "PRECHECK", PrecheckState(central_planning),
                 transitions={
                     "success": "MOVE_TO_OBJECT",
                     "failure": "failure",
@@ -25,10 +27,10 @@ class SequenceStateMachine(ActionServerWrapper):
             )
 
             StateMachine.add(
-                "MOVE_TO_OBJECT", MoveToObjectState(),
+                "MOVE_TO_OBJECT", MoveToObjectState(central_planning),
                 transitions={
-                    SequenceRequestAction.PICKUP: "PICKUP",
-                    SequenceRequestAction.DELIVER: "DELIVER",
+                    str(SequenceRequestGoal.PICKUP): "PICKUP",
+                    str(SequenceRequestGoal.DELIVER): "DELIVER",
                     "failure": "failure",
                     "preempted": "preempted"
                 },
@@ -39,7 +41,7 @@ class SequenceStateMachine(ActionServerWrapper):
             )
 
             StateMachine.add(
-                "PICKUP", PickupState(),
+                "PICKUP", PickupState(central_planning),
                 transitions={
                     "success": "success",
                     "failure": "failure",
@@ -52,7 +54,7 @@ class SequenceStateMachine(ActionServerWrapper):
             )
 
             StateMachine.add(
-                "DELIVER", DeliverState(),
+                "DELIVER", DeliverState(central_planning),
                 transitions={
                     "success": "success",
                     "failure": "failure",
@@ -64,7 +66,6 @@ class SequenceStateMachine(ActionServerWrapper):
                 }
             )
         
-        sm.userdata.sm_central_planning = central_planning
         super(SequenceStateMachine, self).__init__(
             "sequence_request", SequenceRequestAction,
             wrapped_container=sm,
@@ -77,3 +78,10 @@ class SequenceStateMachine(ActionServerWrapper):
         rospy.loginfo("To cancel the sequence goal, run: 'rostopic pub -1 /dodobot/sequence_request/cancel actionlib_msgs/GoalID -- {}'")
         self.wrapped_container.userdata.sm_sequence_goal = goal
         super(SequenceStateMachine, self).execute_cb(goal)
+
+    def termination_cb(self, userdata, terminal_states, container_outcome):
+        self.central_planning.toggle_local_costmap(True)
+        self.central_planning.cancel_move_base()
+
+    def preempt_cb(self):
+        pass

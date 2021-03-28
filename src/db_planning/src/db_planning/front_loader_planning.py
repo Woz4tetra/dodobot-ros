@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import math
-import Queue
+import queue
 
 import rospy
 import actionlib
@@ -47,7 +47,7 @@ class FrontLoaderPlanner:
         self.result = FrontLoaderResult()
 
         self.move_pub = rospy.Publisher("linear_pos_cmd", LinearPosition, queue_size=100)
-        self.events = Queue.Queue()
+        self.events = queue.Queue()
 
         self.is_goal_set = False
 
@@ -144,8 +144,8 @@ class FrontLoaderPlanner:
 
             try:
                 event_str = self.events.get(timeout=self.linear_event_timeout)
-            except Queue.Empty, rospy.ROSException:
-                rospy.logerr("Move command timed out after %ss" % self.linear_event_timeout)
+            except (queue.Empty, rospy.ROSException) as e:
+                rospy.logerr("Move command timed out after %ss: %s" % (self.linear_event_timeout, e))
                 return False
             # try:
             #     event_msg = rospy.wait_for_message(self.linear_event_topic, DodobotLinearEvent, timeout=self.linear_event_timeout)

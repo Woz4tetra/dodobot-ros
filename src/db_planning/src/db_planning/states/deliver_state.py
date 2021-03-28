@@ -3,15 +3,14 @@ from smach import State
 
 
 class DeliverState(State):
-    def __init__(self):
+    def __init__(self, central_planning):
         super(DeliverState, self).__init__(
             outcomes=["success", "preempted", "failure"],
             input_keys=["sequence_goal", "central_planning"],
         )
-        self.central_planning = None
+        self.central_planning = central_planning
     
     def execute(self, userdata):
-        self.central_planning = userdata.central_planning
         goal = userdata.sequence_goal
         
         # get the goal pose in the linear_link frame

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <include file="$(find db_detectnet)/launch/db_detectnet.launch"/>
+    <!-- <include file="$(find db_object_filter)/launch/db_object_filter.launch"/> -->
     <!-- <include file="$(find db_config)/launch/dodobot.launch"/> -->
     <include file="$(find db_config)/launch/realsense.launch"/>
-    <!-- <include file="$(find db_config)/launch/move_base.launch"/> -->
+    <include file="$(find db_config)/launch/move_base.launch"/>
     <include file="$(find db_planning)/launch/fake_map.launch"/>
     <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
 

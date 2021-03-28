@@ -24,7 +24,6 @@ add_action_files(
     DIRECTORY action
     FILES
     SequenceRequest.action
-    Chassis.action
     FrontLoader.action
     Gripper.action
 )
