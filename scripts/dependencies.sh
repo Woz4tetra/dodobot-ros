@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 packages=(
-serial
 joystick-drivers
 geometry2
 navigation
@@ -14,12 +13,13 @@ vision-msgs
 
 package_list=""
 for p in "${packages[@]}"; do
-    package_list+="ros-melodic-$p "
+    package_list+="ros-noetic-$p "
 done
 
 sudo apt install $package_list
 
-# see: https://stackoverflow.com/questions/48690984/portaudio-h-no-such-file-or-directory
-sudo apt-get install portaudio19-dev python-pyaudio
+sudo apt -y install llvm-9
+LLVM_CONFIG=llvm-config-9 pip3 install llvmlite
 
-pip install -r requirements.txt
+sudo apt -y install portaudio19-dev python3-pyaudio
+pip3 install -r requirements.txt

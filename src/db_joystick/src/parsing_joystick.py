@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from __future__ import division
 from __future__ import print_function
 import traceback
@@ -191,7 +191,7 @@ class ParsingJoystick:
     def joystick_msg_callback(self, msg):
         try:
             self.process_joy_msg(msg)
-        except BaseException, e:
+        except BaseException as e:
             traceback.print_exc()
             rospy.signal_shutdown(str(e))
 

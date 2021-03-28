@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import rospy
 
 import std_msgs.msg
 
-from pulseaudio import Audio, Pacmd
+from pulseaudio import Audio
 
 from db_audio.srv import PlayAudio, PlayAudioResponse
 from db_audio.srv import StopAudio, StopAudioResponse

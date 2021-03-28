@@ -26,6 +26,9 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
     ros::param::param<int>("~bounding_box_border_px", _bounding_box_border_px, 30);
     ros::param::param<double>("~marker_persistance_s", _marker_persistance_s, 0.5);
 
+    ros::param::param<double>("~min_valid_dist", _min_valid_dist, 0.05);
+    ros::param::param<double>("~max_valid_dist", _max_valid_dist, 4.0);
+
     ros::param::param<bool>("~publish_with_frame", _publish_with_frame, true);
     ros::param::param<string>("~target_frame", _target_frame, "base_link");
 
@@ -83,7 +86,7 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
 
     // Publishers
     _detection_pub = nh.advertise<vision_msgs::Detection2DArray>("detections", 25);
-    _marker_pub = nh.advertise<visualization_msgs::MarkerArray>("markers", 25);
+    _marker_pub = nh.advertise<visualization_msgs::MarkerArray>("obj_markers", 25);
     _overlay_pub = _image_transport.advertise("detect_overlay", 2);
 
     // Subscribers
@@ -219,7 +222,7 @@ void DodobotDetectNet::rgbd_callback(
     // Detect bounding boxes in color image
     //
     vision_msgs::Detection2DArray msg;
-    const int num_detections = detect(color_image, &msg);
+    int num_detections = detect(color_image, &msg);
     if (num_detections <= 0) {
         return;
     }
@@ -263,6 +266,14 @@ void DodobotDetectNet::rgbd_callback(
         geometry_msgs::PoseWithCovariance pose_with_covar;
 
         ObjPoseDescription obj_desc = bbox_to_pose(depth_cv_image, msg.detections[n].bbox, depth_image->header.stamp, label, label_index);
+        if (obj_desc.z_dist < _min_valid_dist || obj_desc.z_dist > _max_valid_dist)
+        {
+            ROS_DEBUG("Object is outside acceptable bounds for Z: %f. Ignoring", obj_desc.z_dist);
+            msg.detections.erase(msg.detections.begin() + n);
+            n--;
+            num_detections--;
+            continue;
+        }
         tf_obj_to_target(color_info, obj_desc);
         // obj_desc now contains the object position in the target frame (if _publish_with_frame is true)
 
@@ -531,4 +542,5 @@ bool DodobotDetectNet::publish_overlay(detectNet::Detection* detections, int num
 	// publish the message
 	_overlay_pub.publish(msg);
 	ROS_DEBUG("publishing %ux%u overlay image", width, height);
+	return true;
 }

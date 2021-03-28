@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(db_audio)
+project(db_object_filter)
 
 find_package(catkin REQUIRED COMPONENTS
     rospy
@@ -13,16 +13,14 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 
 
 ## Generate services in the 'srv' folder
-add_service_files(
-    FILES
-    PlayAudio.srv
-    StopAudio.srv
-)
+# add_service_files(
+#     FILES
+# )
 
-generate_messages(
-    DEPENDENCIES
-    std_msgs
-)
+# generate_messages(
+#     DEPENDENCIES
+#     std_msgs
+# )
 
 
 ## Specify additional locations of header files
@@ -40,7 +38,7 @@ catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime
 )
 
-# catkin_install_python(PROGRAMS src/sounds.py
+# catkin_install_python(PROGRAMS src/db_object_filter_node.py
 #     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 

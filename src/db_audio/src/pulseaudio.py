@@ -56,7 +56,7 @@ def enumerate_devices():
         pyaudio_obj = pyaudio.PyAudio()
     info = pyaudio_obj.get_host_api_info_by_index(0)
     num_devices = info.get("deviceCount")
-    for index in xrange(num_devices):
+    for index in range(num_devices):
         yield index, pyaudio_obj.get_device_info_by_host_api_device_index(0, index)
         
 

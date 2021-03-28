@@ -220,7 +220,7 @@ point DodobotBumper::get_line_intersection(point l11, point l12, point l21, poin
     }
 }
 
-double DodobotBumper::to_points_vector(vector<double>* input_x, vector<double>* input_y, vector<point>* output)
+void DodobotBumper::to_points_vector(vector<double>* input_x, vector<double>* input_y, vector<point>* output)
 {
     ROS_ASSERT_MSG(input_x->size() == input_y->size(), "X and Y points are not equal in size!");
     output->resize(input_x->size());

@@ -32,7 +32,7 @@ catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime
 )
 
-catkin_install_python(PROGRAMS
-  src/db_launcher_node.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# catkin_install_python(PROGRAMS
+#   src/db_launcher_node.py
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )

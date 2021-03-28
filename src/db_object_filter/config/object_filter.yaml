@@ -1,0 +1,19 @@
+# initial_range: [1.0, 1.0, 1.0]
+initial_range: [0.05, 0.05, 0.05]
+input_std: [0.005, 0.005, 0.005, 0.005]
+meas_std_val: 0.05
+num_particles: 50
+
+match_cov: 0.1
+match_threshold: 0.9
+new_filter_threshold: 0.9
+confident_filter_threshold: 0.005
+
+max_item_count:
+  cozmo_cube: 0
+  blue_cut_sphere: 2
+  red_cut_sphere: 1
+  blue_low_bin: 1
+  red_low_bin: 1
+  blue_cube: 1
+  red_cube: 1

@@ -87,7 +87,7 @@ class SimplePyQtGUIKit:
             for selection in select_list:
                 result[selection] = True
         else:
-            for index in xrange(len(select_list[:-1])):  # check all boxes except the "All topics" box
+            for index in range(len(select_list[:-1])):  # check all boxes except the "All topics" box
                 checkbox = checkboxes[index]
                 selection = select_list[index]
                 result[selection] = checkbox.isChecked()
