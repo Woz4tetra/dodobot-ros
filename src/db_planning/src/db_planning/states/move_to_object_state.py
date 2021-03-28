@@ -12,6 +12,7 @@ class MoveToObjectState(State):
             input_keys=["sequence_goal", "central_planning"],
         )
         self.central_planning = None
+        self.check_state_interval = 0.25  # seconds
     
     def execute(self, userdata):
         goal = userdata.sequence_goal
@@ -30,10 +31,14 @@ class MoveToObjectState(State):
         while True:
             state = self.central_planning.get_move_base_state()
             if state == GoalStatus.SUCCEEDED:
+                self.central_planning.look_straight_ahead()
                 return goal.action
             elif state == GoalStatus.ABORTED:
+                self.central_planning.look_straight_ahead()
                 return "preempted"
             # elif state == GoalStatus.ACTIVE:
+
+            rospy.sleep(self.check_state_interval)
 
             # If the robot is near the object, start updating move_base's goal position.
             # Point camera at where the object might be.

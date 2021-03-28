@@ -92,17 +92,11 @@ class CentralPlanning:
         # front loader action client
         self.front_loader_action = self.make_action_client(self.front_loader_action_name, FrontLoaderAction)
 
-        # chassis action client
-        # self.chassis_action = self.make_action_client(self.chassis_action_name, ChassisAction)
-
         # gripper action client
         self.gripper_action = self.make_action_client(self.gripper_action_name, GripperAction)
 
         # front loader ready service
         self.front_loader_ready_srv = self.make_service_client("front_loader_ready_service", Trigger)
-
-        # chassis ready service
-        # self.chassis_ready_srv = self.make_service_client("chassis_ready_service", Trigger)
 
         # is gripper grabbing service
         self.gripper_grabbing_srv = self.make_service_client("gripper_grabbing_service", GrabbingSrv)
@@ -123,9 +117,9 @@ class CentralPlanning:
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
         self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
+        # TODO: check if the smach server wrapper works
+
         # central_planning sequence action server
-        # self.sequence_server = actionlib.SimpleActionServer("sequence_request", SequenceRequestAction, self.sequence_callback, auto_start=False)
-        # self.sequence_server.start()
         self.sequence_sm.run_server()
         rospy.loginfo("[%s] Dodobot sequence server started" % self.node_name)
 
@@ -155,13 +149,6 @@ class CentralPlanning:
             rospy.loginfo("%s service is ready" % name)
         return srv_obj
 
-    # def sequence_callback(self, goal):
-    #     """
-    #     Callback for sequence_request action
-    #     """
-    #     rospy.loginfo("To cancel the sequence goal, run: 'rostopic pub -1 /dodobot/sequence_request/cancel actionlib_msgs/GoalID -- {}'")
-    #     self.sequence_sm.execute(goal, self)
-    
     def is_gripper_ok(self, goal):
         """
         Return true if the action sequence is PICKUP and if the gripper is empty.
@@ -250,6 +237,8 @@ class CentralPlanning:
         if goal_pose is None:
             rospy.logwarn("Failed to get path to goal. Goal pose is not valid")
             return None
+        # TODO: verify that this actually works as expected
+        
         goal_pose.pose.orientation = orientation
 
         if goal_pose is not None:
@@ -332,6 +321,8 @@ class CentralPlanning:
         """
         Offset the pose_stamped object by the offset between base_link and gripper_link
         """
+        # TODO: verify that this actually works as expected
+
         transform = self.lookup_transform(self.base_link_frame, self.gripper_frame)
         
         # rotate_quat = tf2_geometry_msgs.Quaternion()
@@ -371,6 +362,9 @@ class CentralPlanning:
         Compute the TF from the goal pose/name to the camera and calculate the angle.
         """
         if goal.goal_type == SequenceRequestAction.POSE_GOAL:
+            
+            # TODO: verify that this actually works as expected
+
             camera_base_tf = self.lookup_transform(self.map_frame, self.camera_frame)
             if camera_base_tf is None:
                 return
@@ -416,6 +410,7 @@ class CentralPlanning:
         """
         front_loader_goal = FrontLoaderGoal()
         front_loader_goal.goal_z = z
+        # TODO: find default z_speed and z_accel
         # front_loader_goal.z_speed = 
         # front_loader_goal.z_accel = 
         self.front_loader_action.send_goal(front_loader_goal)
