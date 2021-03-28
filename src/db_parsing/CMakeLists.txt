@@ -79,6 +79,7 @@ add_service_files(
     DodobotUploadFile.srv
     DodobotListDir.srv
     DodobotSetState.srv
+    DodobotGetState.srv
 )
 
 ## Generate actions in the 'action' folder

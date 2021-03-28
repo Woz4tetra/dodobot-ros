@@ -1,5 +1,0 @@
-<launch>
-    <group ns="dodobot" >
-        <node name="db_planning_chassis" pkg="db_planning" type="chassis_planning.py" output="screen" required="true"/>
-    </group>
-</launch>

@@ -27,6 +27,7 @@ class GripperPlanner:
         self.gripper_action_name = rospy.get_param("~gripper_action_name", "gripper_actions")
         self.default_force_threshold = rospy.get_param("~default_force_threshold", 30)
         self.gripper_closed_cmd = rospy.get_param("~gripper_closed_cmd", 180)
+        self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
 
         self.result = GripperResult()
 
@@ -37,8 +38,6 @@ class GripperPlanner:
 
         self.fsr_left = 0
         self.fsr_right = 0
-
-        self.gripper_max_dist = 0.08
 
         self.gripper_dist = self.gripper_max_dist
         self.parallel_gripper_msg = DodobotParallelGripper()
@@ -66,7 +65,7 @@ class GripperPlanner:
     def gripper_grabbing_callback(self, req):
         force_threshold = req.force_threshold
         if force_threshold < 0:
-            force_threshold = None
+            force_threshold = self.default_force_threshold
         if self.is_grabbing(force_threshold):
             return GrabbingSrvResponse(True)
         else:
@@ -81,6 +80,9 @@ class GripperPlanner:
             self.result.success = True
             self.gripper_server.set_succeeded(self.result)
             return
+        
+        if math.isnan(force_threshold):
+            force_threshold = self.default_force_threshold
 
         success = self.send_grab_cmd(distance, force_threshold)
         rospy.loginfo("Gripper result: %s" % (success))

@@ -1,5 +1,12 @@
-string sequence_type
-string sequence_goal
+int8 PICKUP = 1
+int8 DELIVER = 2
+int8 action
+
+int8 NAMED_GOAL = 1
+int8 POSE_GOAL = 2
+int8 type
+string name
+geometry_msgs/PoseStamped pose_stamped
 ---
 bool success
 ---

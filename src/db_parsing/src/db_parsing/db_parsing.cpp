@@ -31,6 +31,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     large_packet_len = 0x1000;
     ready_for_images = false;
 
+    was_reporting = false;
+
     int num_servos = 0;
 
     drive_msg.header.frame_id = "drive";
@@ -113,6 +115,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     file_service = nh.advertiseService("dodobot_file", &DodobotParsing::upload_file, this);
     listdir_service = nh.advertiseService("dodobot_listdir", &DodobotParsing::db_listdir, this);
     set_state_service = nh.advertiseService("set_state", &DodobotParsing::set_state, this);
+    get_state_service = nh.advertiseService("get_state", &DodobotParsing::get_state, this);
 
     write_stop_flag = false;
     write_thread = new boost::thread(boost::bind(&DodobotParsing::write_thread_task, this));
@@ -912,6 +915,23 @@ bool DodobotParsing::set_state(db_parsing::DodobotSetState::Request &req, db_par
     return true;
 }
 
+bool DodobotParsing::get_state(db_parsing::DodobotGetState::Request &req, db_parsing::DodobotGetState::Response &res)
+{
+    if (!robotReady())
+    {
+        res.ready = false;
+        res.active = false;
+        res.reporting = false;
+    }
+    else
+    {
+        res.ready = true;
+        res.active = state_msg.motors_active;
+        res.reporting = was_reporting;
+    }
+    return true;
+}
+
 bool DodobotParsing::set_pid(db_parsing::DodobotPidSrv::Request  &req,
          db_parsing::DodobotPidSrv::Response &res)
 {
@@ -995,6 +1015,7 @@ void DodobotParsing::softRestart() {
 
 void DodobotParsing::setReporting(bool state)
 {
+    was_reporting = state;
     if (state) {
         writeSerial("[]", "d", 1);
     }

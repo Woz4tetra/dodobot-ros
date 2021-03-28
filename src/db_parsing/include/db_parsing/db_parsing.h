@@ -40,6 +40,7 @@
 #include "db_parsing/DodobotUploadFile.h"
 #include "db_parsing/DodobotListDir.h"
 #include "db_parsing/DodobotSetState.h"
+#include "db_parsing/DodobotGetState.h"
 
 #include "keyboard_listener/KeyEvent.h"
 
@@ -133,6 +134,7 @@ private:
 
     bool use_sensor_msg_time;
     bool active_on_start, reporting_on_start;
+    bool was_reporting;
 
     StructRobotState* robotState;
     StructReadyState* readyState;
@@ -232,6 +234,9 @@ private:
 
     ros::ServiceServer set_state_service;
     bool set_state(db_parsing::DodobotSetState::Request &req, db_parsing::DodobotSetState::Response &res);
+
+    ros::ServiceServer get_state_service;
+    bool get_state(db_parsing::DodobotGetState::Request &req, db_parsing::DodobotGetState::Response &res);
 
     void configure();
     void checkReady();

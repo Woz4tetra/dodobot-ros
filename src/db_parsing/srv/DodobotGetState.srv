@@ -1,0 +1,4 @@
+---
+bool ready
+bool reporting
+bool active
