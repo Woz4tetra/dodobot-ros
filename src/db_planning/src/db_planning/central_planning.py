@@ -55,7 +55,7 @@ class CentralPlanning:
             # disable_signals=True
             # log_level=rospy.DEBUG
         )
-        # rospy.on_shutdown(self.shutdown_hook)
+        rospy.on_shutdown(self.cancel)
 
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
@@ -505,10 +505,12 @@ class CentralPlanning:
             max_vel_x_backwards = max(max_vel_x - 0.1, 0.0)
         config = ""
         if self.local_planner_name == "TebLocalPlannerROS":
-            config += f"Robot:"
-            config += f"    {max_vel_x}" if max_vel_x is not None else ""
-            config += f"    {max_vel_x_backwards}" if max_vel_x_backwards is not None else ""
-            config += f"    {max_vel_theta}" if max_vel_theta is not None else ""
+            config += f"groups:\n"
+            config += f"  groups:\n"
+            config += f"    Robot:\n"
+            config += f"      {max_vel_x}\n" if max_vel_x is not None else ""
+            config += f"      {max_vel_x_backwards}\n" if max_vel_x_backwards is not None else ""
+            config += f"      {max_vel_theta}\n" if max_vel_theta is not None else ""
         self.set_planner(config)
 
     def set_planner(self, config_str):
@@ -520,6 +522,11 @@ class CentralPlanning:
 
     def cancel_move_base(self):
         self.move_action_client.cancel_all_goals()
+    
+    def cancel(self):
+        self.toggle_local_costmap(True)
+        self.cancel_move_base()
+        self.set_planner_to_default()
 
     def run(self):
         rospy.spin()

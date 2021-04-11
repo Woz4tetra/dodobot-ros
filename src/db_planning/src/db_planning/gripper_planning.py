@@ -28,6 +28,7 @@ class GripperPlanner:
         self.default_force_threshold = rospy.get_param("~default_force_threshold", 30)
         self.gripper_closed_cmd = rospy.get_param("~gripper_closed_cmd", 180)
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
+        self.goal_reached_threshold = rospy.get_param("~gripper_max_dist", 0.005)
 
         self.result = GripperResult()
 
@@ -104,10 +105,11 @@ class GripperPlanner:
         return self.wait_for_gripper(distance, force_threshold)
 
     def is_gripper_goal_reached(self, distance, force_threshold):
-        return self.gripper_dist >= distance or self.is_grabbing(force_threshold)
+        return abs(self.gripper_dist - distance) < self.goal_reached_threshold or self.is_grabbing(force_threshold)
 
     def wait_for_gripper(self, distance, force_threshold):
         rate = rospy.Rate(15.0)
+        rospy.sleep(1.5)
         gripper_cmd_send_time = rospy.Time.now()
         while True:
             if rospy.is_shutdown() or self.gripper_server.is_preempt_requested():

@@ -80,9 +80,7 @@ class SequenceStateMachine(ActionServerWrapper):
         super(SequenceStateMachine, self).execute_cb(goal)
 
     def termination_cb(self, userdata, terminal_states, container_outcome):
-        self.central_planning.toggle_local_costmap(True)
-        self.central_planning.cancel_move_base()
-        self.central_planning.set_planner_to_default()
+        self.central_planning.cancel()
 
     def preempt_cb(self):
         pass
