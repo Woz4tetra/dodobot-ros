@@ -19,15 +19,20 @@ class PickupState(State):
         if goal_pose is None:
             return "failure"
         
-        self.central_planning.set_linear_z(goal_pose.pose.position.z - self.central_planning.pickup_z_offset)
+        self.central_planning.set_linear_z(
+            goal_pose.pose.position.z - self.central_planning.pickup_z_offset,
+            self.central_planning.fast_stepper_speed
+        )
         if not self.central_planning.wait_for_linear_z():
             return "failure"
         
-        self.central_planning.close_gripper()
+        object_grab_cmd = 0.0 if goal.object_grab_cmd == float("nan") else goal.object_grab_cmd
+        force_threshold = None if goal.force_threshold == float("nan") else goal.force_threshold
+        self.central_planning.close_gripper(object_grab_cmd, force_threshold)
         if not self.central_planning.wait_for_gripper():
             return "failure"
         
-        self.central_planning.set_linear_z(self.central_planning.transport_z_height)
+        self.central_planning.set_linear_z(self.central_planning.transport_z_height, self.central_planning.slow_stepper_speed)
         if not self.central_planning.wait_for_linear_z():
             return "failure"
 

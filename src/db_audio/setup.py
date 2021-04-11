@@ -7,7 +7,7 @@ from catkin_pkg.python_setup import generate_distutils_setup
 setup_args = generate_distutils_setup(
     packages=['db_audio'],
     package_dir={'': 'src'},
-    install_requires=['pulseaudio']
+    # install_requires=['pulseaudio']
     )
 
 setup(**setup_args)

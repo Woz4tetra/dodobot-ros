@@ -58,6 +58,7 @@ class ParsingJoystick:
         self.linear_scale = rospy.get_param("~linear_scale", 1.0)
         self.angular_scale = rospy.get_param("~angular_scale", 1.0)
         self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 0.04424059137543106)
+        self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
 
         self.max_tilt_speed = rospy.get_param("~max_tilt_speed", 6.0)
 
@@ -118,7 +119,6 @@ class ParsingJoystick:
         self.twist_command.linear.x = 0.0
         self.twist_command.angular.z = 0.0
 
-        self.gripper_max_dist = 0.08
         self.gripper_dist = self.gripper_max_dist
         self.parallel_gripper_msg = DodobotParallelGripper()
 
@@ -135,7 +135,7 @@ class ParsingJoystick:
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
         self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
-        self.play_audio("ba ding")
+        self.play_audio("chansey")
 
     def play_audio(self, name):
         try:

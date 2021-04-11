@@ -40,18 +40,18 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     ros::param::param<double>("~belt_pulley_radius_m", belt_pulley_radius_m, 0.0121);
 
     // Gripper parameters
-    ros::param::param<int>("~gripper_open_cmd", gripper_open_cmd, 50);
-    ros::param::param<int>("~gripper_closed_cmd", gripper_closed_cmd, 162);
-    ros::param::param<double>("~gripper_open_angle_deg", gripper_open_angle_deg, 344.89282);
-    ros::param::param<double>("~gripper_closed_angle_deg", gripper_closed_angle_deg, 302.560457);
+    ros::param::param<int>("~gripper_open_cmd", gripper_open_cmd, 0);
+    ros::param::param<int>("~gripper_closed_cmd", gripper_closed_cmd, 180);
+    ros::param::param<double>("~gripper_open_angle_deg", gripper_open_angle_deg, 0);
+    ros::param::param<double>("~gripper_closed_angle_deg", gripper_closed_angle_deg, 90);
 
     // Gripper geometry parameters
     ros::param::param<double>("~armature_length", armature_length, 0.06);
     ros::param::param<double>("~armature_width", armature_width, 0.01);
     ros::param::param<double>("~hinge_pin_to_armature_end", hinge_pin_to_armature_end, 0.004);
     ros::param::param<double>("~hinge_pin_diameter", hinge_pin_diameter, 0.0028575);
-    ros::param::param<double>("~hinge_pin_to_pad_plane", hinge_pin_to_pad_plane, 0.0055);
-    ros::param::param<double>("~pad_extension_offset", pad_extension_offset, 0.01998285);
+    ros::param::param<double>("~hinge_pin_to_pad_plane", hinge_pin_to_pad_plane, 0.0);
+    ros::param::param<double>("~pad_extension_offset", pad_extension_offset, 0.0);
     ros::param::param<double>("~central_axis_dist", central_axis_dist, 0.015);
 
     // TF parameters
@@ -376,6 +376,7 @@ void DodobotChassis::parallel_gripper_callback(db_parsing::DodobotParallelGrippe
         gripper_closed_cmd, gripper_open_cmd,
         gripper_closed_angle, gripper_open_angle
     );
+    ROS_DEBUG("gripper dist cmd: %f m -> %f deg -> %d", msg.distance, angle * 180 / M_PI, servo_pos);
 
     gripper_msg.header.stamp = ros::Time::now();
     gripper_msg.position = servo_pos;
@@ -443,8 +444,7 @@ void DodobotChassis::publish_joint_states()
 
 double DodobotChassis::angle_to_parallel_dist(double angle_rad)
 {
-    double angle_adj = angle_rad - M_PI * 2.0 + M_PI / 2.0;
-    double hinge_pin_x = rotation_offset_x * cos(angle_adj) - rotation_offset_y * sin(angle_adj);
+    double hinge_pin_x = rotation_offset_x * cos(angle_rad) - rotation_offset_y * sin(angle_rad);
     double parallel_dist = 2.0 * (hinge_pin_x - hinge_pin_to_pad_plane - pad_extension_offset + central_axis_dist);
     return parallel_dist;
 }
@@ -456,8 +456,8 @@ double DodobotChassis::parallel_dist_to_angle(double parallel_dist)
         double low_dist = dist_samples[i + 1];
         double high_dist = dist_samples[i];
         if (low_dist <= parallel_dist && parallel_dist < high_dist) {
-            double low_angle = angle_samples[i + 1];
-            double high_angle = angle_samples[i];
+            double low_angle = angle_samples[i];
+            double high_angle = angle_samples[i + 1];
 
             return (high_angle - low_angle) / (high_dist - low_dist) * (parallel_dist - low_dist) + low_angle;
         }
@@ -476,19 +476,21 @@ void DodobotChassis::compute_parallel_dist_to_angle_lookup()
     dist_samples.resize(num_dist_samples);
     angle_samples.resize(num_dist_samples);
 
-    double angle_buffer = 20.0 * M_PI / 180.0;
-    double angle_sample_start = gripper_closed_angle - angle_buffer;
-    double angle_sample_stop = gripper_open_angle + angle_buffer;
+    double angle_buffer = 10.0 * M_PI / 180.0;
+    double angle_sample_start = gripper_open_angle - angle_buffer;
+    double angle_sample_stop = gripper_closed_angle + angle_buffer;
 
     size_t counter = 0;
     double angle = angle_sample_start;
     double interval = (angle_sample_stop - angle_sample_start) / num_dist_samples;
+    ROS_DEBUG("Generating gripper table:");
     while (angle < angle_sample_stop && counter < num_dist_samples) {
         double dist = angle_to_parallel_dist(angle);
         dist_samples[counter] = dist;
         angle_samples[counter] = angle;
         angle += interval;
         counter++;
+        ROS_DEBUG("\t%f deg -> %f m", angle * 180/M_PI, dist);
     }
 }
 

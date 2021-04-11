@@ -31,7 +31,7 @@ class DeliverState(State):
             rospy.logwarn("Gripper failed to release an object after delivery")
             return "failure"
         
-        self.central_planning.set_linear_z(self.central_planning.transport_z_height)
+        self.central_planning.set_linear_z(self.central_planning.transport_z_height, self.central_planning.fast_stepper_speed)
         if not self.central_planning.wait_for_linear_z():
             return "failure"
 

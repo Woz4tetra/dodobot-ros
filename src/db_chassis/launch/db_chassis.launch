@@ -24,6 +24,19 @@
             <param name="tilter_lower_command" value="10"/>
             <param name="tilter_upper_command" value="140"/>
 
+            <param name="gripper_open_cmd" value="180"/>
+            <param name="gripper_closed_cmd" value="47"/>
+            <param name="gripper_open_angle_deg" value="26.630499"/>
+            <param name="gripper_closed_angle_deg" value="85.288720"/>
+
+            <param name="armature_length" value="0.06"/>
+            <param name="armature_width" value="0.01"/>
+            <param name="hinge_pin_to_armature_end" value="0.004"/>
+            <param name="hinge_pin_diameter" value="0.0028575"/>
+            <param name="hinge_pin_to_pad_plane" value="0.00893542"/>
+            <param name="pad_extension_offset" value="0.00406250"/>
+            <param name="central_axis_dist" value="0.015"/>
+
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <!-- <param name="odom_estimate_method" value="runge-kutta"/> -->
             <!-- <param name="odom_estimate_method" value="geometric"/> -->

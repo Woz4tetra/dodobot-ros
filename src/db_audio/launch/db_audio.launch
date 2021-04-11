@@ -1,6 +1,6 @@
 <launch>
     <group ns="dodobot" >
-        <node name="db_audio" pkg="db_audio" type="sounds.py" output="screen" required="false">
+        <node name="db_audio" pkg="db_audio" type="db_audio_node.py" output="screen" required="false">
             <param name="audio_dir" value="/home/ben/Music"/>
         </node>
     </group>

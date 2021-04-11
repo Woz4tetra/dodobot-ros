@@ -4,7 +4,7 @@ import rospy
 
 import std_msgs.msg
 
-from pulseaudio import Audio
+from audio_bridge import Audio
 
 from db_audio.srv import PlayAudio, PlayAudioResponse
 from db_audio.srv import StopAudio, StopAudioResponse

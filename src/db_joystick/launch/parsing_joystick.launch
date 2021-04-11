@@ -20,6 +20,7 @@
             <param name="joystick_topic" value="/joy_throttled" />
             <param name="linear_scale" value="0.69" />
             <param name="angular_scale" value="6.0" />
+            <param name="gripper_max_dist" value="0.112" />
 
             <param name="linear_axis" value="$(arg joystick_linear_axis)" />
             <param name="angular_axis" value="$(arg joystick_angular_axis)" />

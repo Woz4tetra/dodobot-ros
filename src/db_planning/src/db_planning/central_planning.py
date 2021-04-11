@@ -67,7 +67,7 @@ class CentralPlanning:
         self.tilt_base_frame = rospy.get_param("~tilt_base_frame", "tilt_base_link")
         self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
 
-        self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
+        self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
 
         self.goal_distance_offset = 0.1
         self.near_object_distance = 0.75
@@ -76,6 +76,11 @@ class CentralPlanning:
         self.deliver_z_offset = 0.02
 
         self.transport_z_height = 0.08
+
+        self.fast_stepper_speed = 0.044
+        self.slow_stepper_speed = 0.02
+
+        self.plow_into_object_offset = 0.025
 
         self.local_costmap_enabled_state = None
 
@@ -295,7 +300,7 @@ class CentralPlanning:
             goal_pose.pose.orientation = final_pose.pose.orientation  # copy just the orientation from the final pose
             return goal_pose
         else:
-            rospy.logwarn("Failed to get path to goal")
+            rospy.logwarn("Failed to get path to goal. move_base failed to produce a plan")
             return None
     
     def get_pose_distance(self, pose_stamped1, pose_stamped2):
@@ -336,6 +341,8 @@ class CentralPlanning:
         pose_gripper.pose.position.x += gripper_to_base_link.transform.translation.x
         pose_gripper.pose.position.y += gripper_to_base_link.transform.translation.y
         pose_gripper.pose.position.z += gripper_to_base_link.transform.translation.z
+
+        pose_gripper.pose.position.x += self.plow_into_object_offset
 
         # rotate the goal in the gripper frame by the rotation between base_link and gripper_link (should be no change)
         pose_gripper.pose.orientation = self.list_to_quat(tf.transformations.quaternion_multiply(
@@ -425,15 +432,14 @@ class CentralPlanning:
 
         self.tilter_pub.publish(orientation)
     
-    def set_linear_z(self, z):
+    def set_linear_z(self, z, speed=float("nan")):
         """
         Set linear stepper to a height z (meters)
         """
         front_loader_goal = FrontLoaderGoal()
         front_loader_goal.goal_z = z
-        # TODO: find default z_speed and z_accel
-        # front_loader_goal.z_speed = 
-        # front_loader_goal.z_accel = 
+        front_loader_goal.z_speed = speed
+        front_loader_goal.z_accel = float("nan")
         self.front_loader_action.send_goal(front_loader_goal)
     
     def wait_for_linear_z(self):
@@ -444,13 +450,13 @@ class CentralPlanning:
         front_loader_result = self.front_loader_action.get_result()
         return front_loader_result.success
     
-    def close_gripper(self):
+    def close_gripper(self, distance=0.0, force_threshold=None):
         """
         Set gripper distance to zero with the default force threshold
         """
         gripper_goal = GripperGoal()
-        gripper_goal.grip_distance = 0.0
-        gripper_goal.force_threshold = float("nan")  # use default force threshold
+        gripper_goal.grip_distance = distance
+        gripper_goal.force_threshold = float("nan") if force_threshold is None else force_threshold
         self.gripper_action.send_goal(gripper_goal)
     
     def open_gripper(self):
@@ -459,7 +465,7 @@ class CentralPlanning:
         """
         gripper_goal = GripperGoal()
         gripper_goal.grip_distance = self.gripper_max_dist
-        gripper_goal.force_threshold = float("nan")  # use default force threshold
+        gripper_goal.force_threshold = float("nan")  # not used for open gripper
         self.gripper_action.send_goal(gripper_goal)
     
     def wait_for_gripper(self):
