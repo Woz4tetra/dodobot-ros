@@ -34,7 +34,7 @@ class PrecheckState(State):
         
         if not self.central_planning.is_gripper_ok(goal):
             rospy.logwarn("Gripper is not ready to start sequence")
-            return "failure"
+            # return "failure"  # FSRs are unreliable. Ignoring this condition
         
         if goal.action == SequenceRequestGoal.PICKUP:
             self.central_planning.open_gripper()

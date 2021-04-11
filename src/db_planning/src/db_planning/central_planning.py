@@ -527,6 +527,7 @@ class CentralPlanning:
         self.toggle_local_costmap(True)
         self.cancel_move_base()
         self.set_planner_to_default()
+        self.set_linear_z(float("nan"), self.fast_stepper_speed)
 
     def run(self):
         rospy.spin()

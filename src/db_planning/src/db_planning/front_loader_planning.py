@@ -96,19 +96,20 @@ class FrontLoaderPlanner:
         max_speed = goal.z_speed
         acceleration = goal.z_accel
 
-        if math.isnan(move_cmd):
-            rospy.loginfo("No action required from front loader. Skipping.")
-            self.result.success = True
-            self.front_loader_server.set_succeeded(self.result)
-            return
+        wait_to_finish = not math.isnan(move_cmd)
+        # if math.isnan(move_cmd):
+        #     rospy.loginfo("No action required from front loader. Skipping.")
+        #     self.result.success = True
+        #     self.front_loader_server.set_succeeded(self.result)
+        #     return
 
-        success = self.send_move_cmd(move_cmd, max_speed, acceleration)
+        success = self.send_move_cmd(move_cmd, max_speed, acceleration, wait_to_finish)
 
         # send response
         self.result.success = success
         self.front_loader_server.set_succeeded(self.result)
 
-    def send_move_cmd(self, cmd, max_speed=float("nan"), acceleration=float("nan")):
+    def send_move_cmd(self, cmd, max_speed, acceleration, wait_to_finish):
         """Sends move command to self.move_pub. On completion, return true. On timeout, return false.
 
         Args:
@@ -127,7 +128,10 @@ class FrontLoaderPlanner:
         self.move_pub.publish(msg)
 
         self.is_goal_set = True
-        success = self.wait_for_linear()
+        if wait_to_finish:
+            success = self.wait_for_linear()
+        else:
+            success = True
         self.is_goal_set = False
 
         rospy.loginfo("Linear result: %s" % success)
