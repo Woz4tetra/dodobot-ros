@@ -10,11 +10,11 @@ tilt_base_frame: "tilt_base_link"
 linear_frame: "linear_link"
 
 gripper_max_dist: 0.112
-max_vel_x: 0.15
-max_vel_theta: 1.0
+max_vel_x: 0.3
+max_vel_theta: 2.0
 
 goal_distance_offset: 0.1
-near_object_distance: 0.5
+near_object_distance: 0.25
 local_costmap_width: 3.0
 replan_distance: 0.25
 
