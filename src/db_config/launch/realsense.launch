@@ -93,7 +93,7 @@
         <arg name="color_height"             value="540"  unless="$(arg hirez_mode)"/>
         <arg name="enable_color"             value="true"/>
         <arg name="color_fps"                value="15" if="$(arg hirez_mode)"/>
-        <arg name="color_fps"                value="30" unless="$(arg hirez_mode)"/>
+        <arg name="color_fps"                value="15" unless="$(arg hirez_mode)"/>
         <!-- <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/> -->
 
         <arg name="infra_width"              value="848"/>

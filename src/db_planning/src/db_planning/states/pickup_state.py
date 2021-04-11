@@ -19,10 +19,7 @@ class PickupState(State):
         if goal_pose is None:
             return "failure"
         
-        self.central_planning.set_linear_z(
-            goal_pose.pose.position.z - self.central_planning.pickup_z_offset + goal.object_z_offset,
-            self.central_planning.fast_stepper_speed
-        )
+        self.central_planning.set_linear_z_to_object_height(goal_pose, goal, self.central_planning.fast_stepper_speed)
         if not self.central_planning.wait_for_linear_z():
             return "failure"
         

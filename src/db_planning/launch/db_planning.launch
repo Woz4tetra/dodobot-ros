@@ -1,6 +1,7 @@
 <launch>
     <group ns="dodobot" >
         <node name="db_planning_central"      pkg="db_planning" type="central_planning.py" output="screen" required="true">
+            <rosparam file="$(find db_planning)/config/central_planning.yaml" command="load"/>
         </node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
         <node name="db_planning_gripper" pkg="db_planning" type="gripper_planning.py" output="screen" required="true"></node>

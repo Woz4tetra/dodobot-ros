@@ -74,6 +74,8 @@ class CentralPlanning:
 
         self.goal_distance_offset = rospy.get_param("~goal_distance_offset", 0.1)
         self.near_object_distance = rospy.get_param("~near_object_distance", 0.75)
+        self.local_costmap_width = rospy.get_param("~local_costmap_width", 3.0)
+        self.replan_distance = rospy.get_param("~replan_distance", 0.45)
         
         self.pickup_z_offset = rospy.get_param("~pickup_z_offset", 0.02)
         self.deliver_z_offset = rospy.get_param("~deliver_z_offset", 0.02)
@@ -455,6 +457,9 @@ class CentralPlanning:
         front_loader_goal.z_accel = float("nan")
         self.front_loader_action.send_goal(front_loader_goal)
     
+    def set_linear_z_to_object_height(self, goal_pose, goal, stepper_speed=float("nan")):
+        self.set_linear_z(goal_pose.pose.position.z - self.pickup_z_offset + goal.object_z_offset, stepper_speed)
+
     def wait_for_linear_z(self):
         """
         Wait for the linear stepper to get to the specified height
@@ -503,7 +508,8 @@ class CentralPlanning:
         
     def set_planner_velocities(self, max_vel_x=None, max_vel_x_backwards=None, max_vel_theta=None):
         if max_vel_x is not None and max_vel_x_backwards is None:
-            max_vel_x_backwards = max(max_vel_x - 0.1, 0.0)
+            # max_vel_x_backwards = max(max_vel_x - 0.1, 0.0)
+            max_vel_x_backwards = 0.0
         config = ""
         if self.local_planner_name == "TebLocalPlannerROS":
             # config += f"groups:\n"

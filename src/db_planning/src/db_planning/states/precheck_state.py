@@ -47,7 +47,6 @@ class PrecheckState(State):
             stepper_speed = self.central_planning.slow_stepper_speed
         else:
             stepper_speed = float("nan")
-
         self.central_planning.set_linear_z(self.central_planning.transport_z_height, stepper_speed)
         if not self.central_planning.wait_for_linear_z():
             return "failure"
