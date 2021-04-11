@@ -245,10 +245,10 @@ void DodobotChassis::dynamic_callback(db_chassis::DodobotChassisConfig &config, 
         ROS_WARN("Services for this node aren't enabled!");
         return;
     }
-    if (!first_time_pid_setup) {
-        first_time_pid_setup = true;
-        return;
-    }
+    // if (!first_time_pid_setup) {
+    //     first_time_pid_setup = true;
+    //     return;
+    // }
     db_parsing::DodobotPidSrv srv;
     srv.request.kp_A = config.kp_A;
     srv.request.ki_A = config.ki_A;

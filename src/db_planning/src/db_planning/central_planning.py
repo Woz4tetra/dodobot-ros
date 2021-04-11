@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import yaml
 import numpy as np
 
 import rospy
@@ -68,6 +69,8 @@ class CentralPlanning:
         self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
 
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
+        self.max_vel_x = rospy.get_param("~max_vel_x", 0.3)
+        self.max_vel_theta = rospy.get_param("~max_vel_theta", 2.0)
 
         self.goal_distance_offset = 0.1
         self.near_object_distance = 0.75
@@ -83,6 +86,9 @@ class CentralPlanning:
         self.plow_into_object_offset = 0.025
 
         self.local_costmap_enabled_state = None
+        
+        self.default_max_vel = 0.0
+        self.default_max_vel_theta = 0.0
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -110,8 +116,13 @@ class CentralPlanning:
         # move_base make_plan service
         self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
 
-        # move_base dynamic reconfigure
+        # obstacle layer dynamic reconfigure
         self.obstacle_layer_dyn_client = dynamic_reconfigure.client.Client("/move_base/local_costmap/obstacle_layer", timeout=30, config_callback=self.dyn_obstacle_layer_callback)
+
+        # local planner dynamic reconfigure
+        self.local_planner_name = "TebLocalPlannerROS"
+        self.local_planner_dyn_client = dynamic_reconfigure.client.Client("/move_base/%s" % self.local_planner_name, timeout=30, config_callback=self.dyn_local_planner_callback)
+        self.local_planner_start_config = self.local_planner_dyn_client.get_configuration()
 
         # camera tilter service
         self.tilter_pub = rospy.Publisher("tilter_orientation", Quaternion, queue_size=100)
@@ -122,8 +133,6 @@ class CentralPlanning:
         # audio services
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
         self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
-
-        # TODO: check if the smach server wrapper works
 
         # central_planning sequence action server
         self.sequence_sm.run_server()
@@ -156,7 +165,10 @@ class CentralPlanning:
         return srv_obj
     
     def dyn_obstacle_layer_callback(self, config):
-        rospy.loginfo("Config set to %s" % str(config))
+        rospy.loginfo("Obstacle layer config set to %s" % str(config))
+    
+    def dyn_local_planner_callback(self, config):
+        rospy.loginfo("Local planner config set to %s" % str(config))
 
     def is_gripper_ok(self, goal):
         """
@@ -487,6 +499,24 @@ class CentralPlanning:
         else:
             return
         self.obstacle_layer_dyn_client.update_configuration({"enabled": state})
+        
+    def set_planner_velocities(self, max_vel_x=None, max_vel_x_backwards=None, max_vel_theta=None):
+        if max_vel_x is not None and max_vel_x_backwards is None:
+            max_vel_x_backwards = max(max_vel_x - 0.1, 0.0)
+        config = ""
+        if self.local_planner_name == "TebLocalPlannerROS":
+            config += f"Robot:"
+            config += f"    {max_vel_x}" if max_vel_x is not None else ""
+            config += f"    {max_vel_x_backwards}" if max_vel_x_backwards is not None else ""
+            config += f"    {max_vel_theta}" if max_vel_theta is not None else ""
+        self.set_planner(config)
+
+    def set_planner(self, config_str):
+        config = yaml.safe_load(config_str)
+        self.local_planner_dyn_client.update_configuration(config)
+    
+    def set_planner_to_default(self):
+        self.local_planner_dyn_client.update_configuration(self.local_planner_start_config)
 
     def cancel_move_base(self):
         self.move_action_client.cancel_all_goals()

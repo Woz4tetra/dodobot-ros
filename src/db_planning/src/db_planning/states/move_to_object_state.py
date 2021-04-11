@@ -21,6 +21,10 @@ class MoveToObjectState(State):
         elif goal.type == SequenceRequestGoal.POSE_GOAL:
             raise NotImplementedError
         
+        self.central_planning.set_planner_velocities(
+            self.central_planning.max_vel_x,
+            self.central_planning.max_vel_theta,
+        )
         goal_pose = self.central_planning.get_move_base_goal(goal)
         if goal_pose is None:
             return "failure"
@@ -55,10 +59,10 @@ class MoveToObjectState(State):
                 # Use the original orientation to compute the goal.
                 # This avoids situations where the make_plan distance offset is greater than the robot's distance
                 # to the goal. In this case, this final orientation wouldn't be valid
-                # goal_pose = self.central_planning.get_goal_with_orientation(goal, goal_orientation)
-                # if goal_pose is None:
-                #     return "failure"
-                # self.central_planning.set_move_base_goal(goal_pose)
+                goal_pose = self.central_planning.get_goal_with_orientation(goal, goal_orientation)
+                if goal_pose is None:
+                    return "failure"
+                self.central_planning.set_move_base_goal(goal_pose)
             else:
                 self.central_planning.toggle_local_costmap(True)
                 self.central_planning.look_straight_ahead()
