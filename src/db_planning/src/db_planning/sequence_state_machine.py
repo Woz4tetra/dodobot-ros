@@ -75,6 +75,7 @@ class SequenceStateMachine(ActionServerWrapper):
         )
 
     def execute_cb(self, goal):
+        rospy.loginfo("Received sequence goal: %s" % str(goal))
         rospy.loginfo("To cancel the sequence goal, run: 'rostopic pub -1 /dodobot/sequence_request/cancel actionlib_msgs/GoalID -- {}'")
         self.wrapped_container.userdata.sm_sequence_goal = goal
         super(SequenceStateMachine, self).execute_cb(goal)

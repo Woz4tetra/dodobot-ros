@@ -69,21 +69,21 @@ class CentralPlanning:
         self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
 
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
-        self.max_vel_x = rospy.get_param("~max_vel_x", 0.3)
-        self.max_vel_theta = rospy.get_param("~max_vel_theta", 2.0)
+        self.max_vel_x = rospy.get_param("~max_vel_x", 0.15)
+        self.max_vel_theta = rospy.get_param("~max_vel_theta", 1.0)
 
-        self.goal_distance_offset = 0.1
-        self.near_object_distance = 0.75
+        self.goal_distance_offset = rospy.get_param("~goal_distance_offset", 0.1)
+        self.near_object_distance = rospy.get_param("~near_object_distance", 0.75)
         
-        self.pickup_z_offset = 0.02
-        self.deliver_z_offset = 0.02
+        self.pickup_z_offset = rospy.get_param("~pickup_z_offset", 0.02)
+        self.deliver_z_offset = rospy.get_param("~deliver_z_offset", 0.02)
 
-        self.transport_z_height = 0.08
+        self.transport_z_height = rospy.get_param("~transport_z_height", 0.08)
 
-        self.fast_stepper_speed = 0.044
-        self.slow_stepper_speed = 0.02
+        self.fast_stepper_speed = rospy.get_param("~fast_stepper_speed", 0.044)
+        self.slow_stepper_speed = rospy.get_param("~slow_stepper_speed", 0.02)
 
-        self.plow_into_object_offset = 0.025
+        self.plow_into_object_offset = rospy.get_param("~plow_into_object_offset", 0.025)
 
         self.local_costmap_enabled_state = None
         
@@ -448,6 +448,7 @@ class CentralPlanning:
         """
         Set linear stepper to a height z (meters)
         """
+        rospy.loginfo("Central planning linear stepper command: z=%s, speed=%s" % (z, speed))
         front_loader_goal = FrontLoaderGoal()
         front_loader_goal.goal_z = z
         front_loader_goal.z_speed = speed
@@ -505,16 +506,17 @@ class CentralPlanning:
             max_vel_x_backwards = max(max_vel_x - 0.1, 0.0)
         config = ""
         if self.local_planner_name == "TebLocalPlannerROS":
-            config += f"groups:\n"
-            config += f"  groups:\n"
-            config += f"    Robot:\n"
-            config += f"      {max_vel_x}\n" if max_vel_x is not None else ""
-            config += f"      {max_vel_x_backwards}\n" if max_vel_x_backwards is not None else ""
-            config += f"      {max_vel_theta}\n" if max_vel_theta is not None else ""
+            # config += f"groups:\n"
+            # config += f"  groups:\n"
+            # config += f"    Robot:\n"
+            config += f"max_vel_x: {max_vel_x}\n" if max_vel_x is not None else ""
+            config += f"max_vel_x_backwards: {max_vel_x_backwards}\n" if max_vel_x_backwards is not None else ""
+            config += f"max_vel_theta: {max_vel_theta}\n" if max_vel_theta is not None else ""
         self.set_planner(config)
 
     def set_planner(self, config_str):
         config = yaml.safe_load(config_str)
+        rospy.loginfo("Supplied config: %s" % str(config))
         self.local_planner_dyn_client.update_configuration(config)
     
     def set_planner_to_default(self):

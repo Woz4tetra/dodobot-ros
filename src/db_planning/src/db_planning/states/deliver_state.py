@@ -19,7 +19,9 @@ class DeliverState(State):
         if goal_pose is None:
             return "failure"
         
-        self.central_planning.set_linear_z(goal_pose.pose.position.z + self.central_planning.deliver_z_offset)
+        self.central_planning.set_linear_z(
+            goal_pose.pose.position.z + self.central_planning.deliver_z_offset + goal.object_z_offset
+        )
         if not self.central_planning.wait_for_linear_z():
             return "failure"
         

@@ -125,7 +125,8 @@ class FrontLoaderPlanner:
 
         rospy.loginfo("Publishing front loader command: %s\t%s\t%s" % (msg.position, msg.max_speed, msg.acceleration))
 
-        self.move_pub.publish(msg)
+        for _ in range(3):
+            self.move_pub.publish(msg)
 
         self.is_goal_set = True
         if wait_to_finish:

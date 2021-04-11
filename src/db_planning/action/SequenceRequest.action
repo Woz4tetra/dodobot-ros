@@ -9,6 +9,7 @@ string name
 geometry_msgs/PoseStamped pose_stamped
 float32 object_grab_cmd
 float32 force_threshold
+float32 object_z_offset
 ---
 bool success
 ---
