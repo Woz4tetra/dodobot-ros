@@ -3,6 +3,7 @@
 bags
 debug_images
 images
+src/db_laser_slam/maps
 
 # data
 # *.csv

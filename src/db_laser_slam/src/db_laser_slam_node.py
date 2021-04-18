@@ -1,65 +1,45 @@
 #!/usr/bin/env python3
 import os
+import sys
+import signal
 import rospy
 import rospkg
-import roslaunch
 import threading
 from datetime import datetime
+from subprocess import Popen, PIPE
 from collections import defaultdict
 
 
-class ProcessListener(roslaunch.pmon.ProcessListener):
-    def __init__(self):
-        self._is_running = False
-        self.stop_event = threading.Event()
-    
-    def start(self):
-        self._is_running = True
-    
-    def is_running(self):
-        return self._is_running
-
-    def process_died(self, name, exit_code):
-        rospy.logwarn("%s died with code %s", name, exit_code)
-        self._is_running = False
-        self.stop_event.set()
-    
-    def wait(self, timeout=None):
-        self.stop_event.wait(timeout=timeout)
-
-
 class LaunchManager:
+    roslaunch_exec = "/opt/ros/noetic/bin/roslaunch"
     def __init__(self, launch_path, *args, **kwargs):
-        self.uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-        roslaunch.configure_logging(self.uuid)
-        self.pmon = ProcessListener()
-
+        
         args_list = []
         for arg in args:
             args_list.append(str(arg))
         for name, value in kwargs.items():
             args_list.append("%s:=%s" % (name, value))
-
-        roslaunch_args = [launch_path] + args_list
-        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(args_list)[0], roslaunch_args)]
-        self.launch = roslaunch.parent.ROSLaunchParent(
-            self.uuid,
-            [roslaunch_file],
-            process_listeners=[self.pmon],
-        )
+        
+        if len(args_list) > 0:
+            self.roslaunch_args = [self.roslaunch_exec, launch_path] + args_list
+        else:
+            self.roslaunch_args = [self.roslaunch_exec, launch_path]
+        
+        self.process = None
     
     def start(self):
-        self.pmon.start()
-        self.launch.start()
+        rospy.loginfo("roslaunch args: %s" % self.roslaunch_args)
+        self.process = Popen(self.roslaunch_args, preexec_fn=os.setpgrp)  #, stdout=PIPE, stderr=PIPE)
     
     def stop(self):
-        self.launch.shutdown()
+        if self.is_running():
+            self.process.send_signal(signal.SIGINT)
     
     def join(self, timeout):
-        self.pmon.wait(timeout)
+        self.process.wait()
     
     def is_running(self):
-        return self.pmon.is_running()
+        return self.process is not None and self.process.poll() is None
 
 
 class DodobotLaserSlam:
@@ -79,19 +59,32 @@ class DodobotLaserSlam:
 
         self.mode = rospy.get_param("~mode", "mapping")
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
-        self.map_name = rospy.get_param("~map_name", "map-{date}.yaml")
+        self.map_name = rospy.get_param("~map_name", "map-{date}")
         self.date_format = rospy.get_param("~date_format", "%Y-%m-%dT%H-%M-%S--%f")
-        
+
         map_name = self.generate_map_name(self.map_name)
         self.map_path = os.path.join(self.map_dir, map_name)
+        self.map_dir = os.path.dirname(self.map_path)
+        self.map_name = os.path.basename(self.map_path)
+
+        if not os.path.isdir(self.map_dir):
+            os.makedirs(self.map_dir)
 
         self.gmapping_launch_path = rospy.get_param("~gmapping_launch", self.default_launches_dir + "/gmapping.launch")
         self.amcl_launch_path = rospy.get_param("~amcl_launch", self.default_launches_dir + "/amcl.launch")
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
-        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path)
-        self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, "-f %s" % self.map_path)
+        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
+        self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
+
+        self.launchers = [
+            self.gmapping_launcher,
+            self.amcl_launcher,
+            self.map_saver_launcher,
+        ]
+
+        # signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
     
     def generate_map_name(self, name_format):
         date_str = datetime.now().strftime(self.date_format)
@@ -103,20 +96,28 @@ class DodobotLaserSlam:
             self.gmapping_launcher.start()
         elif self.mode == "localize":
             self.amcl_launcher.start()
+        
         rospy.spin()
-
+        
     def stop_all(self):
         self.gmapping_launcher.stop()
         self.amcl_launcher.stop()
         self.map_saver_launcher.stop()
 
     def shutdown_hook(self):
+        rospy.loginfo("shutdown called")
         if self.mode == "mapping":
-            rospy.loginfo("Saving map to %s" % self.map_path)
+            rospy.loginfo("Saving map to %s. Waiting at least 10 seconds." % self.map_path)
             self.map_saver_launcher.start()
-            self.map_saver_launcher.join(timeout=30.0)
+            self.map_saver_launcher.join(timeout=10.0)
+            rospy.loginfo("Map saved!")
         
         self.stop_all()
+    
+    # def signal_handler(self, sig, frame):
+    #     self.shutdown_hook()
+    #     self.stop_event.set()
+    #     sys.exit(0)
 
 
 if __name__ == "__main__":
