@@ -9,6 +9,7 @@ rtabmap-ros
 realsense2-camera
 image-geometry
 vision-msgs
+teleop-twist-keyboard
 )
 
 package_list=""
