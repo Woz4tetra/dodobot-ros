@@ -1,0 +1,11 @@
+<launch>
+    <group ns="dodobot" >
+        <node name="db_tensorflow" pkg="db_tensorflow" type="db_tensorflow_node.py" output="screen" required="true">
+            <param name="image_topic"          value="/camera/color/image_raw"/>
+            <param name="depth_topic"          value="/camera/aligned_depth_to_color/image_raw"/>
+            <param name="camera_info_topic"    value="/camera/color/camera_info"/>
+
+            <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_resnet50_v1_fpn"/>
+        </node>
+    </group>
+</launch>

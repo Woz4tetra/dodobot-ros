@@ -4,6 +4,8 @@ bags
 debug_images
 images
 src/db_laser_slam/maps
+src/db_detectnet/models
+src/db_tensorflow/models
 
 # data
 # *.csv
