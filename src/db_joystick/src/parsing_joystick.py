@@ -135,6 +135,8 @@ class ParsingJoystick:
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
         self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
+        time.sleep(3.0)  # give a change for the audio node to come up
+
         self.play_audio("chansey")
 
     def play_audio(self, name):
