@@ -1,3 +1,6 @@
+cat /home/${USER}/ros_ws/src/dodobot-ros/scripts/chansey.txt
+source /home/${USER}/packages_ros_ws/devel/setup.bash
+source /home/${USER}/noetic_ws/install_isolated/setup.bash
 source /home/${USER}/ros_ws/devel/setup.bash
-source /home/${USER}/ros_ws/src/dodobot-ros/scripts/set_master.sh
+source /home/${USER}/ros_ws/src/dodobot-ros/systemd/env.sh
 export ROBOT_NAME=chansey
