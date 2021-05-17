@@ -74,24 +74,24 @@ class ParsingJoystick:
             # "porygonz",
         ]
         self.soundboard_left = [
-            "Bastion_-_15227",
-            "Bastion_-_15303",
-            "Bastion_-_4543",
-            "Bastion_-_Beeple",
-            "Bastion_-_Boo_boo_doo_de_doo",
-            "Bastion_-_Bweeeeeeeeeee",
-            "Bastion_-_Chirr_chirr_chirr",
-            "Bastion_-_Dah-dah_weeeee",
-            "Bastion_-_Doo-woo",
-            "Bastion_-_Dun_dun_boop_boop",
-            "Bastion_-_Dweet_dweet_dweet",
-            "Bastion_-_Hee_hoo_hoo",
-            "Bastion_-_Sh-sh-sh_dwee!",
-            "Bastion_-_Zwee",
+            # "Bastion_-_15227",
+            # "Bastion_-_15303",
+            # "Bastion_-_4543",
+            # "Bastion_-_Beeple",
+            # "Bastion_-_Boo_boo_doo_de_doo",
+            # "Bastion_-_Bweeeeeeeeeee",
+            # "Bastion_-_Chirr_chirr_chirr",
+            # "Bastion_-_Dah-dah_weeeee",
+            # "Bastion_-_Doo-woo",
+            # "Bastion_-_Dun_dun_boop_boop",
+            # "Bastion_-_Dweet_dweet_dweet",
+            # "Bastion_-_Hee_hoo_hoo",
+            # "Bastion_-_Sh-sh-sh_dwee!",
+            # "Bastion_-_Zwee",
+            "PuzzleDone",
         ]
         
         self.soundboard_up = [
-            "PuzzleDone",
             "got thing",
             "trident",
             "summon"
@@ -191,7 +191,7 @@ class ParsingJoystick:
     def joystick_msg_callback(self, msg):
         try:
             self.process_joy_msg(msg)
-        except BaseException, e:
+        except BaseException as e:
             traceback.print_exc()
             rospy.signal_shutdown(str(e))
 
