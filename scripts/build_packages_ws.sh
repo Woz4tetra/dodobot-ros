@@ -5,8 +5,11 @@ BASE_DIR=$(realpath "$(dirname $0)")
 DEPENDENCIES_WS=$HOME/packages_ros_ws
 DEPENDENCIES_WS_SRC=${DEPENDENCIES_WS}/src
 
-sudo apt-get install -y portaudio19-dev python3-pyaudio
+sudo apt-get install -y llvm-9 portaudio19-dev python3-pyaudio
 sudo -H pip3 install -r requirements.txt
+# LLVM_CONFIG=llvm-config-9 pip3 install llvmlite
+# LLVM_CONFIG=llvm-config-9 pip3 install numba
+
 
 mkdir -p ${DEPENDENCIES_WS_SRC}
 cd ${DEPENDENCIES_WS_SRC}
@@ -30,6 +33,8 @@ packages=(
     https://github.com/ros-perception/pcl_msgs.git
     https://github.com/AprilRobotics/apriltag_ros.git
     https://github.com/rst-tu-dortmund/costmap_converter.git
+    https://github.com/ros-perception/image_pipeline.git
+    https://github.com/ros-perception/image_common.git
 )
 
 branches=(
@@ -51,6 +56,8 @@ branches=(
     noetic-devel
     master
     master
+    noetic
+    noetic-devel
 )
 
 len=${#packages[@]}
@@ -67,6 +74,10 @@ find ${DEPENDENCIES_WS_SRC} -type f -name CMakeLists.txt -exec sed -i'' -e 's/Bo
 find ${DEPENDENCIES_WS_SRC} -type f -name CMakeLists.txt -exec sed -i'' -e 's/find_package(realsense2 2.45.0)/find_package(realsense2 2.41.0)/g' {} +
 
 sed -i -e 's/${G2O_INCREMENTAL_LIB}/#${G2O_INCREMENTAL_LIB}/g'  ${DEPENDENCIES_WS_SRC}/teb_local_planner/cmake_modules/FindG2O.cmake
+
+# helpful forum post: https://stackoverflow.com/questions/4770177/git-patch-does-not-apply
+cd ${DEPENDENCIES_WS_SRC}/image_pipeline/
+git apply ${BASE_DIR}/fix-image-pipeline.patch --reject --whitespace=fix 
 
 catkin_make -j2
 success=$?

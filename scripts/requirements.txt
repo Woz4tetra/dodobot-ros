@@ -3,4 +3,3 @@ PyYAML
 pydub
 pyaudio
 scipy
-numba
