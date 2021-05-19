@@ -8,6 +8,7 @@
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="database_path" value="$(arg map_name)"/>
         <arg name="create_new_db" value="$(arg new_db)"/>
+        <arg name="use_laser"     value="$(arg use_laser)"/>
     </include>
     <include if="$(arg use_laser)" file="$(find db_config)/launch/rplidar.launch"/>
 </launch>

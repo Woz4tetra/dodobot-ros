@@ -4,8 +4,11 @@
             <param name="image_topic"          value="/camera/color/image_raw"/>
             <param name="depth_topic"          value="/camera/aligned_depth_to_color/image_raw"/>
             <param name="camera_info_topic"    value="/camera/color/camera_info"/>
+            <param name="min_score_threshold"  value="0.7"/>
 
-            <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_resnet50_v1_fpn"/>
+            <param name="labels_path" value="$(find db_tensorflow)/annotations/label_map.pbtxt"/>
+            <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_mobilenet_v2/saved_model"/>
+            <!-- <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_resnet50_v1_fpn/saved_model"/> -->
         </node>
     </group>
 </launch>

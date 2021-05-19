@@ -1,0 +1,34 @@
+item {
+    id: 1
+    name: 'cosmo_cube'
+}
+
+item {
+    id: 2
+    name: 'blue_cut_sphere'
+}
+
+item {
+    id: 3
+    name: 'red_cut_sphere'
+}
+
+item {
+    id: 4
+    name: 'blue_low_bin'
+}
+
+item {
+    id: 5
+    name: 'red_low_bin'
+}
+
+item {
+    id: 6
+    name: 'blue_cube'
+}
+
+item {
+    id: 7
+    name: 'red_cube'
+}

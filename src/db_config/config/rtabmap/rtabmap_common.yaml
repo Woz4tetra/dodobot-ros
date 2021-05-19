@@ -21,7 +21,7 @@ GFTT/UseHarrisDetector: false  # false
 
 ORB/EdgeThreshold: 25  # 31  [This is size of the border where the features are not detected. It should roughly match the patchSize parameter.]
 ORB/FirstLevel: 0  # 0  [It should be 0 in the current implementation.]
-ORB/Gpu: false  # false  [GPU-ORB: Use GPU version of ORB. This option is enabled only if OpenCV is built with CUDA and GPUs are detected.]
+ORB/Gpu: true  # false  [GPU-ORB: Use GPU version of ORB. This option is enabled only if OpenCV is built with CUDA and GPUs are detected.]
 ORB/NLevels: 8  # 8  [The number of pyramid levels. The smallest level will have linear size equal to input_image_linear_size/pow(scaleFactor, nlevels).]
 ORB/PatchSize: 25  # 31  [size of the patch used by the oriented BRIEF descriptor. Of course, on smaller pyramid layers the perceived image area covered by a feature will be larger.]
 ORB/ScaleFactor: 1.2  # 1.2  [Pyramid decimation ratio, greater than 1. scaleFactor==2 means the classical pyramid, where each next level has 4x less pixels than the previous, but such a big scale factor will degrade feature matching scores dramatically. On the other hand, too close to 1 scale factor will mean that to cover certain scale range you will need more pyramid levels and so the speed will suffer.]
@@ -30,7 +30,7 @@ ORB/WTA_K: 2  # 2  [The number of points that produce each element of the orient
 
 
 Vis/EstimationType: 1   # 1  Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry)
-Vis/FeatureType: 8   # 8  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
+Vis/FeatureType: 11   # 8  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
 Vis/MaxDepth: 4.0   # Max depth of the features (0 means no limit).
 Vis/MinInliers: 12   # 20  Minimum feature correspondences to compute/accept the transformation.
 # Vis/InlierDistance: 2.0   # Maximum distance for feature correspondences. Used by 3D->3D estimation approach.

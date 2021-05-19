@@ -3,7 +3,7 @@
     <arg name="localization"       default="false"/>
     <arg name="database_path"      default="rtabmap.db"/>
     <arg name="create_new_db"      default="$(eval not localization)"/>
-    <arg name="use_laser"          default="true"/>
+    <arg name="use_laser"          default="false"/>
 
     <arg     if="$(arg create_new_db)" name="rtabmap_args"  default="--delete_db_on_start"/>
     <arg unless="$(arg create_new_db)" name="rtabmap_args"  default=""/>

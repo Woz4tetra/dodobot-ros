@@ -4,11 +4,11 @@
         <node name="db_detectnet" pkg="db_detectnet" type="db_detectnet_node" output="screen">
             <param name="model_name" value=""/>
 
-            <!-- <param name="model_path" value="$(find db_detectnet)/models/dodobot_objects_mb2-ssd-lite/mb2-ssd-lite.onnx"/> -->
-            <!-- <param name="class_labels_path" value="$(find db_detectnet)/models/dodobot_objects_mb2-ssd-lite/labels.txt"/> -->
+            <param name="model_path" value="$(find db_detectnet)/models/dodobot_objects_mb2-ssd-lite/mb2-ssd-lite.onnx"/>
+            <param name="class_labels_path" value="$(find db_detectnet)/models/dodobot_objects_mb2-ssd-lite/labels.txt"/>
 
-            <param name="model_path" value="$(find db_detectnet)/models/dodobot_objects_ssd_resnet50_v1_fpn/model.onnx"/>
-            <param name="class_labels_path" value="$(find db_detectnet)/models/dodobot_objects_ssd_resnet50_v1_fpn/labels.txt"/>
+            <!-- <param name="model_path" value="$(find db_detectnet)/models/dodobot_objects_ssd_resnet50_v1_fpn/model.onnx"/> -->
+            <!-- <param name="class_labels_path" value="$(find db_detectnet)/models/dodobot_objects_ssd_resnet50_v1_fpn/labels.txt"/> -->
 
             <param name="prototxt_path" value=""/>
             <param name="input_blob" value="input_0"/>

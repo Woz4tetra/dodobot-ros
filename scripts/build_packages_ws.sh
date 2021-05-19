@@ -5,10 +5,8 @@ BASE_DIR=$(realpath "$(dirname $0)")
 DEPENDENCIES_WS=$HOME/packages_ros_ws
 DEPENDENCIES_WS_SRC=${DEPENDENCIES_WS}/src
 
-sudo apt-get install -y llvm-9 portaudio19-dev python3-pyaudio
+sudo apt-get install -y portaudio19-dev python3-pyaudio
 sudo -H pip3 install -r requirements.txt
-# LLVM_CONFIG=llvm-config-9 pip3 install llvmlite
-# LLVM_CONFIG=llvm-config-9 pip3 install numba
 
 
 mkdir -p ${DEPENDENCIES_WS_SRC}
@@ -35,6 +33,8 @@ packages=(
     https://github.com/rst-tu-dortmund/costmap_converter.git
     https://github.com/ros-perception/image_pipeline.git
     https://github.com/ros-perception/image_common.git
+    https://github.com/robopeak/rplidar_ros.git
+    https://github.com/ros-perception/laser_filters.git
 )
 
 branches=(
@@ -58,6 +58,8 @@ branches=(
     master
     noetic
     noetic-devel
+    master
+    kinetic-devel
 )
 
 len=${#packages[@]}
@@ -69,7 +71,7 @@ cd ..
 
 rosdep install --from-paths src --ignore-src --rosdistro=noetic -y -r
 
-find ${DEPENDENCIES_WS_SRC} -type f -name CMakeLists.txt -exec sed -i'' -e 's/Boost REQUIRED python37/Boost REQUIRED python/g' {} +
+find ${DEPENDENCIES_WS_SRC} -type f -name CMakeLists.txt -exec sed -i'' -e 's/Boost REQUIRED python37/Boost REQUIRED python36/g' {} +
 
 find ${DEPENDENCIES_WS_SRC} -type f -name CMakeLists.txt -exec sed -i'' -e 's/find_package(realsense2 2.45.0)/find_package(realsense2 2.41.0)/g' {} +
 

@@ -24,6 +24,8 @@
 
             <param name="linear_axis" value="$(arg joystick_linear_axis)" />
             <param name="angular_axis" value="$(arg joystick_angular_axis)" />
+            <param name="stepper_axis" value="3" />
+            <param name="tilter_axis" value="3" />
         </node>
     </group>
 </launch>

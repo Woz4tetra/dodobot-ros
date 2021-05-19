@@ -75,27 +75,27 @@ class ParsingJoystick:
             # "porygonz",
         ]
         self.soundboard_left = [
-            # "Bastion_-_15227",
-            # "Bastion_-_15303",
-            # "Bastion_-_4543",
-            # "Bastion_-_Beeple",
-            # "Bastion_-_Boo_boo_doo_de_doo",
-            # "Bastion_-_Bweeeeeeeeeee",
-            # "Bastion_-_Chirr_chirr_chirr",
-            # "Bastion_-_Dah-dah_weeeee",
-            # "Bastion_-_Doo-woo",
-            # "Bastion_-_Dun_dun_boop_boop",
-            # "Bastion_-_Dweet_dweet_dweet",
-            # "Bastion_-_Hee_hoo_hoo",
-            # "Bastion_-_Sh-sh-sh_dwee!",
-            # "Bastion_-_Zwee",
-            "PuzzleDone",
+            "Bastion_-_15227",
+            "Bastion_-_15303",
+            "Bastion_-_4543",
+            "Bastion_-_Beeple",
+            "Bastion_-_Boo_boo_doo_de_doo",
+            "Bastion_-_Bweeeeeeeeeee",
+            "Bastion_-_Chirr_chirr_chirr",
+            "Bastion_-_Dah-dah_weeeee",
+            "Bastion_-_Doo-woo",
+            "Bastion_-_Dun_dun_boop_boop",
+            "Bastion_-_Dweet_dweet_dweet",
+            "Bastion_-_Hee_hoo_hoo",
+            "Bastion_-_Sh-sh-sh_dwee!",
+            "Bastion_-_Zwee",
         ]
         
         self.soundboard_up = [
             "got thing",
             "trident",
             "summon"
+            "PuzzleDone",
         ]
         self.soundboard_down = ["ring"]
 
@@ -277,9 +277,9 @@ class ParsingJoystick:
             return
 
         # Xbox button mapping:
-        # 0: A,    1: B,     2: X,      3: Y
-        # 4: L1,   5: R1,    6: Select, 7: Start
-        # 8: L joy, 9: R joy
+        # 0: A,    1: B,     4: Y,      3: X
+        # 6: L1,   7: R1,    11: menu
+        # 13: L joy, 14: R joy
 
         # Xbox axes:
         # Lx: 0, Ly: 1
@@ -292,12 +292,12 @@ class ParsingJoystick:
             self.home_linear()
         if self.is_button_down(msg, 1): # B
             self.toggle_gripper()
-        if self.is_button_down(msg, 3): # Y
+        if self.is_button_down(msg, 4): # Y
             self.toggle_active()
-        if self.is_button_down(msg, 2): # X
+        if self.is_button_down(msg, 3): # X
             self.toggle_tilter()
-        if self.did_button_change(msg, 4): # L1
-            self.enable_tilt_axis = msg.buttons[4] == 1
+        if self.did_button_change(msg, 6): # L1
+            self.enable_tilt_axis = msg.buttons[6] == 1
             if self.enable_tilt_axis:
                 self.set_linear(0.0)
             else:
