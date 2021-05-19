@@ -85,6 +85,17 @@ class State:
         dx = self.x - other.x
         dy = self.y - other.y
         return math.sqrt(dx * dx + dy * dy)
+    
+    def tolist(self, states="xyt"):
+        output = []
+        for state in states:
+            if state == "x":
+                output.append(self.x)
+            elif state == "y":
+                output.append(self.y)
+            elif state == "t":
+                output.append(self.theta)
+        return output
 
     def __add__(self, other):
         if not isinstance(other, self.__class__):
