@@ -3,8 +3,9 @@ project(db_tensorflow)
 
 find_package(catkin REQUIRED COMPONENTS
     rospy
-    geometry_msgs
     std_msgs
+    dynamic_reconfigure
+    message_generation
 )
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
@@ -34,11 +35,11 @@ include_directories(
 )
 
 generate_dynamic_reconfigure_options(
-    cfg/DetectConfig.cfg
+    cfg/Detect.cfg
 )
 
 catkin_package(
-    CATKIN_DEPENDS rospy std_msgs message_runtime
+    CATKIN_DEPENDS rospy std_msgs message_runtime dynamic_reconfigure
 )
 
 # catkin_install_python(PROGRAMS src/db_tensorflow/central_planning.py

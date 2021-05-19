@@ -4,6 +4,8 @@ import rospy
 
 import cv2
 import time
+import copy
+import pickle
 import traceback
 import numpy as np
 
@@ -20,7 +22,8 @@ from sensor_msgs.msg import Image, CameraInfo
 from image_geometry import PinholeCameraModel
 
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs import Vector3 
+from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import Vector3 
 
 from vision_msgs.msg import Detection2D
 from vision_msgs.msg import Detection2DArray
@@ -94,8 +97,6 @@ class DodobotTensorflow:
         self.depth_topic_name = rospy.get_param("~depth_topic", "depth/image_raw")
         self.info_topic_name = rospy.get_param("~camera_info_topic", "color/camera_info")
 
-        self.visualization_topic_name = rospy.get_param("~visualization_topic", "labeled_image")
-
         self.labels_path = rospy.get_param("~labels_path", "annotations/label_map.pbtxt")
         self.model_path = rospy.get_param("~model_path", "models/dodobot_objects_ssd_resnet50_v1_fpn")
 
@@ -103,23 +104,32 @@ class DodobotTensorflow:
         self.max_boxes_to_draw = rospy.get_param("~max_boxes_to_draw", 20)
         self.bounding_box_border_px = rospy.get_param("~bounding_box_border_px", 30)
         self.z_size_estimations = rospy.get_param("~z_size_estimations", None)
+        self.marker_colors = rospy.get_param("~marker_colors", None)
         self.publish_in_robot_frame = rospy.get_param("~publish_in_robot_frame", True)
         self.robot_frame = rospy.get_param("~robot_frame", "base_link")
         self.marker_persistance = rospy.get_param("~marker_persistance_s", 0.5)
         self.default_z_size = rospy.get_param("~default_z_size", 0.05)
+        self.min_valid_z = rospy.get_param("~min_valid_z", 0.03)
+        self.max_valid_z = rospy.get_param("~max_valid_z", 3.0)
+
+        self.marker_persistance = rospy.Duration(self.marker_persistance)
 
         self.image_sub = message_filters.Subscriber(self.image_topic_name, Image)
         self.depth_sub = message_filters.Subscriber(self.depth_topic_name, Image)
         self.info_sub = message_filters.Subscriber(self.info_topic_name, CameraInfo)
+
+        self.detect_fn = None
+        self.category_index = None
 
         self.detect_fn, self.category_index = self.generate_detect_fn()
 
         self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub, self.info_sub], 10)
         self.time_sync_sub.registerCallback(self.rgbd_callback)
 
-        self.visualization_image_pub = rospy.Publisher(self.visualization_topic_name, Image, queue_size=1)
+        self.visualization_image_pub = rospy.Publisher("detect_overlay", Image, queue_size=1)
 
         self.detect_pub = rospy.Publisher("detections", Detection2DArray, queue_size=10)
+        self.marker_pub = rospy.Publisher("obj_markers", MarkerArray, queue_size=25)
 
         self.bridge = CvBridge()
         self.camera_model = PinholeCameraModel()
@@ -133,6 +143,9 @@ class DodobotTensorflow:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         self.dyn_server = Server(DetectConfig, self.dyn_callback)
+
+        with open("/home/ben/detection.pkl", 'rb') as file:
+            self.dummy_detections = pickle.load(file)
 
         rospy.loginfo("%s init done" % self.node_name)
     
@@ -149,6 +162,7 @@ class DodobotTensorflow:
         start_time = time.time()
         # Load saved model and build the detection function
         detect_fn = tensorflow.saved_model.load(self.model_path)
+        # detect_fn = None
 
         end_time = time.time()
         elapsed_time = end_time - start_time
@@ -178,9 +192,16 @@ class DodobotTensorflow:
             detect_msg = self.get_detect_msg(desc)
             
             if self.publish_in_robot_frame:
-                desc.pose_stamped = self.object_to_robot_frame(desc.pose_stamped, camera_info)
-            detect_msg.detections[-1].results[0].pose = desc.pose_stamped.pose
-            detect_msg.detections[-1].header = desc.pose_stamped.header
+                new_pose = self.object_to_robot_frame(desc.pose_stamped, camera_info)
+                if new_pose is None:
+                    continue
+                else:
+                    desc.pose_stamped = new_pose
+            
+            detection_pose = PoseWithCovariance()
+            detection_pose.pose = desc.pose_stamped.pose
+            detect_msg.results[0].pose = detection_pose
+            detect_msg.header = desc.pose_stamped.header
 
             markers = self.make_markers(desc)
 
@@ -207,9 +228,14 @@ class DodobotTensorflow:
             return
         input_tensor = tensorflow.convert_to_tensor(color_image_np)
         input_tensor = input_tensor[tensorflow.newaxis, ...]
-
+        
         t0 = time.time()
-        detections = self.detect_fn(input_tensor)
+        if self.detect_fn is None:
+            detections = copy.deepcopy(self.dummy_detections)
+        else:
+            detections = self.detect_fn(input_tensor)
+            # with open("/home/ben/detection.pkl", 'wb') as file:
+            #     pickle.dump(detections, file)
         t1 = time.time()
         self.detect_rate_logger.append(t1 - t0)
         rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.detect_rate_logger.rate())
@@ -231,6 +257,14 @@ class DodobotTensorflow:
         t0 = time.time()
         class_name = self.category_index[class_index]["name"]
         ymin, xmin, ymax, xmax = box
+
+        # depth image dimensions should be the same as the color image because
+        # the depth image has been registered/shifted to be overlaid on top of the color image
+        ymin *= depth_image.height
+        ymax *= depth_image.height
+        xmin *= depth_image.width
+        xmax *= depth_image.width
+
         xcenter = (xmax + xmin) / 2.0
         ycenter = (ymax + ymin) / 2.0
         xsize = xmax - xmin
@@ -238,7 +272,17 @@ class DodobotTensorflow:
         obj_radius = min(xsize, ysize) / 2.0
         detect_radius = max(obj_radius - self.bounding_box_border_px, 1)
 
-        desc = BoxDescription(class_index, class_name, score, box, xcenter, ycenter, xsize, ysize, obj_radius, detect_radius)
+        desc = BoxDescription()
+        desc.class_index = class_index
+        desc.class_name = class_name
+        desc.score = score
+        desc.box = (ymin, xmin, ymax, xmax)
+        desc.xcenter = xcenter
+        desc.ycenter = ycenter
+        desc.xsize = xsize
+        desc.ysize = ysize
+        desc.obj_radius = obj_radius
+        desc.detect_radius = detect_radius
 
         if self.z_size_estimations is not None:
             zsize = self.z_size_estimations.get(class_name, self.default_z_size)
@@ -250,12 +294,12 @@ class DodobotTensorflow:
         z_depth += zsize / 2.0  # move to the rough center of the object
         ray = self.camera_model.projectPixelTo3dRay((desc.xcenter, desc.ycenter))
 
-        x_pos = ray.x * z_depth
-        y_pos = ray.y * z_depth
+        x_pos = ray[0] * z_depth
+        y_pos = ray[1] * z_depth
 
         pose = PoseStamped()
         pose.header.frame_id = self.camera_model.tfFrame()
-        pose.header.stamp = depth_image.frame.stamp
+        pose.header.stamp = depth_image.header.stamp
         pose.pose.position.x = x_pos
         pose.pose.position.y = y_pos
         pose.pose.position.z = z_depth
@@ -269,8 +313,8 @@ class DodobotTensorflow:
         ray = self.camera_model.projectPixelTo3dRay((edge_point_x, edge_point_y))
 
         desc.pose_stamped = pose
-        desc.xedge = abs(ray.x * z_depth - x_pos) * 2.0
-        desc.yedge = abs(ray.y * z_depth - y_pos) * 2.0
+        desc.xedge = abs(ray[0] * z_depth - x_pos) * 2.0
+        desc.yedge = abs(ray[1] * z_depth - y_pos) * 2.0
         desc.zedge = zsize
 
         t1 = time.time()
@@ -288,7 +332,7 @@ class DodobotTensorflow:
             return None
         depth_image_np = depth_image_np.astype(np.float32)
         circle_mask = np.zeros(depth_image_np.shape, np.uint8)
-        cv2.circle(circle_mask, (desc.xcenter, desc.ycenter), desc.detect_radius, (255, 255, 255), cv2.FILLED)
+        cv2.circle(circle_mask, (int(desc.xcenter), int(desc.ycenter)), int(desc.detect_radius), (255, 255, 255), cv2.FILLED)
         nonzero_mask = (depth_image_np > 0.0).astype(np.uint8)
         target_mask = cv2.bitwise_and(circle_mask, nonzero_mask)
         z_depth = cv2.mean(depth_image_np, target_mask)[0]
@@ -332,18 +376,24 @@ class DodobotTensorflow:
 
     def object_to_robot_frame(self, pose_stamped, camera_info):
         try:
-            transform = self.tf_buffer.lookup_transform(self.robot_frame, camera_info.header.frame_id, camera_info.header.stamp, 1.0)
+            transform = self.tf_buffer.lookup_transform(
+                self.robot_frame,
+                camera_info.header.frame_id,
+                camera_info.header.stamp,
+                rospy.Duration(1.0)
+            )
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             rospy.logwarn("Failed to look up %s to %s. %s" % (self.robot_frame, camera_info.header.frame_id, e))
             return None
         pose_robot_frame = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
         return pose_robot_frame
 
-    def dyn_callback(self, config):
-        rospy.loginfo("Reconfigure Request: %s" % str(config))
-        self.min_score_threshold = config["min_score_threshold"]
-        self.max_boxes_to_draw = config["max_boxes_to_draw"]
-        self.bounding_box_border_px = config["bounding_box_border_px"]
+    def dyn_callback(self, config, level):
+        rospy.loginfo("Reconfigure Request: %s. Level: %s" % (str(config), level))
+        # self.min_score_threshold = config["min_score_threshold"]
+        # self.max_boxes_to_draw = config["max_boxes_to_draw"]
+        # self.bounding_box_border_px = config["bounding_box_border_px"]
+        return config
 
     def make_markers(self, desc: BoxDescription):
         sphere_marker = self.make_marker_base(desc)
@@ -354,7 +404,7 @@ class DodobotTensorflow:
 
         text_marker.type = Marker.TEXT_VIEW_FACING
         text_marker.ns = "text_" + text_marker.ns
-        text_marker.text = desc.class_name + "_" + str(self.class_index)
+        text_marker.text = desc.class_name + "_" + str(desc.class_index)
         text_marker.scale.x = 0.0
         text_marker.scale.y = 0.0
 
@@ -374,7 +424,7 @@ class DodobotTensorflow:
         scale_vector.y = desc.yedge
         scale_vector.z = desc.zedge
         marker.scale = scale_vector
-        if desc.class_name in self.marker_colors:
+        if self.marker_colors is not None and desc.class_name in self.marker_colors:
             marker.color = self.marker_colors[desc.class_name]
         else:
             marker.color = ColorRGBA(1.0, 1.0, 1.0, 1.0)
