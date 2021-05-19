@@ -33,9 +33,9 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-# generate_dynamic_reconfigure_options(
-#     cfg/DodobotChassis.cfg
-# )
+generate_dynamic_reconfigure_options(
+    cfg/DetectConfig.cfg
+)
 
 catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime

@@ -11,15 +11,73 @@ import tensorflow
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as viz_utils
 
+from dynamic_reconfigure.server import Server
+from db_tensorflow.cfg import DetectConfig
+
 import message_filters
 from sensor_msgs.msg import Image, CameraInfo
 
+from image_geometry import PinholeCameraModel
+
+from geometry_msgs.msg import PoseStamped
+from geometry_msgs import Vector3 
+
+from vision_msgs.msg import Detection2D
+from vision_msgs.msg import Detection2DArray
+from vision_msgs.msg import ObjectHypothesisWithPose
+
+from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker
+
+from std_msgs.msg import ColorRGBA
+
+import tf2_ros
+import tf2_geometry_msgs
 
 import ctypes
 # a thread gets killed improperly within CvBridge without this causing segfaults
 libgcc_s = ctypes.CDLL('libgcc_s.so.1')
 
 from cv_bridge import CvBridge, CvBridgeError
+
+
+class RollingAvgRateLogger:
+    def __init__(self, rolling_avg_window):
+        self.rolling_avg_window = rolling_avg_window
+        self.data = np.zeros(self.rolling_avg_window)
+        self.index = 0
+    
+    def append(self, value):
+        self.data[self.index] = value
+        self.index += 1
+        if self.index >= len(self.data):
+            self.index = 0
+
+    def rate(self):
+        rate = 1.0 / np.mean(self.data)
+        return rate
+    
+    def avg(self):
+        return np.mean(self.data)
+
+
+class BoxDescription:
+    def __init__(self):
+        self.class_index = 0
+        self.class_name = ""
+        self.score = 0.0
+        self.box = (0.0, 0.0, 0.0, 0.0)
+        self.xcenter = 0.0
+        self.ycenter = 0.0
+        self.xsize = 0.0
+        self.ysize = 0.0
+        self.obj_radius = 0.0
+        self.detect_radius = 0.0
+
+        self.pose_stamped = PoseStamped()
+        self.xedge = 0.0
+        self.yedge = 0.0
+        self.zedge = 0.0
 
 
 class DodobotTensorflow:
@@ -43,6 +101,12 @@ class DodobotTensorflow:
 
         self.min_score_threshold = rospy.get_param("~min_score_threshold", 0.3)
         self.max_boxes_to_draw = rospy.get_param("~max_boxes_to_draw", 20)
+        self.bounding_box_border_px = rospy.get_param("~bounding_box_border_px", 30)
+        self.z_size_estimations = rospy.get_param("~z_size_estimations", None)
+        self.publish_in_robot_frame = rospy.get_param("~publish_in_robot_frame", True)
+        self.robot_frame = rospy.get_param("~robot_frame", "base_link")
+        self.marker_persistance = rospy.get_param("~marker_persistance_s", 0.5)
+        self.default_z_size = rospy.get_param("~default_z_size", 0.05)
 
         self.image_sub = message_filters.Subscriber(self.image_topic_name, Image)
         self.depth_sub = message_filters.Subscriber(self.depth_topic_name, Image)
@@ -55,13 +119,21 @@ class DodobotTensorflow:
 
         self.visualization_image_pub = rospy.Publisher(self.visualization_topic_name, Image, queue_size=1)
 
-        self.bridge = CvBridge()
+        self.detect_pub = rospy.Publisher("detections", Detection2DArray, queue_size=10)
 
-        rolling_avg_window = 10
-        self.detect_elapsed_time = np.zeros(rolling_avg_window)
-        self.detect_elapsed_time_index = 0
-        self.update_time = np.zeros(rolling_avg_window)
-        self.update_time_index = 0
+        self.bridge = CvBridge()
+        self.camera_model = PinholeCameraModel()
+
+        self.detect_rate_logger = RollingAvgRateLogger(10)
+        self.update_rate_logger = RollingAvgRateLogger(10)
+        self.camera_rate_logger = RollingAvgRateLogger(10)
+        self.depth_rate_logger = RollingAvgRateLogger(10)
+
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+
+        self.dyn_server = Server(DetectConfig, self.dyn_callback)
+
         rospy.loginfo("%s init done" % self.node_name)
     
     def generate_detect_fn(self):
@@ -86,6 +158,47 @@ class DodobotTensorflow:
 
     def rgbd_callback(self, color_image, depth_image, camera_info):
         t0 = time.time()
+        detections = self.detection_pipeline(color_image)
+        self.camera_model.fromCameraInfo(camera_info)
+        
+        detect_array_msg = Detection2DArray()
+        markers_msg = MarkerArray()
+
+        for index in range(detections["num_detections"]):
+            score = detections["detection_scores"][index]
+            if score < self.min_score_threshold:
+                continue
+            box = detections["detection_boxes"][index]
+            class_index = detections["detection_classes"][index]
+            desc = self.depth_pipeline(box, score, class_index, depth_image)
+
+            if desc.pose_stamped is None or not (self.min_valid_z <= desc.pose_stamped.pose.position.z <= self.max_valid_z):
+                continue
+            
+            detect_msg = self.get_detect_msg(desc)
+            
+            if self.publish_in_robot_frame:
+                desc.pose_stamped = self.object_to_robot_frame(desc.pose_stamped, camera_info)
+            detect_msg.detections[-1].results[0].pose = desc.pose_stamped.pose
+            detect_msg.detections[-1].header = desc.pose_stamped.header
+
+            markers = self.make_markers(desc)
+
+            detect_array_msg.detections.append(detect_msg)
+            markers_msg.markers.extend(markers)
+
+        detect_array_msg.header.stamp = camera_info.header.stamp
+
+        self.detect_pub.publish(detect_array_msg)
+        self.marker_pub.publish(markers_msg)
+
+        t1 = time.time()
+        self.update_rate_logger.append(t1 - t0)
+        self.camera_rate_logger.append(t1 - camera_info.header.stamp.to_sec())
+        rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.update_rate_logger.rate())
+        rospy.loginfo_throttle(10, "Camera delay avg: %0.3fs" % self.camera_rate_logger.avg())
+        
+    def detection_pipeline(self, color_image):
         try:
             # Convert ROS Image message to numpy array
             color_image_np = self.bridge.imgmsg_to_cv2(color_image, "rgb8")
@@ -95,10 +208,11 @@ class DodobotTensorflow:
         input_tensor = tensorflow.convert_to_tensor(color_image_np)
         input_tensor = input_tensor[tensorflow.newaxis, ...]
 
-        t1 = time.time()
+        t0 = time.time()
         detections = self.detect_fn(input_tensor)
-        t2 = time.time()
-        self.log_detect_rate(t2 - t1)
+        t1 = time.time()
+        self.detect_rate_logger.append(t1 - t0)
+        rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.detect_rate_logger.rate())
 
         num_detections = int(detections.pop("num_detections"))
         detections = {key: value[0, :num_detections].numpy() for key, value in detections.items()}
@@ -110,8 +224,76 @@ class DodobotTensorflow:
         image_with_detections = color_image_np.copy()
 
         self.publish_visualization(detections, image_with_detections)
-        t3 = time.time()
-        self.log_update_rate(t3 - t0)
+
+        return detections
+    
+    def depth_pipeline(self, box, score, class_index, depth_image):
+        t0 = time.time()
+        class_name = self.category_index[class_index]["name"]
+        ymin, xmin, ymax, xmax = box
+        xcenter = (xmax + xmin) / 2.0
+        ycenter = (ymax + ymin) / 2.0
+        xsize = xmax - xmin
+        ysize = ymax - ymin
+        obj_radius = min(xsize, ysize) / 2.0
+        detect_radius = max(obj_radius - self.bounding_box_border_px, 1)
+
+        desc = BoxDescription(class_index, class_name, score, box, xcenter, ycenter, xsize, ysize, obj_radius, detect_radius)
+
+        if self.z_size_estimations is not None:
+            zsize = self.z_size_estimations.get(class_name, self.default_z_size)
+        else:
+            zsize = self.default_z_size
+        z_depth = self.z_depth_from_image(depth_image, desc)
+        if z_depth is None:
+            return None
+        z_depth += zsize / 2.0  # move to the rough center of the object
+        ray = self.camera_model.projectPixelTo3dRay((desc.xcenter, desc.ycenter))
+
+        x_pos = ray.x * z_depth
+        y_pos = ray.y * z_depth
+
+        pose = PoseStamped()
+        pose.header.frame_id = self.camera_model.tfFrame()
+        pose.header.stamp = depth_image.frame.stamp
+        pose.pose.position.x = x_pos
+        pose.pose.position.y = y_pos
+        pose.pose.position.z = z_depth
+        pose.pose.orientation.x = 0.0
+        pose.pose.orientation.y = 0.0
+        pose.pose.orientation.z = 0.0
+        pose.pose.orientation.w = 1.0
+
+        edge_point_x = desc.xcenter - int(xsize / 2.0)
+        edge_point_y = desc.ycenter - int(ysize / 2.0)
+        ray = self.camera_model.projectPixelTo3dRay((edge_point_x, edge_point_y))
+
+        desc.pose_stamped = pose
+        desc.xedge = abs(ray.x * z_depth - x_pos) * 2.0
+        desc.yedge = abs(ray.y * z_depth - y_pos) * 2.0
+        desc.zedge = zsize
+
+        t1 = time.time()
+        self.depth_rate_logger.append(t1 - t0)
+        rospy.loginfo_throttle(10, "Depth pipeline rate avg: %0.3f Hz" % self.depth_rate_logger.rate())
+
+        return desc
+    
+    def z_depth_from_image(self, depth_image, desc: BoxDescription):
+        try:
+            # Convert ROS Image message to numpy array
+            depth_image_np = self.bridge.imgmsg_to_cv2(depth_image, desired_encoding="passthrough")
+        except CvBridgeError as e:
+            rospy.logerr(e)
+            return None
+        depth_image_np = depth_image_np.astype(np.float32)
+        circle_mask = np.zeros(depth_image_np.shape, np.uint8)
+        cv2.circle(circle_mask, (desc.xcenter, desc.ycenter), desc.detect_radius, (255, 255, 255), cv2.FILLED)
+        nonzero_mask = (depth_image_np > 0.0).astype(np.uint8)
+        target_mask = cv2.bitwise_and(circle_mask, nonzero_mask)
+        z_depth = cv2.mean(depth_image_np, target_mask)[0]
+        z_depth /= 1000.0
+        return z_depth
 
     def publish_visualization(self, detections, image_with_detections):
         if self.visualization_image_pub.get_num_connections() == 0:
@@ -135,21 +317,69 @@ class DodobotTensorflow:
             return
         self.visualization_image_pub.publish(visualize_image_msg)
 
-    def log_detect_rate(self, dt):
-        self.detect_elapsed_time[self.detect_elapsed_time_index] = dt
-        self.detect_elapsed_time_index += 1
-        if self.detect_elapsed_time_index >= len(self.detect_elapsed_time):
-            self.detect_elapsed_time_index = 0
-        detect_rate = 1.0 / np.mean(self.detect_elapsed_time)
-        rospy.loginfo_throttle(10, "Detection rate avg: %0.3f" % detect_rate)
-    
-    def log_update_rate(self, dt):
-        self.update_time[self.update_time_index] = dt
-        self.update_time_index += 1
-        if self.update_time_index >= len(self.update_time):
-            self.update_time_index = 0
-        update_rate = 1.0 / np.mean(self.update_time)
-        rospy.loginfo_throttle(10, "Update rate avg: %0.3f" % update_rate)
+    def get_detect_msg(self, desc: BoxDescription):
+        detect_msg = Detection2D()
+        detect_msg.bbox.size_x = desc.xsize
+        detect_msg.bbox.size_y = desc.ysize
+        detect_msg.bbox.center.x = desc.xcenter
+        detect_msg.bbox.center.y = desc.ycenter
+        hyp = ObjectHypothesisWithPose()
+
+        hyp.id = desc.class_index
+        hyp.score = desc.score
+        detect_msg.results.append(hyp)
+        return detect_msg
+
+    def object_to_robot_frame(self, pose_stamped, camera_info):
+        try:
+            transform = self.tf_buffer.lookup_transform(self.robot_frame, camera_info.header.frame_id, camera_info.header.stamp, 1.0)
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            rospy.logwarn("Failed to look up %s to %s. %s" % (self.robot_frame, camera_info.header.frame_id, e))
+            return None
+        pose_robot_frame = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
+        return pose_robot_frame
+
+    def dyn_callback(self, config):
+        rospy.loginfo("Reconfigure Request: %s" % str(config))
+        self.min_score_threshold = config["min_score_threshold"]
+        self.max_boxes_to_draw = config["max_boxes_to_draw"]
+        self.bounding_box_border_px = config["bounding_box_border_px"]
+
+    def make_markers(self, desc: BoxDescription):
+        sphere_marker = self.make_marker_base(desc)
+        text_marker = self.make_marker_base(desc)
+
+        sphere_marker.type = Marker.SPHERE
+        sphere_marker.ns = "sphere_" + sphere_marker.ns
+
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.ns = "text_" + text_marker.ns
+        text_marker.text = desc.class_name + "_" + str(self.class_index)
+        text_marker.scale.x = 0.0
+        text_marker.scale.y = 0.0
+
+        return [sphere_marker, text_marker]
+
+    def make_marker_base(self, desc: BoxDescription):
+        marker = Marker()
+        marker.action = Marker.ADD
+        marker.pose = desc.pose_stamped.pose
+        marker.header = desc.pose_stamped.header
+        marker.lifetime = self.marker_persistance
+        marker.ns = desc.class_name
+        marker.id = desc.class_index
+
+        scale_vector = Vector3()
+        scale_vector.x = desc.xedge
+        scale_vector.y = desc.yedge
+        scale_vector.z = desc.zedge
+        marker.scale = scale_vector
+        if desc.class_name in self.marker_colors:
+            marker.color = self.marker_colors[desc.class_name]
+        else:
+            marker.color = ColorRGBA(1.0, 1.0, 1.0, 1.0)
+
+        return marker
 
     def run(self):
         rospy.spin()
