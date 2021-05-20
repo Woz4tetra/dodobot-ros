@@ -110,12 +110,12 @@ class DodobotTensorflow:
 
         self.image_sub = message_filters.Subscriber(self.image_topic_name, Image)
         self.depth_sub = message_filters.Subscriber(self.depth_topic_name, Image)
-        self.info_sub = message_filters.Subscriber(self.info_topic_name, CameraInfo)
+        self.info_sub = rospy.Subscriber(self.info_topic_name, CameraInfo, self.camera_info_callback, queue_size=5)
 
         self.detect_fn, self.category_index = self.generate_detect_fn()
 
-        self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub, self.info_sub], 10)
-        self.time_sync_sub.registerCallback(self.rgbd_callback)
+        # self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub], 10)
+        self.time_sync_sub = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 10, 0.05)
 
         self.visualization_image_pub = rospy.Publisher(self.visualization_topic_name, Image, queue_size=1)
 
@@ -133,6 +133,8 @@ class DodobotTensorflow:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         self.dyn_server = Server(DetectConfig, self.dyn_callback)
+
+        self.time_sync_sub.registerCallback(self.rgbd_callback)
 
         rospy.loginfo("%s init done" % self.node_name)
     
@@ -156,10 +158,9 @@ class DodobotTensorflow:
 
         return detect_fn, category_index
 
-    def rgbd_callback(self, color_image, depth_image, camera_info):
-        t0 = time.time()
+    def rgbd_callback(self, color_image, depth_image):
+        t0 = rospy.Time.now()
         detections = self.detection_pipeline(color_image)
-        self.camera_model.fromCameraInfo(camera_info)
         
         detect_array_msg = Detection2DArray()
         markers_msg = MarkerArray()
@@ -178,7 +179,7 @@ class DodobotTensorflow:
             detect_msg = self.get_detect_msg(desc)
             
             if self.publish_in_robot_frame:
-                desc.pose_stamped = self.object_to_robot_frame(desc.pose_stamped, camera_info)
+                desc.pose_stamped = self.object_to_robot_frame(desc.pose_stamped, color_image.header)
             detect_msg.detections[-1].results[0].pose = desc.pose_stamped.pose
             detect_msg.detections[-1].header = desc.pose_stamped.header
 
@@ -187,17 +188,20 @@ class DodobotTensorflow:
             detect_array_msg.detections.append(detect_msg)
             markers_msg.markers.extend(markers)
 
-        detect_array_msg.header.stamp = camera_info.header.stamp
+        detect_array_msg.header.stamp = color_image.header.stamp
 
         self.detect_pub.publish(detect_array_msg)
         self.marker_pub.publish(markers_msg)
 
-        t1 = time.time()
-        self.update_rate_logger.append(t1 - t0)
-        self.camera_rate_logger.append(t1 - camera_info.header.stamp.to_sec())
+        t1 = rospy.Time.now()
+        self.update_rate_logger.append((t1 - t0).to_sec())
+        self.camera_rate_logger.append((t0 - color_image.header.stamp).to_sec())
         rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.update_rate_logger.rate())
         rospy.loginfo_throttle(10, "Camera delay avg: %0.3fs" % self.camera_rate_logger.avg())
-        
+    
+    def camera_info_callback(self, camera_info):
+        self.camera_model.fromCameraInfo(camera_info)
+
     def detection_pipeline(self, color_image):
         try:
             # Convert ROS Image message to numpy array
@@ -208,10 +212,10 @@ class DodobotTensorflow:
         input_tensor = tensorflow.convert_to_tensor(color_image_np)
         input_tensor = input_tensor[tensorflow.newaxis, ...]
 
-        t0 = time.time()
+        t0 = rospy.Time.now()
         detections = self.detect_fn(input_tensor)
-        t1 = time.time()
-        self.detect_rate_logger.append(t1 - t0)
+        t1 = rospy.Time.now()
+        self.detect_rate_logger.append((t1 - t0).to_sec())
         rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.detect_rate_logger.rate())
 
         num_detections = int(detections.pop("num_detections"))
@@ -264,8 +268,8 @@ class DodobotTensorflow:
         pose.pose.orientation.z = 0.0
         pose.pose.orientation.w = 1.0
 
-        edge_point_x = desc.xcenter - int(xsize / 2.0)
-        edge_point_y = desc.ycenter - int(ysize / 2.0)
+        edge_point_x = desc.xcenter - xsize / 2.0
+        edge_point_y = desc.ycenter - ysize / 2.0
         ray = self.camera_model.projectPixelTo3dRay((edge_point_x, edge_point_y))
 
         desc.pose_stamped = pose
@@ -330,11 +334,11 @@ class DodobotTensorflow:
         detect_msg.results.append(hyp)
         return detect_msg
 
-    def object_to_robot_frame(self, pose_stamped, camera_info):
+    def object_to_robot_frame(self, pose_stamped, image_header):
         try:
-            transform = self.tf_buffer.lookup_transform(self.robot_frame, camera_info.header.frame_id, camera_info.header.stamp, 1.0)
+            transform = self.tf_buffer.lookup_transform(self.robot_frame, image_header.frame_id, image_header.stamp, 1.0)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            rospy.logwarn("Failed to look up %s to %s. %s" % (self.robot_frame, camera_info.header.frame_id, e))
+            rospy.logwarn("Failed to look up %s to %s. %s" % (self.robot_frame, image_header.frame_id, e))
             return None
         pose_robot_frame = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
         return pose_robot_frame
