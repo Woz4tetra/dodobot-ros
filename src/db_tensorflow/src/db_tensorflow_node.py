@@ -104,7 +104,7 @@ class DodobotTensorflow:
         self.max_boxes_to_draw = rospy.get_param("~max_boxes_to_draw", 20)
         self.bounding_box_border_px = rospy.get_param("~bounding_box_border_px", 30)
         self.z_size_estimations = rospy.get_param("~z_size_estimations", None)
-        self.marker_colors = rospy.get_param("~marker_colors", None)
+        marker_colors = rospy.get_param("~marker_colors", None)
         self.publish_in_robot_frame = rospy.get_param("~publish_in_robot_frame", True)
         self.robot_frame = rospy.get_param("~robot_frame", "base_link")
         self.marker_persistance = rospy.get_param("~marker_persistance_s", 0.5)
@@ -113,18 +113,20 @@ class DodobotTensorflow:
         self.max_valid_z = rospy.get_param("~max_valid_z", 3.0)
 
         self.marker_persistance = rospy.Duration(self.marker_persistance)
+        self.marker_colors = {name: ColorRGBA(*args) for name, args in marker_colors.items()}
 
         self.image_sub = message_filters.Subscriber(self.image_topic_name, Image)
         self.depth_sub = message_filters.Subscriber(self.depth_topic_name, Image)
-        self.info_sub = rospy.Subscriber(self.info_topic_name, CameraInfo, self.camera_info_callback, queue_size=5)
 
         self.detect_fn = None
         self.category_index = None
+        
+        self.dyn_server = Server(DetectConfig, self.dyn_callback)
 
         self.detect_fn, self.category_index = self.generate_detect_fn()
 
-        # self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub], 10)
-        self.time_sync_sub = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 10, 0.05)
+        self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub], 1)
+        # self.time_sync_sub = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 10, 0.005)
 
         self.visualization_image_pub = rospy.Publisher("detect_overlay", Image, queue_size=1)
 
@@ -142,11 +144,12 @@ class DodobotTensorflow:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.dyn_server = Server(DetectConfig, self.dyn_callback)
 
         with open("/home/ben/detection.pkl", 'rb') as file:
             self.dummy_detections = pickle.load(file)
+        
         self.time_sync_sub.registerCallback(self.rgbd_callback)
+        self.info_sub = rospy.Subscriber(self.info_topic_name, CameraInfo, self.camera_info_callback, queue_size=5)
 
         rospy.loginfo("%s init done" % self.node_name)
     
@@ -394,9 +397,13 @@ class DodobotTensorflow:
 
     def dyn_callback(self, config, level):
         rospy.loginfo("Reconfigure Request: %s. Level: %s" % (str(config), level))
-        # self.min_score_threshold = config["min_score_threshold"]
-        # self.max_boxes_to_draw = config["max_boxes_to_draw"]
-        # self.bounding_box_border_px = config["bounding_box_border_px"]
+        if level >= 0:
+            rospy.loginfo("Reconfiguring")
+            self.min_score_threshold = config["min_score_threshold"]
+            self.max_boxes_to_draw = config["max_boxes_to_draw"]
+            self.bounding_box_border_px = config["bounding_box_border_px"]
+            self.min_valid_z = config["min_valid_z"]
+            self.max_valid_z = config["max_valid_z"]
         return config
 
     def make_markers(self, desc: BoxDescription):
