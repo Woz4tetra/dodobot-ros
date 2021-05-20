@@ -144,9 +144,8 @@ class DodobotTensorflow:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-
-        with open("/home/ben/detection.pkl", 'rb') as file:
-            self.dummy_detections = pickle.load(file)
+        # with open("/home/ben/detection.pkl", 'rb') as file:
+        #     self.dummy_detections = pickle.load(file)
         
         self.time_sync_sub.registerCallback(self.rgbd_callback)
         self.info_sub = rospy.Subscriber(self.info_topic_name, CameraInfo, self.camera_info_callback, queue_size=5)
@@ -236,10 +235,10 @@ class DodobotTensorflow:
         input_tensor = input_tensor[tensorflow.newaxis, ...]
 
         t0 = rospy.Time.now()
-        if self.detect_fn is None:
-            detections = copy.deepcopy(self.dummy_detections)
-        else:
-            detections = self.detect_fn(input_tensor)
+        # if self.detect_fn is None:
+        #     detections = copy.deepcopy(self.dummy_detections)
+        # else:
+        detections = self.detect_fn(input_tensor)
             # with open("/home/ben/detection.pkl", 'wb') as file:
             #     pickle.dump(detections, file)
         t1 = rospy.Time.now()
