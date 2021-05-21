@@ -11,6 +11,13 @@ import matplotlib.pyplot as plt
 import warnings
 # warnings.filterwarnings('ignore')   # Suppress Matplotlib warnings
 
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
 
 detect_fn = None
 category_index = None
@@ -22,7 +29,8 @@ def get_detect_fn():
     # PATH_TO_MODEL_DIR = "exported-models/dodobot_objects_faster_rcnn_resnet152_v1"
     # PATH_TO_MODEL_DIR = "exported-models/dodobot_objects_ssd_resnet50_v1_fpn"
     # PATH_TO_MODEL_DIR = "exported-models/faster_rcnn_resnet152_v1"
-    PATH_TO_MODEL_DIR = "exported-models/dodobot_objects_ssd_mobilenet_v2"
+    # PATH_TO_MODEL_DIR = "exported-models/dodobot_objects_ssd_mobilenet_v2"
+    PATH_TO_MODEL_DIR = "exported-models/dodobot_objects_efficientdet_d1"
     PATH_TO_SAVED_MODEL = PATH_TO_MODEL_DIR + "/saved_model"
 
     print('Loading model...', end='')
@@ -118,17 +126,40 @@ def test_with_images():
     plt.show()
 
 def test_with_webcam():
+    # path = "images/infer/infer_video-2021-05-21_10.01.16.mp4"
+    path = "images/infer/infer_video-2021-05-21_10.59.19.mp4"
     # cap = cv2.VideoCapture(8)
     # # cap = cv2.VideoCapture(0)
     # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
     # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 540)
-    cap = cv2.VideoCapture("/home/ben/Documents/tensorflow_workspace/2020Game/data/videos/video_day2.mp4")
+    cap = cv2.VideoCapture(path)
+
+    min_score = 0.3
+    max_boxes = 10
+
+    paused = False
 
     try:
         while True:
+            key = cv2.waitKey(1)
+            key &= 0xff
+            key = chr(key)
+            if key == 'q':
+                break
+            elif key == ' ':
+                paused = not paused
+                print("paused:", paused)
+            if paused:
+                time.sleep(0.05)
+                continue
+
             # Read frame from camera
             ret, image_np = cap.read()
+            if not ret:
+                print("Failed to get frame")
+                return
             image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+            image_np = cv2.resize(image_np, (960, 540))
 
             # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
             # image_np_expanded = np.expand_dims(image_np, axis=0)
@@ -179,19 +210,14 @@ def test_with_webcam():
                 detections['detection_scores'],
                 category_index,
                 use_normalized_coordinates=True,
-                max_boxes_to_draw=20,
-                min_score_thresh=.30,
+                max_boxes_to_draw=max_boxes,
+                min_score_thresh=min_score,
                 agnostic_mode=False)
 
             image_np_with_detections = cv2.cvtColor(image_np_with_detections, cv2.COLOR_BGR2RGB)
             # Display output
             # cv2.imshow('object detection', cv2.resize(image_np_with_detections, (800, 600)))
             cv2.imshow('object detection', image_np_with_detections)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                image_path = "images/infer/last_frame.jpg"
-                cv2.imwrite(image_path, image_np)
-                break
     finally:
         cap.release()
         cv2.destroyAllWindows()
@@ -211,5 +237,5 @@ def webcam():
 
 # webcam()
 detect_fn, category_index = get_detect_fn()
-# test_with_webcam()
-test_with_images()
+test_with_webcam()
+# test_with_images()
