@@ -30,7 +30,7 @@ ORB/WTA_K: 2  # 2  [The number of points that produce each element of the orient
 
 
 Vis/EstimationType: 1   # 1  Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry)
-Vis/FeatureType: 11   # 8  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
+Vis/FeatureType: 8   # 8  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
 Vis/MaxDepth: 4.0   # Max depth of the features (0 means no limit).
 Vis/MinInliers: 12   # 20  Minimum feature correspondences to compute/accept the transformation.
 # Vis/InlierDistance: 2.0   # Maximum distance for feature correspondences. Used by 3D->3D estimation approach.

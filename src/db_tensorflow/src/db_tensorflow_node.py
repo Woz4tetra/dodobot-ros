@@ -123,7 +123,6 @@ class DodobotTensorflow:
         
         self.dyn_server = Server(DetectConfig, self.dyn_callback)
 
-        self.detect_fn, self.category_index = self.generate_detect_fn()
 
         self.time_sync_sub = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub], 1)
         # self.time_sync_sub = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 10, 0.005)
@@ -146,6 +145,8 @@ class DodobotTensorflow:
 
         # with open("/home/ben/detection.pkl", 'rb') as file:
         #     self.dummy_detections = pickle.load(file)
+
+        self.generate_detect_fn()
         
         self.time_sync_sub.registerCallback(self.rgbd_callback)
         self.info_sub = rospy.Subscriber(self.info_topic_name, CameraInfo, self.camera_info_callback, queue_size=5)
@@ -171,7 +172,17 @@ class DodobotTensorflow:
         elapsed_time = end_time - start_time
         rospy.loginfo("Model took %0.2f seconds to load" % (elapsed_time))
 
-        return detect_fn, category_index
+        self.detect_fn = detect_fn
+        self.category_index = category_index
+
+        rospy.loginfo("Priming the pump...")
+        color_image_np = np.zeros((540, 960, 3), dtype=np.uint8)
+        start_time = time.time()
+        self.run_detection(color_image_np)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        rospy.loginfo("Priming took %0.2f seconds" % (elapsed_time))
 
     def rgbd_callback(self, color_image, depth_image):
         t0 = rospy.Time.now()
@@ -224,13 +235,7 @@ class DodobotTensorflow:
     def camera_info_callback(self, camera_info):
         self.camera_model.fromCameraInfo(camera_info)
 
-    def detection_pipeline(self, color_image):
-        try:
-            # Convert ROS Image message to numpy array
-            color_image_np = self.bridge.imgmsg_to_cv2(color_image, "rgb8")
-        except CvBridgeError as e:
-            rospy.logerr(e)
-            return
+    def run_detection(self, color_image_np):
         input_tensor = tensorflow.convert_to_tensor(color_image_np)
         input_tensor = input_tensor[tensorflow.newaxis, ...]
 
@@ -245,6 +250,18 @@ class DodobotTensorflow:
         self.detect_rate_logger.append((t1 - t0).to_sec())
 
         rospy.loginfo_throttle(10, "Detection rate avg: %0.3f Hz" % self.detect_rate_logger.rate())
+
+        return detections
+
+    def detection_pipeline(self, color_image):
+        try:
+            # Convert ROS Image message to numpy array
+            color_image_np = self.bridge.imgmsg_to_cv2(color_image, "rgb8")
+        except CvBridgeError as e:
+            rospy.logerr(e)
+            return
+        
+        detections = self.run_detection(color_image_np)
 
         num_detections = int(detections.pop("num_detections"))
         detections = {key: value[0, :num_detections].numpy() for key, value in detections.items()}
