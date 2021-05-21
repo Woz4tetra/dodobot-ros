@@ -16,8 +16,8 @@
             <param name="publish_in_robot_frame"  value="false"/>
 
             <param name="labels_path" value="$(find db_tensorflow)/annotations/label_map.pbtxt"/>
-            <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_mobilenet_v2/saved_model"/>
-            <!-- <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_resnet50_v1_fpn/saved_model"/> -->
+            <!-- <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_mobilenet_v2/saved_model"/> -->
+            <param name="model_path"  value="$(find db_tensorflow)/models/dodobot_objects_ssd_resnet50_v1_fpn/saved_model"/>
 
             <rosparam param="marker_colors" file="$(find db_tensorflow)/config/marker_colors.yaml" command="load"/>
             <rosparam param="z_size_estimations" file="$(find db_tensorflow)/config/depth_estimations.yaml" command="load"/>
