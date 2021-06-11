@@ -26,6 +26,7 @@ add_action_files(
     SequenceRequest.action
     FrontLoader.action
     Gripper.action
+    ObjectPursuit.action
 )
 
 generate_messages(

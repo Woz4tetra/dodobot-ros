@@ -5,6 +5,7 @@ import numpy as np
 
 import rospy
 import actionlib
+from actionlib_msgs.msg import GoalStatus
 
 import tf2_ros
 import tf_conversions
@@ -26,6 +27,7 @@ import std_msgs.msg
 from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_planning.msg import GripperAction, GripperGoal, GripperResult
+from db_planning.msg import ObjectPursuitAction, ObjectPursuitGoal, ObjectPursuitResult
 
 from db_planning.msg import SequenceRequestAction, SequenceRequestGoal, SequenceRequestResult
 
@@ -60,6 +62,7 @@ class CentralPlanning:
         self.chassis_action_name = rospy.get_param("~chassis_action_name", "chassis_actions")
         self.front_loader_action_name = rospy.get_param("~front_loader_action_name", "front_loader_actions")
         self.gripper_action_name = rospy.get_param("~gripper_action_name", "gripper_actions")
+        self.pursuit_namespace = rospy.get_param("~pursuit_namespace", "pursuit_actions")
         self.move_base_namespace = rospy.get_param("~move_base_namespace", "/move_base")
 
         self.map_frame = rospy.get_param("~global_frame", "map")
@@ -108,6 +111,9 @@ class CentralPlanning:
         # front loader ready service
         self.front_loader_ready_srv = self.make_service_client("front_loader_ready_service", Trigger)
 
+        # pursuit action client
+        self.pursuit_client = self.make_action_client(self.pursuit_namespace, ObjectPursuitAction)
+        
         # is gripper grabbing service
         self.gripper_grabbing_srv = self.make_service_client("gripper_grabbing_service", GrabbingSrv)
 
@@ -116,7 +122,7 @@ class CentralPlanning:
         
         # move_base make_plan service
         self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
-
+        
         # obstacle layer dynamic reconfigure
         self.obstacle_layer_dyn_client = dynamic_reconfigure.client.Client("/move_base/local_costmap/obstacle_layer", timeout=30, config_callback=self.dyn_obstacle_layer_callback)
 
@@ -276,9 +282,6 @@ class CentralPlanning:
         goal.target_pose = goal_pose
         self.move_action_client.send_goal(goal)
     
-    def set_pursuit_goal(self, goal_pose):
-        pass
-
     def get_move_base_state(self):
         """
         Return move_base's state.
@@ -542,9 +545,31 @@ class CentralPlanning:
     def cancel_move_base(self):
         self.move_action_client.cancel_all_goals()
     
+    def set_pursuit_goal(self, goal_pose):
+        goal = ObjectPursuitGoal()
+        goal.pose = goal_pose
+        self.pursuit_client.send_goal(goal)
+
+    def get_pursuit_state(self):
+        state = self.pursuit_client.get_state()
+        if state == GoalStatus.ACTIVE:
+            return "active"
+        elif state == GoalStatus.PREEMPTED:
+            return "preempted"
+        elif state == GoalStatus.ABORTED:
+            return "failure"
+        elif state == GoalStatus.SUCCEEDED:
+            return "success"
+        else:
+            return "??"
+
+    def cancel_pursuit_goal(self):
+        self.pursuit_client.cancel_all_goals()
+    
     def cancel(self):
         self.toggle_local_costmap(True)
         self.cancel_move_base()
+        self.cancel_pursuit_goal()
         self.set_planner_to_default()
         self.set_linear_z(float("nan"), self.fast_stepper_speed)
 

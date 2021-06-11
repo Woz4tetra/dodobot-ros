@@ -57,5 +57,5 @@ class PursueObjectState(State):
 
             if distance_to_goal > self.central_planning.near_object_distance:
                 rospy.loginfo("Robot has wandered too far away from the goal. Switching from pursuit to move_base")
-                self.central_planning.cancel_pursuit_goal(goal_pose)
+                self.central_planning.cancel_pursuit_goal()
                 return "too_far"

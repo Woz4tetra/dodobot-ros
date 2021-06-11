@@ -57,14 +57,13 @@ class PursuitPlanning:
         if result_state == "success":
             result_state = self.pursue_object()
 
+        result.status = result_state
         if result_state == "success":
-            result.success = True
             self.pursuit_action_server.set_succeeded(result)
         elif result_state == "preempted":
-            self.pursuit_action_server.set_preempted()
+            self.pursuit_action_server.set_preempted(result)
         else:  # failure
-            result.success = False
-            self.pursuit_action_server.set_succeeded(result)
+            self.pursuit_action_server.set_aborted(result)
 
     def turn_towards_object(self):
         state = self.get_state()
