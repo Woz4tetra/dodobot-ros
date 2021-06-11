@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import tf
 import rospy
 
 import numpy as np
@@ -32,9 +33,12 @@ class ObjectFilterNode:
 
         self.class_labels = rospy.get_param("~class_labels", None)
         self.filter_frame = rospy.get_param("~filter_frame", "base_link")
+        self.global_frame = rospy.get_param("~global_frame", "odom")
 
         self.show_particles = rospy.get_param("~publish_particles", True)
 
+        twist_lookup_avg_interval = rospy.get_param("~twist_lookup_avg_interval", 1.0 / 30.0)
+        self.twist_lookup_avg_interval = rospy.Duration(twist_lookup_avg_interval)
         self.initial_range = rospy.get_param("~initial_range", None)
         self.input_std = rospy.get_param("~input_std", None)
         self.meas_std_val = rospy.get_param("~meas_std_val", 0.007)
@@ -72,6 +76,7 @@ class ObjectFilterNode:
 
         self.particles_pub = rospy.Publisher("pf_particles", PoseArray, queue_size=5)
 
+        self.tf_listener = tf.TransformListener()
         self.broadcaster = tf2_ros.TransformBroadcaster()
 
         rospy.loginfo("%s init done" % self.node_name)
@@ -99,9 +104,23 @@ class ObjectFilterNode:
         current_time = msg.header.stamp.to_sec()
         dt = current_time - self.prev_pf_time
         self.prev_pf_time = current_time
-
+    
         self.input_vector[0] = -msg.twist.twist.linear.x
         self.input_vector[3] = -msg.twist.twist.angular.z
+        self.factory.predict(self.input_vector, dt)
+
+    def predict(self):
+        try:
+            linear_vel, ang_vel = self.tf_listener.lookupTwist(self.global_frame, self.filter_frame, None, self.twist_lookup_avg_interval)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logwarn("Failed to look up %s to %s. %s" % (self.filter_frame, self.global_frame, e))
+            return 
+        current_time = rospy.Time.now().to_sec()
+        dt = current_time - self.prev_pf_time
+        self.prev_pf_time = current_time
+        print(dt, linear_vel, ang_vel)
+        self.input_vector[0] = -linear_vel[0]  # X linear velocity
+        self.input_vector[3] = -ang_vel[2]  # Z angular velocity
         self.factory.predict(self.input_vector, dt)
 
     def publish_all_poses(self):
@@ -141,6 +160,7 @@ class ObjectFilterNode:
             rate.sleep()
             if rospy.is_shutdown():
                 break
+            # self.predict()
             self.factory.check_resample()
 
             self.publish_all_poses()

@@ -277,8 +277,8 @@ class ParsingJoystick:
             return
 
         # Xbox button mapping:
-        # 0: A,    1: B,     4: Y,      3: X
-        # 6: L1,   7: R1,    11: menu
+        # 0: A,    1: B,     3: Y,      2: X
+        # 4: L1,   5: R1,    11: menu
         # 13: L joy, 14: R joy
 
         # Xbox axes:
@@ -292,12 +292,12 @@ class ParsingJoystick:
             self.home_linear()
         if self.is_button_down(msg, 1): # B
             self.toggle_gripper()
-        if self.is_button_down(msg, 4): # Y
+        if self.is_button_down(msg, 3): # Y
             self.toggle_active()
-        if self.is_button_down(msg, 3): # X
+        if self.is_button_down(msg, 2): # X
             self.toggle_tilter()
-        if self.did_button_change(msg, 6): # L1
-            self.enable_tilt_axis = msg.buttons[6] == 1
+        if self.did_button_change(msg, 4): # L1
+            self.enable_tilt_axis = msg.buttons[4] == 1
             if self.enable_tilt_axis:
                 self.set_linear(0.0)
             else:

@@ -73,8 +73,7 @@ class CentralPlanning:
         self.max_vel_theta = rospy.get_param("~max_vel_theta", 1.0)
 
         self.goal_distance_offset = rospy.get_param("~goal_distance_offset", 0.1)
-        self.near_object_distance = rospy.get_param("~near_object_distance", 0.75)
-        self.local_costmap_width = rospy.get_param("~local_costmap_width", 3.0)
+        self.near_object_distance = rospy.get_param("~near_object_distance", 3.0)
         self.replan_distance = rospy.get_param("~replan_distance", 0.45)
         
         self.pickup_z_offset = rospy.get_param("~pickup_z_offset", 0.02)
@@ -242,9 +241,9 @@ class CentralPlanning:
         """
         return self.get_pose_in_frame(self.map_frame, self.base_link_frame)
     
-    def get_move_base_goal(self, goal):
+    def get_nav_goal(self, goal):
         """
-        Compute a goal for move_base such that the gripper_link is above the object in X, Y
+        Compute a goal for navigation planners such that the gripper_link is above the object in X, Y
         """
         goal_pose = self.get_path_at_distance(goal, self.goal_distance_offset)
         if goal_pose is not None:
@@ -253,7 +252,7 @@ class CentralPlanning:
     
     def get_goal_with_orientation(self, goal, orientation):
         """
-        Use the orientation result from 'get_move_base_goal' and apply it to the goal.
+        Use the orientation result from 'get_nav_goal' and apply it to the goal.
         This is for situations where the object moves to a new location part way through getting the robot there.
         """
         goal_pose = self.get_goal_pose(goal)
@@ -277,6 +276,9 @@ class CentralPlanning:
         goal.target_pose = goal_pose
         self.move_action_client.send_goal(goal)
     
+    def set_pursuit_goal(self, goal_pose):
+        pass
+
     def get_move_base_state(self):
         """
         Return move_base's state.
@@ -445,6 +447,15 @@ class CentralPlanning:
         orientation.w = quaternion[3]
 
         self.tilter_pub.publish(orientation)
+    
+    def set_linear_z_to_transport(self, goal):
+        if goal.action == SequenceRequestGoal.PICKUP:
+            stepper_speed = self.fast_stepper_speed
+        elif goal.action == SequenceRequestGoal.DELIVER:
+            stepper_speed = self.slow_stepper_speed
+        else:
+            stepper_speed = float("nan")
+        self.set_linear_z(self.transport_z_height, stepper_speed)
     
     def set_linear_z(self, z, speed=float("nan")):
         """

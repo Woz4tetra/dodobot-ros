@@ -2,7 +2,7 @@ import rospy
 from smach import StateMachine
 from smach_ros import ActionServerWrapper
 
-from db_planning.states import PrecheckState, MoveToObjectState, PickupState, DeliverState
+from db_planning.states import PrecheckState, MoveToObjectState, PickupState, DeliverState, PursueObjectState
 
 from db_planning.msg import SequenceRequestAction, SequenceRequestGoal, SequenceRequestResult
 
@@ -29,10 +29,24 @@ class SequenceStateMachine(ActionServerWrapper):
             StateMachine.add(
                 "MOVE_TO_OBJECT", MoveToObjectState(central_planning),
                 transitions={
+                    "success": "success",
+                    "failure": "failure",
+                    "preempted": "preempted"
+                },
+                remapping={
+                    "central_planning": "sm_central_planning",
+                    "sequence_goal": "sm_sequence_goal",
+                }
+            )
+
+            StateMachine.add(
+                "MOVE_TO_OBJECT", PursueObjectState(central_planning),
+                transitions={
                     str(SequenceRequestGoal.PICKUP): "PICKUP",
                     str(SequenceRequestGoal.DELIVER): "DELIVER",
                     "failure": "failure",
-                    "preempted": "preempted"
+                    "preempted": "preempted",
+                    "too_far": "MOVE_TO_OBJECT"
                 },
                 remapping={
                     "central_planning": "sm_central_planning",

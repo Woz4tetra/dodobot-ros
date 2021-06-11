@@ -14,8 +14,7 @@ max_vel_x: 0.3
 max_vel_theta: 2.0
 
 goal_distance_offset: 0.1
-near_object_distance: 0.25
-local_costmap_width: 3.0
+near_object_distance: 3.0
 replan_distance: 0.25
 
 pickup_z_offset: 0.02

@@ -41,13 +41,7 @@ class PrecheckState(State):
             if not self.central_planning.wait_for_gripper():
                 return "failure"
         
-        if goal.action == SequenceRequestGoal.PICKUP:
-            stepper_speed = self.central_planning.fast_stepper_speed
-        elif goal.action == SequenceRequestGoal.DELIVER:
-            stepper_speed = self.central_planning.slow_stepper_speed
-        else:
-            stepper_speed = float("nan")
-        self.central_planning.set_linear_z(self.central_planning.transport_z_height, stepper_speed)
+        self.central_planning.set_linear_z_to_transport(goal)
         if not self.central_planning.wait_for_linear_z():
             return "failure"
         
