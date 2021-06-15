@@ -93,6 +93,18 @@ class State:
         dy = self.y - other.y
         return math.atan2(dy, dx)
     
+    @classmethod
+    def normalize_theta(cls, theta):
+        theta = theta % (2.0 * math.pi)
+        if theta > math.pi:
+            theta = theta - 2.0 * math.pi
+        elif theta < -math.pi:
+            theta = theta + 2.0 * math.pi
+        return theta
+    
+    def get_normalize_theta(self):
+        return self.normalize_theta(self.theta)
+    
     def tolist(self, states="xyt"):
         output = []
         for state in states:

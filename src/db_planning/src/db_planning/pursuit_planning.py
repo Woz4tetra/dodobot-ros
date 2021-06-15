@@ -7,6 +7,7 @@ import tf_conversions
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Quaternion
 
 from nav_msgs.msg import Odometry
 
@@ -26,14 +27,18 @@ class PursuitPlanning:
         self.map_frame = rospy.get_param("~global_frame", "map")
         self.base_link_frame = rospy.get_param("~robot_frame", "base_link")
 
-        self.timeout_safety_factor = rospy.get_param("~timeout_safety_factor", "3.0")
-        self.angle_tolerance = rospy.get_param("~angle_tolerance", "0.05")
-        self.position_tolerance = rospy.get_param("~position_tolerance", "0.05")
-        self.max_linear_speed = rospy.get_param("~max_linear_speed", "0.3")
-        self.max_angular_speed = rospy.get_param("~max_angular_speed", "0.5")
+        self.timeout_safety_factor = rospy.get_param("~timeout_safety_factor", 3.0)
+        self.angle_tolerance = rospy.get_param("~angle_tolerance", 0.05)
+        self.position_tolerance = rospy.get_param("~position_tolerance", 0.05)
+        self.min_linear_speed = rospy.get_param("~min_linear_speed", 0.07)
+        self.max_linear_speed = rospy.get_param("~max_linear_speed", 0.3)
+        self.min_angular_speed = rospy.get_param("~min_angular_speed", 2.0)
+        self.max_angular_speed = rospy.get_param("~max_angular_speed", 6.0)
+        self.zero_epsilon = rospy.get_param("~zero_epsilon", 1E-3)
+        self.stabilization_timeout = rospy.Duration(rospy.get_param("~stabilization_timeout_s", 1.0))
 
-        self.steer_kP = rospy.get_param("~steer_kP", "1.0")
-        self.linear_kP = rospy.get_param("~linear_kP", "1.0")
+        self.steer_kP = rospy.get_param("~steer_kP", 1.0)
+        self.linear_kP = rospy.get_param("~linear_kP", 10.0)
 
         self.goal_pose = Pose2d()
 
@@ -66,79 +71,154 @@ class PursuitPlanning:
 
     def run_pursuit(self):
         # assumes self.goal_pose is set
-        result_state = self.turn_towards_object() 
+        result_state = self.turn_towards_heading() 
         if result_state == "success":
             result_state = self.pursue_object()
+        if result_state == "success":
+            result_state = self.turn_towards_object()
         return result_state
 
-    def turn_towards_object(self):
+    def turn_towards_heading(self):
         state = self.get_state()
         target_angle = self.goal_pose.heading(state)
-        error = target_angle - state.theta
-        timeout = error.theta / self.max_angular_speed * self.timeout_safety_factor
-        rospy.loginfo("Turning towards goal. Pursuing for %0.2fs at most" % (timeout))
+        error = Pose2d.normalize_theta(target_angle - state.theta)
+        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        rospy.loginfo("Turning %0.2f rad towards goal. Pursuing for %0.2fs at most" % (error, timeout))
         start_time = rospy.Time.now()
         timeout_duration = rospy.Duration(timeout)
 
+        clock_rate = rospy.Rate(30.0)
         while True:
-            if rospy.is_shutdown() or self.front_loader_server.is_preempt_requested():
+            clock_rate.sleep()
+            if rospy.is_shutdown() or self.pursuit_action_server.is_preempt_requested():
                 rospy.loginfo("[%s] preempted" % self.pursuit_action_name)
+                self.stop_motors()
                 return "preempted"
             
             state = self.get_state()
             target_angle = self.goal_pose.heading(state)
-            error = target_angle - state.theta
+            error = Pose2d.normalize_theta(target_angle - state.theta)
 
-            if abs(error.theta) < self.angle_tolerance:
+            if abs(error) < self.angle_tolerance:
+                self.stop_motors()
                 return "success"
             
             if rospy.Time.now() - start_time > timeout_duration:
                 rospy.logwarn("Timeout reaching. Giving up on turning towards object")
+                self.stop_motors()
                 return "failure"
             
-            ang_v = self.steer_kP * error.theta
-            if abs(ang_v) > self.max_angular_speed:
-                ang_v = math.copysign(self.max_angular_speed, ang_v)
+            ang_v = self.steer_kP * error
             self.set_twist(0.0, ang_v)
 
     def pursue_object(self):
         state = self.get_state()
         error = self.goal_pose.relative_to(state)
-        timeout = error.x / self.max_linear_speed * self.timeout_safety_factor
-        rospy.loginfo("Driving towards goal. Pursuing for %0.2fs at most" % (timeout))
+        target_angle = self.goal_pose.heading(state)
+        error.theta = Pose2d.normalize_theta(target_angle - state.theta)
+
+        timeout = abs(error.x) / self.min_linear_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        rospy.loginfo("Driving towards goal: %s. Pursuing for %0.2fs at most" % (error, timeout))
         start_time = rospy.Time.now()
         timeout_duration = rospy.Duration(timeout)
+        success_time = None
 
+        clock_rate = rospy.Rate(30.0)
         while True:
-            if rospy.is_shutdown() or self.front_loader_server.is_preempt_requested():
+            clock_rate.sleep()
+            now = rospy.Time.now()
+            if rospy.is_shutdown() or self.pursuit_action_server.is_preempt_requested():
                 rospy.loginfo("[%s] preempted" % self.pursuit_action_name)
+                self.stop_motors()
                 return "preempted"
             
             state = self.get_state()
             error = self.goal_pose.relative_to(state)
+            target_angle = self.goal_pose.heading(state)
+            error.theta = Pose2d.normalize_theta(target_angle - state.theta)
+            print(error)
 
-            if abs(error.theta) < self.angle_tolerance and abs(error.x) < self.position_tolerance:
+            if abs(error.get_normalize_theta()) < self.angle_tolerance and abs(error.x) < self.position_tolerance:
+                self.stop_motors()
+                if success_time is None:
+                    rospy.loginfo("Tolerance reached. Waiting for stablization")
+                    success_time = now
+            else:
+                success_time = None
+                
+            if now - start_time > timeout_duration:
+                rospy.logwarn("Timeout reaching. Giving up on pursuing object")
+                self.stop_motors()
+                return "failure"
+            
+            if success_time is not None:
+                if now - success_time > self.stabilization_timeout:
+                    return "success"
+                continue
+            
+            ang_v = self.steer_kP * error.get_normalize_theta()
+            if abs(ang_v) < self.min_angular_speed:
+                ang_v = 0.0
+            linear_v = self.linear_kP * error.x
+            self.set_twist(linear_v, ang_v)
+    
+    def turn_towards_object(self):
+        state = self.get_state()
+        error = self.goal_pose.relative_to(state).get_normalize_theta()
+        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        rospy.loginfo("Turning %0.2f rad towards final heading. Pursuing for %0.2fs at most" % (error, timeout))
+        start_time = rospy.Time.now()
+        timeout_duration = rospy.Duration(timeout)
+
+        clock_rate = rospy.Rate(30.0)
+        while True:
+            clock_rate.sleep()
+            if rospy.is_shutdown() or self.pursuit_action_server.is_preempt_requested():
+                rospy.loginfo("[%s] preempted" % self.pursuit_action_name)
+                self.stop_motors()
+                return "preempted"
+            
+            state = self.get_state()
+            error = self.goal_pose.relative_to(state).get_normalize_theta()
+
+            if abs(error) < self.angle_tolerance:
+                self.stop_motors()
                 return "success"
             
             if rospy.Time.now() - start_time > timeout_duration:
-                rospy.logwarn("Timeout reaching. Giving up on pursuing object")
+                rospy.logwarn("Timeout reaching. Giving up on turning towards object")
+                self.stop_motors()
                 return "failure"
             
-            ang_v = self.steer_kP * error.theta
-            if abs(ang_v) > self.max_angular_speed:
-                ang_v = math.copysign(self.max_angular_speed, ang_v)
-            linear_v = self.linear_kP * error.x
-            if abs(linear_v) > self.max_linear_speed:
-                linear_v = math.copysign(self.max_linear_speed, linear_v)
-            self.set_twist(linear_v, ang_v)
+            ang_v = self.steer_kP * error
+            self.set_twist(0.0, ang_v)
+    
+    def stop_motors(self):
+        self.set_twist(0.0, 0.0)
 
     def goal_update_callback(self, msg):
         self.set_goal(msg)
 
     def set_twist(self, linear_x, ang_v):
+        if self.zero_epsilon < abs(linear_x) < self.min_linear_speed:
+            linear_x = math.copysign(self.min_linear_speed, linear_x)
+        elif abs(linear_x) < self.zero_epsilon:
+            linear_x = 0.0
+
+        if self.zero_epsilon < abs(ang_v) < self.min_angular_speed:
+            ang_v = math.copysign(self.min_angular_speed, ang_v)
+        elif abs(ang_v) < self.zero_epsilon:
+            ang_v = 0.0
+        
+        if abs(linear_x) > self.max_linear_speed:
+            linear_x = math.copysign(self.max_linear_speed, linear_x)
+        if abs(ang_v) > self.max_angular_speed:
+            ang_v = math.copysign(self.max_angular_speed, ang_v)
+
         msg = Twist()
         msg.linear.x = linear_x
         msg.angular.z = ang_v
+        # print("vx: %0.2f, vt: %0.2f" % (linear_x, ang_v))
         self.cmd_vel_pub.publish(msg)
     
     def set_goal(self, pose_stamped: PoseStamped):
@@ -159,7 +239,7 @@ class PursuitPlanning:
         state.y = robot_map_tf.transform.translation.y
         state.theta = self.get_theta(robot_map_tf.transform.rotation)
         return state
-    
+
     def get_theta(self, quaternion):
         return tf_conversions.transformations.euler_from_quaternion((
             quaternion.x,
@@ -168,28 +248,41 @@ class PursuitPlanning:
             quaternion.w
         ))[2]
 
-    def get_quaternion(self, yaw):
-        return tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, yaw)
+    def get_quaternion(self, yaw, as_list=False):
+        quat = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, yaw)
+        if as_list:
+            return quat
+        
+        quat_msg = Quaternion()
+        quat_msg.x = quat[0]
+        quat_msg.y = quat[1]
+        quat_msg.z = quat[2]
+        quat_msg.w = quat[3]
+        return quat_msg
 
     def run(self):
         rospy.spin()
 
     def test(self):
-        pose = PoseStamped()
-        pose.header.frame_id = self.map_frame
-        pose.pose.position.x = 0.0
-        pose.pose.position.y = 0.0
-        pose.pose.orientation = self.get_quaternion(0.0)
+        def goto_point(x, y, theta):
+            pose = PoseStamped()
+            pose.header.frame_id = self.map_frame
+            pose.pose.position.x = x
+            pose.pose.position.y = y
+            pose.pose.orientation = self.get_quaternion(theta)
 
-        self.set_goal(pose)
-        result_state = self.run_pursuit()
-        rospy.loginfo("Pursuit result: %s" % result_state)
+            self.set_goal(pose)
+            result_state = self.run_pursuit()
+            rospy.loginfo("Pursuit result: %s" % result_state)
+        goto_point(0.25, 0.25, math.pi/4)
+        goto_point(0.0, 0.0, 0.0)
 
 
 if __name__ == "__main__":
     try:
         node = PursuitPlanning()
-        node.run()
+        # node.run()
+        node.test()
     except rospy.ROSInterruptException:
         pass
     finally:
