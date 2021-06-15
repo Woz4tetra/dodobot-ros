@@ -1,0 +1,5 @@
+<launch>
+    <group ns="dodobot" >
+        <node name="db_planning_pursuit" pkg="db_planning" type="pursuit_planning.py" output="screen" required="true"></node>
+    </group>
+</launch>

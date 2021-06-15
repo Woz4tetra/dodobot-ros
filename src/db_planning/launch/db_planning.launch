@@ -5,5 +5,6 @@
         </node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
         <node name="db_planning_gripper" pkg="db_planning" type="gripper_planning.py" output="screen" required="true"></node>
+        <node name="db_planning_pursuit" pkg="db_planning" type="pursuit_planning.py" output="screen" required="true"></node>
     </group>
 </launch>

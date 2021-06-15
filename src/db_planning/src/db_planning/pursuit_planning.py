@@ -17,8 +17,9 @@ from db_planning.robot_state import Pose2d
 
 class PursuitPlanning:
     def __init__(self):
+        self.name = "pursuit_planning"
         rospy.init_node(
-            "pursuit_planning"
+            self.name,
             # log_level=rospy.DEBUG
         )
         self.pursuit_action_name = "pursuit_actions"
@@ -52,10 +53,7 @@ class PursuitPlanning:
     def pursuit_action_callback(self, goal):
         self.set_goal(goal.pose)
         result = ObjectPursuitResult()
-
-        result_state = self.turn_towards_object() 
-        if result_state == "success":
-            result_state = self.pursue_object()
+        result_state = self.run_pursuit()
 
         result.status = result_state
         if result_state == "success":
@@ -64,6 +62,14 @@ class PursuitPlanning:
             self.pursuit_action_server.set_preempted(result)
         else:  # failure
             self.pursuit_action_server.set_aborted(result)
+
+
+    def run_pursuit(self):
+        # assumes self.goal_pose is set
+        result_state = self.turn_towards_object() 
+        if result_state == "success":
+            result_state = self.pursue_object()
+        return result_state
 
     def turn_towards_object(self):
         state = self.get_state()
@@ -161,3 +167,30 @@ class PursuitPlanning:
             quaternion.z,
             quaternion.w
         ))[2]
+
+    def get_quaternion(self, yaw):
+        return tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, yaw)
+
+    def run(self):
+        rospy.spin()
+
+    def test(self):
+        pose = PoseStamped()
+        pose.header.frame_id = self.map_frame
+        pose.pose.position.x = 0.0
+        pose.pose.position.y = 0.0
+        pose.pose.orientation = self.get_quaternion(0.0)
+
+        self.set_goal(pose)
+        result_state = self.run_pursuit()
+        rospy.loginfo("Pursuit result: %s" % result_state)
+
+
+if __name__ == "__main__":
+    try:
+        node = PursuitPlanning()
+        node.run()
+    except rospy.ROSInterruptException:
+        pass
+    finally:
+        rospy.loginfo("Exiting %s node" % node.name)
