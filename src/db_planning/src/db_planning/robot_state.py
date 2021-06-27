@@ -16,18 +16,6 @@ def clip(x, lower, upper):
     return clipped_x
 
 
-def wrap_angle(angle):
-    angle = math.fmod(angle, 2 * math.pi)
-
-    if abs(angle) > math.pi:
-        if angle > 0:
-            return angle - 2 * math.pi
-        else:
-            return angle + 2 * math.pi
-
-    return angle
-
-
 class State:
     def __init__(self, x=0.0, y=0.0, theta=0.0):
         self.x = x  # meters
@@ -54,7 +42,7 @@ class State:
         if not isinstance(other, self.__class__):
             raise ValueError("Can't transform %s to %s" % (self.__class__, other.__class__))
         state = self - other
-        state.theta = wrap_angle(state.theta)
+        state.theta = self.normalize_theta(state.theta)
         return state.rotate_by(-other.theta)
     
     def rotate_by(self, theta):
@@ -95,11 +83,12 @@ class State:
     
     @classmethod
     def normalize_theta(cls, theta):
-        theta = theta % (2.0 * math.pi)
-        if theta > math.pi:
-            theta = theta - 2.0 * math.pi
-        elif theta < -math.pi:
-            theta = theta + 2.0 * math.pi
+        theta = math.fmod(theta, 2 * math.pi)
+        if abs(theta) > math.pi:
+            if theta > 0:
+                return theta - 2 * math.pi
+            else:
+                return theta + 2 * math.pi
         return theta
     
     def get_normalize_theta(self):
