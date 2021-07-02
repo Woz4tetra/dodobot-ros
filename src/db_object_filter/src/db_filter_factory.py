@@ -134,11 +134,9 @@ class FilterFactory(object):
         zeros = np.zeros(dims)
         self.max_confidence = scipy.stats.multivariate_normal.pdf(zeros, mean=zeros, cov=self.match_cov)
 
-    def predict(self, input_vector, dt):
+    def predict(self, input_vector):
         for obj_filter in self.iter_filters():
-            is_active = obj_filter.predict(input_vector, dt)
-            # if not is_active:
-            # TODO: set filter position to be where the map is
+            obj_filter.predict(input_vector)
 
     def check_resample(self):
         for obj_filter in self.iter_filters():

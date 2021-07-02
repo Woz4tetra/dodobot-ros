@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import tf
+import math
 import rospy
 
 import numpy as np
@@ -9,11 +9,12 @@ from vision_msgs.msg import Detection2DArray
 
 from nav_msgs.msg import Odometry
 
+from geometry_msgs.msg import PoseStamped, Quaternion
+
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from geometry_msgs.msg import TransformStamped
 
-import tf
 import tf2_ros
 import tf_conversions
 import tf2_geometry_msgs
@@ -33,7 +34,8 @@ class ObjectFilterNode:
 
         self.class_labels = rospy.get_param("~class_labels", None)
         self.filter_frame = rospy.get_param("~filter_frame", "base_link")
-        self.global_frame = rospy.get_param("~global_frame", "odom")
+        self.odom_frame = rospy.get_param("~odom_frame", "odom")
+        self.global_frame = rospy.get_param("~global_frame", "map")
 
         self.show_particles = rospy.get_param("~publish_particles", True)
 
@@ -77,8 +79,15 @@ class ObjectFilterNode:
 
         self.particles_pub = rospy.Publisher("pf_particles", PoseArray, queue_size=5)
 
-        self.tf_listener = tf.TransformListener()
+        # self.tf_listener = tf.TransformListener()
         self.broadcaster = tf2_ros.TransformBroadcaster()
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+
+        self.prev_pose = None
+        self.prev_transform = None
+        self.zero_pose = PoseStamped()
+        self.zero_pose.header.frame_id = self.filter_frame
 
         rospy.loginfo("%s init done" % self.node_name)
 
@@ -106,23 +115,52 @@ class ObjectFilterNode:
         dt = current_time - self.prev_pf_time
         self.prev_pf_time = current_time
     
-        self.input_vector[0] = -msg.twist.twist.linear.x
-        self.input_vector[3] = -msg.twist.twist.angular.z
-        self.factory.predict(self.input_vector, dt)
+        # print("odom:\t %0.3f\t %0.3f" % (msg.twist.twist.linear.x * dt, msg.twist.twist.angular.z * dt))
+        self.input_vector[0] = -msg.twist.twist.linear.x * dt
+        self.input_vector[3] = -msg.twist.twist.angular.z * dt
+        self.factory.predict(self.input_vector)
 
     def predict(self):
         try:
-            linear_vel, ang_vel = self.tf_listener.lookupTwist(self.global_frame, self.filter_frame, None, self.twist_lookup_avg_interval)
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            rospy.logwarn("Failed to look up %s to %s. %s" % (self.filter_frame, self.global_frame, e))
-            return 
-        current_time = rospy.Time.now().to_sec()
-        dt = current_time - self.prev_pf_time
-        self.prev_pf_time = current_time
+            transform = self.tf_buffer.lookup_transform(
+                self.global_frame,
+                self.filter_frame,
+                rospy.Time(0),
+                rospy.Duration(0.3)
+            )
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            rospy.logwarn("Failed to look up %s to %s. %s" % (self.global_frame, self.filter_frame, e))
+            return None
+        
+        pose = tf2_geometry_msgs.do_transform_pose(self.zero_pose, transform)
+        if self.prev_transform is None or self.prev_pose is None:
+            self.prev_pose = pose
+            self.prev_transform = transform
+            return
+        # print(pose)
+        
+        dx = pose.pose.position.x - self.prev_pose.pose.position.x
+        dtheta = self.quat_to_yaw(transform.transform.rotation) - \
+            self.quat_to_yaw(self.prev_transform.transform.rotation)
+        self.prev_pose = pose
+        self.prev_transform = transform
+        print("tf:\t %0.4f\t %0.4f" % (dx, dtheta))
+        
+        # current_time = rospy.Time.now().to_sec()
+        # dt = current_time - self.prev_pf_time
+        # self.prev_pf_time = current_time
         # print(dt, linear_vel, ang_vel)
-        self.input_vector[0] = -linear_vel[0]  # X linear velocity
-        self.input_vector[3] = -ang_vel[2]  # Z angular velocity
-        self.factory.predict(self.input_vector, dt)
+        self.input_vector[0] = -dx  # X linear delta position
+        self.input_vector[3] = -dtheta  # Z delta angle
+        self.factory.predict(self.input_vector)
+    
+    def quat_to_yaw(self, quaternion):
+        return tf_conversions.transformations.euler_from_quaternion((
+            quaternion.x,
+            quaternion.y,
+            quaternion.z,
+            quaternion.w
+        ))[2]
 
     def publish_all_poses(self):
         for obj_filter in self.factory.iter_filters():
@@ -145,7 +183,7 @@ class ObjectFilterNode:
         particles_msg.header.stamp = rospy.Time.now()
 
         for obj_filter in self.factory.iter_filters():
-            for particle in  obj_filter.particles:
+            for particle in obj_filter.particles:
                 pose_msg = Pose()
                 pose_msg.position.x = particle[0]
                 pose_msg.position.y = particle[1]

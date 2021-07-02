@@ -614,8 +614,8 @@ class CentralPlanning:
 if __name__ == "__main__":
     try:
         node = CentralPlanning()
-        # node.run()
-        node.test_linear()
+        node.run()
+        # node.test_linear()
     except rospy.ROSInterruptException:
         pass
     finally:

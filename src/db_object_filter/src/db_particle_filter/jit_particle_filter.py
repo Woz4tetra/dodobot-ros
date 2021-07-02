@@ -9,16 +9,16 @@ from .db_particle_filter import ParticleFilter
 
 
 @njit
-def jit_predict(particles, num_particles, input_std_error, u, dt):
+def jit_predict(particles, num_particles, input_std_error, u):
     # angular update
-    th_dot = u[3] * dt + randn(num_particles) * input_std_error[3]
+    th_dot = u[3] + randn(num_particles) * input_std_error[3]
     particles[:, 0] = particles[:, 0] * np.cos(th_dot) - particles[:, 1] * np.sin(th_dot)
     particles[:, 1] = particles[:, 0] * np.sin(th_dot) + particles[:, 1] * np.cos(th_dot)
     
     # linear update
-    particles[:, 0] += u[0] * dt + randn(num_particles) * input_std_error[0]
-    particles[:, 1] += u[1] * dt + randn(num_particles) * input_std_error[1]
-    particles[:, 2] += u[2] * dt + randn(num_particles) * input_std_error[2]
+    particles[:, 0] += u[0] + randn(num_particles) * input_std_error[0]
+    particles[:, 1] += u[1] + randn(num_particles) * input_std_error[1]
+    particles[:, 2] += u[2] + randn(num_particles) * input_std_error[2]
 
 @njit
 def jit_update(particles, z, num_particles):
@@ -65,11 +65,10 @@ class JitParticleFilter(ParticleFilter):
     def __init__(self, serial, num_particles, measure_std_error, input_std_error, stale_filter_time):
         super(JitParticleFilter, self).__init__(serial, num_particles, measure_std_error, input_std_error, stale_filter_time)
 
-    def predict(self, u, dt):
+    def predict(self, u):
         # if self.is_filter_stale():
-        #     return False
-        jit_predict(self.particles, self.num_particles, self.input_std_error, u, dt)
-        return True
+        #     return
+        jit_predict(self.particles, self.num_particles, self.input_std_error, u)
 
     def update(self, z):
         self.weights.fill(1.0)

@@ -19,6 +19,7 @@ class ParticleFilter(object):
         self.input_std_error = np.array(input_std_error)
         self.last_measurement_time = 0.0
         self.stale_filter_time = stale_filter_time
+        self.is_stale = False
 
         self.measure_distribution = scipy.stats.norm(0.0, self.measure_std_error)
 
@@ -47,25 +48,25 @@ class ParticleFilter(object):
         for state_num in range(self.num_states):
             self.particles[:, state_num] = mean[state_num] + randn(self.num_particles) * var[state_num]
 
-    def predict(self, u, dt):
+    def predict(self, u):
         """
         move according to control input u (velocity of robot and velocity of object)
         with noise std
         u[0, 1, 2, 3] = linear_vx * dt, 0.0 (no Y component), 0.0 (no Z component), angular_z * dt
         """
         # if self.is_filter_stale():
-        #     return False
+        #     return
         # angular update
-        th_dot = u[3] * dt + randn(self.num_particles) * self.input_std_error[3]
+        th_dot = u[3] + randn(self.num_particles) * self.input_std_error[3]
         self.particles[:, 0] = self.particles[:, 0] * np.cos(th_dot) - self.particles[:, 1] * np.sin(th_dot)
         self.particles[:, 1] = self.particles[:, 0] * np.sin(th_dot) + self.particles[:, 1] * np.cos(th_dot)
         
         # linear update
-        self.particles[:, 0] += u[0] * dt + randn(self.num_particles) * self.input_std_error[0]
-        self.particles[:, 1] += u[1] * dt + randn(self.num_particles) * self.input_std_error[1]
-        self.particles[:, 2] += u[2] * dt + randn(self.num_particles) * self.input_std_error[2]
+        self.particles[:, 0] += u[0] + randn(self.num_particles) * self.input_std_error[0]
+        self.particles[:, 1] += u[1] + randn(self.num_particles) * self.input_std_error[1]
+        self.particles[:, 2] += u[2] + randn(self.num_particles) * self.input_std_error[2]
 
-        return True
+        return
 
     def update(self, z):
         """Update particle filter according to measurement z (object position: [x, y, z])"""
@@ -80,10 +81,8 @@ class ParticleFilter(object):
 
     def is_filter_stale(self):
         last_measurement_dt = time.time() - self.last_measurement_time
-        if self.stale_filter_time is not None and last_measurement_dt > self.stale_filter_time:
-            return True
-        else:
-            return False
+        self.is_stale = self.stale_filter_time is not None and last_measurement_dt > self.stale_filter_time
+        return self.is_stale
 
     def neff(self):
         return 1.0 / np.sum(np.square(self.weights))
@@ -116,8 +115,9 @@ class ParticleFilter(object):
         return np.average(self.particles, weights=self.weights, axis=0)
 
     def check_resample(self):
+        # if self.is_stale:
+        #     return False
         neff = self.neff()
-        # print "neff:", neff
         if neff < self.num_particles / 2.0:
             self.resample()
             return True
