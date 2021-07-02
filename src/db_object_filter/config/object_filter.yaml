@@ -11,9 +11,9 @@ confident_filter_threshold: 0.005
 
 max_item_count:
   cozmo_cube: 0
-  blue_cut_sphere: 3
-  red_cut_sphere: 2
-  blue_low_bin: 2
-  red_low_bin: 2
-  blue_cube: 2
-  red_cube: 2
+  blue_cut_sphere: 1
+  red_cut_sphere: 0
+  blue_low_bin: 0
+  red_low_bin: 0
+  blue_cube: 0
+  red_cube: 0

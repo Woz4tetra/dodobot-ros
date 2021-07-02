@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from numpy.random import randn, random, uniform
 import scipy.stats
@@ -61,11 +62,14 @@ def jit_resample(particles, weights, num_particles):
     weights /= np.sum(weights)  # normalize
 
 class JitParticleFilter(ParticleFilter):
-    def __init__(self, serial, num_particles, measure_std_error, input_std_error):
-        super(JitParticleFilter, self).__init__(serial, num_particles, measure_std_error, input_std_error)
+    def __init__(self, serial, num_particles, measure_std_error, input_std_error, stale_filter_time):
+        super(JitParticleFilter, self).__init__(serial, num_particles, measure_std_error, input_std_error, stale_filter_time)
 
     def predict(self, u, dt):
+        # if self.is_filter_stale():
+        #     return False
         jit_predict(self.particles, self.num_particles, self.input_std_error, u, dt)
+        return True
 
     def update(self, z):
         self.weights.fill(1.0)

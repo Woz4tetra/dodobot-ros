@@ -13,19 +13,25 @@ class PursueObjectState(State):
         )
         self.central_planning = central_planning
         self.check_state_interval = 0.25  # seconds
+        self.near_object_fudge = 0.05  # fudge factor to avoid dithering between move to object and pursuit
     
-    def exit_state(self, goal, success):
+    def exit_callback(self, goal, outcome):
         self.central_planning.toggle_local_costmap(True)
         self.central_planning.look_straight_ahead()
-        if not success:
+        if outcome != str(goal.action):
             self.central_planning.set_linear_z_to_transport(goal)
             if not self.central_planning.wait_for_linear_z():
                 return "failure"
+        return outcome
 
     def execute(self, userdata):
         goal = userdata.sequence_goal
-        
+        outcome = self.run_pursuit(goal)
+        return self.exit_callback(goal, outcome)
+    
+    def run_pursuit(self, goal):
         goal_pose = self.central_planning.get_nav_goal(goal)
+        # goal_pose = self.central_planning.get_goal_pose_with_gripper(goal)
         if goal_pose is None:
             return "failure"
         rospy.loginfo("Pursuit goal: %0.4f, %0.4f, %0.4f" % (goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z))
@@ -52,10 +58,12 @@ class PursueObjectState(State):
             self.central_planning.set_pursuit_goal(goal_pose)
             
             state = self.central_planning.get_pursuit_state()
-            if state == "success" or state == "failure" or state == "preempted":
+            if state == "success":
+                return str(goal.action)
+            elif state == "failure" or state == "preempted":
                 return state
 
-            if distance_to_goal > self.central_planning.near_object_distance:
+            if distance_to_goal > self.central_planning.near_object_distance + self.near_object_fudge:
                 rospy.loginfo("Robot has wandered too far away from the goal. Switching from pursuit to move_base")
                 self.central_planning.cancel_pursuit_goal()
                 return "too_far"

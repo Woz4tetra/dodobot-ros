@@ -8,12 +8,14 @@ from db_particle_filter import ParticleFilter, JitParticleFilter, FilterSerial
 
 class FilterFactory(object):
     def __init__(self, class_labels, num_particles, meas_std_val, input_std, initial_range, 
-            match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold, use_numba=True):
+            match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold,
+            stale_filter_time, use_numba=True):
         self.class_labels = class_labels
         self.num_particles = num_particles
         self.meas_std_val = meas_std_val
         self.input_std = input_std
         self.initial_range = initial_range
+        self.stale_filter_time = stale_filter_time
 
         self.match_cov = match_cov
         self.match_threshold = match_threshold
@@ -44,7 +46,8 @@ class FilterFactory(object):
                 obj_filter = self.ParticleFilterClass(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
-                    self.meas_std_val, self.input_std
+                    self.meas_std_val, self.input_std,
+                    self.stale_filter_time
                 )
                 self.filters[label].append(obj_filter)
 
@@ -133,7 +136,9 @@ class FilterFactory(object):
 
     def predict(self, input_vector, dt):
         for obj_filter in self.iter_filters():
-            obj_filter.predict(input_vector, dt)
+            is_active = obj_filter.predict(input_vector, dt)
+            # if not is_active:
+            # TODO: set filter position to be where the map is
 
     def check_resample(self):
         for obj_filter in self.iter_filters():

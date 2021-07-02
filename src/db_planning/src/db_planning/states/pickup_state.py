@@ -1,3 +1,4 @@
+import math
 import rospy
 from smach import State
 
@@ -23,8 +24,8 @@ class PickupState(State):
         if not self.central_planning.wait_for_linear_z():
             return "failure"
         
-        object_grab_cmd = 0.0 if goal.object_grab_cmd == float("nan") else goal.object_grab_cmd
-        force_threshold = None if goal.force_threshold == float("nan") else goal.force_threshold
+        object_grab_cmd = 0.0 if math.isnan(goal.object_grab_cmd) else goal.object_grab_cmd
+        force_threshold = None if math.isnan(goal.force_threshold) else goal.force_threshold
         self.central_planning.close_gripper(object_grab_cmd, force_threshold)
         if not self.central_planning.wait_for_gripper():
             return "failure"
@@ -35,7 +36,8 @@ class PickupState(State):
 
         if not self.central_planning.is_gripper_grabbing():
             rospy.logwarn("Gripper failed to sense an object after pickup")
-            return "failure"
+            return "success"
+            # return "failure"  # force sensor's aren't reliable
         
         return "success"
 

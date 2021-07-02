@@ -50,6 +50,7 @@ class ObjectFilterNode:
         self.new_filter_threshold = rospy.get_param("~new_filter_threshold", 0.7)
         self.confident_filter_threshold = rospy.get_param("~confident_filter_threshold", 0.005)
         self.max_item_count = rospy.get_param("~max_item_count", None)
+        self.stale_filter_time = rospy.get_param("~stale_filter_time", 3.0)
 
         assert self.class_labels is not None
         assert len(self.class_labels) > 0
@@ -67,7 +68,7 @@ class ObjectFilterNode:
             self.class_labels,
             self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
             self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_item_count,
-            self.confident_filter_threshold,
+            self.confident_filter_threshold, self.stale_filter_time
         )
         self.prev_pf_time = rospy.Time.now().to_sec()
 
@@ -118,7 +119,7 @@ class ObjectFilterNode:
         current_time = rospy.Time.now().to_sec()
         dt = current_time - self.prev_pf_time
         self.prev_pf_time = current_time
-        print(dt, linear_vel, ang_vel)
+        # print(dt, linear_vel, ang_vel)
         self.input_vector[0] = -linear_vel[0]  # X linear velocity
         self.input_vector[3] = -ang_vel[2]  # Z angular velocity
         self.factory.predict(self.input_vector, dt)

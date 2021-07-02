@@ -14,7 +14,7 @@ max_vel_x: 0.3
 max_vel_theta: 2.0
 
 goal_distance_offset: 0.1
-near_object_distance: 3.0
+near_object_distance: 0.35
 replan_distance: 0.25
 
 pickup_z_offset: 0.02
@@ -25,4 +25,4 @@ transport_z_height: 0.08
 fast_stepper_speed: 0.044
 slow_stepper_speed: 0.02
 
-plow_into_object_offset: 0.0
+plow_into_object_offset: 0.05

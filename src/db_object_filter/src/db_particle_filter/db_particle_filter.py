@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from numpy.random import randn, random, uniform
 import scipy.stats
@@ -9,13 +10,15 @@ FilterSerial = collections.namedtuple("FilterSerial", "label index")
 
 
 class ParticleFilter(object):
-    def __init__(self, serial, num_particles, measure_std_error, input_std_error):
+    def __init__(self, serial, num_particles, measure_std_error, input_std_error, stale_filter_time):
         self.serial = serial
         self.num_states = 3  # x, y, z
         self.particles = np.zeros((num_particles, self.num_states))
         self.num_particles = num_particles
         self.measure_std_error = measure_std_error
         self.input_std_error = np.array(input_std_error)
+        self.last_measurement_time = 0.0
+        self.stale_filter_time = stale_filter_time
 
         self.measure_distribution = scipy.stats.norm(0.0, self.measure_std_error)
 
@@ -50,6 +53,8 @@ class ParticleFilter(object):
         with noise std
         u[0, 1, 2, 3] = linear_vx * dt, 0.0 (no Y component), 0.0 (no Z component), angular_z * dt
         """
+        # if self.is_filter_stale():
+        #     return False
         # angular update
         th_dot = u[3] * dt + randn(self.num_particles) * self.input_std_error[3]
         self.particles[:, 0] = self.particles[:, 0] * np.cos(th_dot) - self.particles[:, 1] * np.sin(th_dot)
@@ -60,6 +65,8 @@ class ParticleFilter(object):
         self.particles[:, 1] += u[1] * dt + randn(self.num_particles) * self.input_std_error[1]
         self.particles[:, 2] += u[2] * dt + randn(self.num_particles) * self.input_std_error[2]
 
+        return True
+
     def update(self, z):
         """Update particle filter according to measurement z (object position: [x, y, z])"""
         # weight according to how far away the particle is from the measurement in x, y, z
@@ -69,7 +76,14 @@ class ParticleFilter(object):
 
         self.weights += 1.e-300  # avoid divide by zero error
         self.weights /= np.sum(self.weights)  # normalize
-        # print "weights:", self.weights
+        self.last_measurement_time = time.time()
+
+    def is_filter_stale(self):
+        last_measurement_dt = time.time() - self.last_measurement_time
+        if self.stale_filter_time is not None and last_measurement_dt > self.stale_filter_time:
+            return True
+        else:
+            return False
 
     def neff(self):
         return 1.0 / np.sum(np.square(self.weights))

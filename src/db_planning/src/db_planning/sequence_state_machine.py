@@ -29,7 +29,7 @@ class SequenceStateMachine(ActionServerWrapper):
             StateMachine.add(
                 "MOVE_TO_OBJECT", MoveToObjectState(central_planning),
                 transitions={
-                    "success": "success",
+                    "success": "PURSUE_OBJECT",
                     "failure": "failure",
                     "preempted": "preempted"
                 },
@@ -40,7 +40,7 @@ class SequenceStateMachine(ActionServerWrapper):
             )
 
             StateMachine.add(
-                "MOVE_TO_OBJECT", PursueObjectState(central_planning),
+                "PURSUE_OBJECT", PursueObjectState(central_planning),
                 transitions={
                     str(SequenceRequestGoal.PICKUP): "PICKUP",
                     str(SequenceRequestGoal.DELIVER): "DELIVER",

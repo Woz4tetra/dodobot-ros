@@ -24,7 +24,6 @@ from std_srvs.srv import Trigger, TriggerResponse
 
 import std_msgs.msg
 
-from db_planning.msg import ChassisAction, ChassisGoal, ChassisResult
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_planning.msg import GripperAction, GripperGoal, GripperResult
 from db_planning.msg import ObjectPursuitAction, ObjectPursuitGoal, ObjectPursuitResult
@@ -76,7 +75,7 @@ class CentralPlanning:
         self.max_vel_theta = rospy.get_param("~max_vel_theta", 1.0)
 
         self.goal_distance_offset = rospy.get_param("~goal_distance_offset", 0.1)
-        self.near_object_distance = rospy.get_param("~near_object_distance", 3.0)
+        self.near_object_distance = rospy.get_param("~near_object_distance", 1.0)
         self.replan_distance = rospy.get_param("~replan_distance", 0.45)
         
         self.pickup_z_offset = rospy.get_param("~pickup_z_offset", 0.02)
@@ -134,6 +133,9 @@ class CentralPlanning:
         # camera tilter service
         self.tilter_pub = rospy.Publisher("tilter_orientation", Quaternion, queue_size=100)
 
+        # pursuit goal updater topic
+        self.pursuit_goal_pub = rospy.Publisher("pursuit_goal", PoseStamped, queue_size=10)
+
         # are robot motors enabled service
         self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
 
@@ -172,10 +174,10 @@ class CentralPlanning:
         return srv_obj
     
     def dyn_obstacle_layer_callback(self, config):
-        rospy.loginfo("Obstacle layer config set to %s" % str(config))
+        rospy.logdebug("Obstacle layer config set to %s" % str(config))
     
     def dyn_local_planner_callback(self, config):
-        rospy.loginfo("Local planner config set to %s" % str(config))
+        rospy.logdebug("Local planner config set to %s" % str(config))
 
     def is_gripper_ok(self, goal):
         """
@@ -249,16 +251,26 @@ class CentralPlanning:
     
     def get_nav_goal(self, goal):
         """
-        Compute a goal for navigation planners such that the gripper_link is above the object in X, Y
+        Compute a pose some distance away from the goal 
+        for navigation planners such that the gripper_link is above the object in X, Y
         """
         goal_pose = self.get_path_at_distance(goal, self.goal_distance_offset)
         if goal_pose is not None:
             goal_pose = self.offset_with_gripper(goal_pose)
         return goal_pose
     
+    def get_goal_pose_with_gripper(self, goal):
+        """
+        Compute a pose for navigation planners such that the gripper_link is above the object in X, Y
+        """
+        goal_pose = self.get_goal_pose(goal)
+        if goal_pose is not None:
+            goal_pose = self.offset_with_gripper(goal_pose)
+        return goal_pose
+    
     def get_goal_with_orientation(self, goal, orientation):
         """
-        Use the orientation result from 'get_nav_goal' and apply it to the goal.
+        Use the orientation result from 'get_nav_goal' or 'get_goal_pose_with_gripper' and apply it to the goal.
         This is for situations where the object moves to a new location part way through getting the robot there.
         """
         goal_pose = self.get_goal_pose(goal)
@@ -343,7 +355,7 @@ class CentralPlanning:
         distance = np.linalg.norm(point2 - point1)
         return distance
 
-    def offset_with_gripper(self, pose_stamped):
+    def offset_with_gripper(self, pose_stamped) -> PoseStamped:
         """
         Offset the pose_stamped object by the offset between base_link and gripper_link
         """
@@ -518,6 +530,7 @@ class CentralPlanning:
             self.local_costmap_enabled_state = state
         else:
             return
+        rospy.loginfo("Changing obstacle layer state to %s" % state)
         self.obstacle_layer_dyn_client.update_configuration({"enabled": state})
         
     def set_planner_velocities(self, max_vel_x=None, max_vel_x_backwards=None, max_vel_theta=None):
@@ -544,11 +557,17 @@ class CentralPlanning:
 
     def cancel_move_base(self):
         self.move_action_client.cancel_all_goals()
+        if self.move_action_client.get_state() in (GoalStatus.ACTIVE, GoalStatus.PENDING, GoalStatus.PREEMPTING, GoalStatus.RECALLING):
+            result = self.move_action_client.wait_for_result()
+            rospy.loginfo("Canceled move_base: %s" % result)
     
-    def set_pursuit_goal(self, goal_pose):
+    def init_pursuit_goal(self, goal_pose):
         goal = ObjectPursuitGoal()
         goal.pose = goal_pose
         self.pursuit_client.send_goal(goal)
+    
+    def set_pursuit_goal(self, goal_pose: PoseStamped):
+        self.pursuit_goal_pub.publish(goal_pose)
 
     def get_pursuit_state(self):
         state = self.pursuit_client.get_state()

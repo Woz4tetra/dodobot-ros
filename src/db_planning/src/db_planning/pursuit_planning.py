@@ -31,19 +31,21 @@ class PursuitPlanning:
         self.angle_tolerance = rospy.get_param("~angle_tolerance", 0.05)
         self.position_tolerance = rospy.get_param("~position_tolerance", 0.05)
         self.min_linear_speed = rospy.get_param("~min_linear_speed", 0.07)
-        self.max_linear_speed = rospy.get_param("~max_linear_speed", 0.3)
+        self.max_linear_speed = rospy.get_param("~max_linear_speed", 0.2)
         self.min_angular_speed = rospy.get_param("~min_angular_speed", 1.0)
-        self.max_angular_speed = rospy.get_param("~max_angular_speed", 6.0)
+        self.max_angular_speed = rospy.get_param("~max_angular_speed", 3.0)
         self.zero_epsilon = rospy.get_param("~zero_epsilon", 1E-3)
         self.stabilization_timeout = rospy.Duration(rospy.get_param("~stabilization_timeout_s", 1.0))
 
-        self.steer_kP = rospy.get_param("~steer_kP", 1.0)
-        self.fine_steer_kP = rospy.get_param("~fine_steer_kP", 0.25)
+        self.steer_kP = rospy.get_param("~steer_kP", 3.0)
+        self.fine_steer_kP = rospy.get_param("~fine_steer_kP", 2.0)
         self.linear_kP = rospy.get_param("~linear_kP", 10.0)
 
         self.goal_pose = Pose2d()
 
         self.twist_lookup_avg_interval = 1.0 / 30.0
+        self.timeout_turn_fudge = 0.025
+        self.timeout_fudge = 1.0
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -69,21 +71,22 @@ class PursuitPlanning:
         else:  # failure
             self.pursuit_action_server.set_aborted(result)
 
-
     def run_pursuit(self):
+        self.stop_motors()
+        rospy.sleep(0.25)  # wait for motors to settle if coming from another navigation scheme
         # assumes self.goal_pose is set
         result_state = self.turn_towards_heading() 
         if result_state == "success":
             result_state = self.pursue_object()
-        if result_state == "success":
-            result_state = self.turn_towards_object()
+        # if result_state == "success":
+        #     result_state = self.turn_towards_object()
         return result_state
 
     def turn_towards_heading(self):
         state = self.get_state()
         target_angle = self.goal_pose.heading(state)
         error = Pose2d.normalize_theta(target_angle - state.theta)
-        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + self.timeout_turn_fudge
         rospy.loginfo("Turning %0.2f rad towards goal. Pursuing for %0.2fs at most" % (error, timeout))
         start_time = rospy.Time.now()
         timeout_duration = rospy.Duration(timeout)
@@ -102,6 +105,7 @@ class PursuitPlanning:
 
             if abs(error) < self.angle_tolerance:
                 self.stop_motors()
+                print("Turn towards error: %s" % (self.goal_pose - state))
                 return "success"
             
             if rospy.Time.now() - start_time > timeout_duration:
@@ -118,7 +122,7 @@ class PursuitPlanning:
         target_angle = self.goal_pose.heading(state)
         error.theta = Pose2d.normalize_theta(target_angle - state.theta)
 
-        timeout = abs(error.x) / self.min_linear_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        timeout = abs(error.x) / self.min_linear_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + self.timeout_fudge
         rospy.loginfo("Driving towards goal: %s. Pursuing for %0.2fs at most" % (error, timeout))
         start_time = rospy.Time.now()
         timeout_duration = rospy.Duration(timeout)
@@ -137,7 +141,7 @@ class PursuitPlanning:
             error = self.goal_pose.relative_to(state)
             # target_angle = self.goal_pose.heading(state)
             error.theta = Pose2d.normalize_theta(target_angle - state.theta)
-            print(error)
+            # print(error)
 
             if abs(error.x) < self.position_tolerance:
                 self.stop_motors()
@@ -154,19 +158,22 @@ class PursuitPlanning:
             
             if success_time is not None:
                 if now - success_time > self.stabilization_timeout:
+                    print("Pursuit error: %s" % error)
                     return "success"
                 continue
             
-            ang_v = self.fine_steer_kP * error.theta
-            if abs(ang_v) < self.min_angular_speed:
-                ang_v = 0.0
+            err_t_ang_v = self.fine_steer_kP * error.theta
+            err_y_ang_v = self.steer_kP * error.y
+            ang_v = err_t_ang_v + err_y_ang_v
             linear_v = self.linear_kP * error.x
+
+            # print("%0.2f\t%0.2f\t|\t%0.2f\t%0.2f" % (linear_v, ang_v, err_t_ang_v, err_y_ang_v))
             self.set_twist(linear_v, ang_v)
     
     def turn_towards_object(self):
         state = self.get_state()
         error = self.goal_pose.relative_to(state).theta
-        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + 0.05
+        timeout = abs(error) / self.min_angular_speed * self.timeout_safety_factor + self.stabilization_timeout.to_sec() + self.timeout_turn_fudge
         rospy.loginfo("Turning %0.2f rad towards final heading. Pursuing for %0.2fs at most" % (error, timeout))
         start_time = rospy.Time.now()
         timeout_duration = rospy.Duration(timeout)
@@ -183,7 +190,7 @@ class PursuitPlanning:
             
             state = self.get_state()
             error = self.goal_pose.relative_to(state).theta
-            print(error, self.goal_pose.theta, state.theta)
+            # print(error, self.goal_pose.theta, state.theta)
 
             if abs(error) < self.angle_tolerance:
                 self.stop_motors()
@@ -200,6 +207,7 @@ class PursuitPlanning:
             
             if success_time is not None:
                 if now - success_time > self.stabilization_timeout:
+                    print("Turn towards error: %s" % (self.goal_pose - state))
                     return "success"
                 continue
 
@@ -213,12 +221,12 @@ class PursuitPlanning:
         self.set_goal(msg)
 
     def set_twist(self, linear_x, ang_v):
-        if self.zero_epsilon < abs(linear_x) < self.min_linear_speed:
+        if abs(ang_v) < self.min_angular_speed and self.zero_epsilon < abs(linear_x) < self.min_linear_speed:
             linear_x = math.copysign(self.min_linear_speed, linear_x)
         elif abs(linear_x) < self.zero_epsilon:
             linear_x = 0.0
 
-        if self.zero_epsilon < abs(ang_v) < self.min_angular_speed:
+        if abs(linear_x) < self.min_linear_speed and self.zero_epsilon < abs(ang_v) < self.min_angular_speed:
             ang_v = math.copysign(self.min_angular_speed, ang_v)
         elif abs(ang_v) < self.zero_epsilon:
             ang_v = 0.0
@@ -287,20 +295,19 @@ class PursuitPlanning:
             self.set_goal(pose)
             result_state = self.run_pursuit()
             rospy.loginfo("Pursuit result: %s" % result_state)
-        goto_point(0.25, 0.25, 0.0)
-        goto_point(0.0, 0.0, 0.0)
-        goto_point(0.5, 0.5, 0.0)
-        goto_point(-0.5, 0.5, 0.0)
-        goto_point(-0.5, -0.5, 0.0)
-        goto_point(0.5, -0.5, 0.0)
-        goto_point(0.0, 0.0, 0.0)
+        goto_point(0.25, 0.05, 0.0)
+        # goto_point(0.0, 0.0, 0.0)
+
+        # goto_point(0.5, 0.5, 0.0)
+        # goto_point(0.5, -0.5, 0.0)
+        # goto_point(0.0, 0.0, 0.0)
 
 
 if __name__ == "__main__":
     try:
         node = PursuitPlanning()
-        # node.run()
-        node.test()
+        node.run()
+        # node.test()
     except rospy.ROSInterruptException:
         pass
     finally:
