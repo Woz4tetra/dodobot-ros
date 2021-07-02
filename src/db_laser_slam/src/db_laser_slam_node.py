@@ -11,7 +11,8 @@ from collections import defaultdict
 
 
 class LaunchManager:
-    roslaunch_exec = "/opt/ros/noetic/bin/roslaunch"
+    roslaunch_exec = "roslaunch"
+    bash_env_exec = "/usr/bin/env"
     def __init__(self, launch_path, *args, **kwargs):
         
         args_list = []
@@ -21,9 +22,9 @@ class LaunchManager:
             args_list.append("%s:=%s" % (name, value))
         
         if len(args_list) > 0:
-            self.roslaunch_args = [self.roslaunch_exec, launch_path] + args_list
+            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path] + args_list
         else:
-            self.roslaunch_args = [self.roslaunch_exec, launch_path]
+            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path]
         
         self.process = None
     
@@ -107,9 +108,9 @@ class DodobotLaserSlam:
     def shutdown_hook(self):
         rospy.loginfo("shutdown called")
         if self.mode == "mapping":
-            rospy.loginfo("Saving map to %s. Waiting at least 10 seconds." % self.map_path)
+            rospy.loginfo("Saving map to %s. Waiting 5 seconds." % self.map_path)
             self.map_saver_launcher.start()
-            self.map_saver_launcher.join(timeout=10.0)
+            self.map_saver_launcher.join(timeout=5.0)
             rospy.loginfo("Map saved!")
         
         self.stop_all()

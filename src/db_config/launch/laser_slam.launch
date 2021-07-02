@@ -5,8 +5,8 @@
     <include file="$(find db_config)/launch/rplidar.launch"/>
     <include file="$(find db_config)/launch/realsense.launch"/>
 
-    <!-- <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
+    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
         <arg name="map_name" value="$(arg map_name)"/>
         <arg name="mode" value="$(arg mode)"/>
-    </include> -->
+    </include>
 </launch>

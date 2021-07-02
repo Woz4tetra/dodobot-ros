@@ -35,6 +35,8 @@ packages=(
     https://github.com/ros-perception/image_common.git
     https://github.com/robopeak/rplidar_ros.git
     https://github.com/ros-perception/laser_filters.git
+    https://github.com/ros-perception/slam_gmapping.git
+    https://github.com/ros-perception/openslam_gmapping.git
 )
 
 branches=(
@@ -60,6 +62,8 @@ branches=(
     noetic-devel
     master
     kinetic-devel
+    melodic-devel
+    melodic-devel
 )
 
 len=${#packages[@]}
@@ -81,6 +85,7 @@ sed -i -e 's/${G2O_INCREMENTAL_LIB}/#${G2O_INCREMENTAL_LIB}/g'  ${DEPENDENCIES_W
 cd ${DEPENDENCIES_WS_SRC}/image_pipeline/
 git apply ${BASE_DIR}/fix-image-pipeline.patch --reject --whitespace=fix 
 
+cd ${DEPENDENCIES_WS}
 catkin_make -j2
 success=$?
 if [[ $success -eq 0 ]];
