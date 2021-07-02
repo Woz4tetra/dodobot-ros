@@ -154,7 +154,7 @@ class PursuitPlanning:
             if abs(error.y) > self.loopback_y_tolerance or abs(error.theta) > self.loopback_theta_tolerance:
                 rospy.loginfo("Robot deviated too far from the straight path. Turning in place.")
                 self.stop_motors()
-                rospy.sleep(0.1)
+                rospy.sleep(0.5)  # wait for object filter lag to catch up
                 return "turn"
 
             if abs(error.x) < self.position_tolerance:

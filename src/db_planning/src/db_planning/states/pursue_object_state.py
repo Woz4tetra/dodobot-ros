@@ -33,7 +33,7 @@ class PursueObjectState(State):
         start_time = rospy.Time.now()
 
         # wait for robot to settle and for object filter to update
-        while rospy.Time.now() - start_time < rospy.Duration(1.0):
+        while rospy.Time.now() - start_time < rospy.Duration(1.5):
             self.central_planning.look_at_goal(goal)  # tilt the camera towards the goal
             rospy.sleep(0.1)
 
