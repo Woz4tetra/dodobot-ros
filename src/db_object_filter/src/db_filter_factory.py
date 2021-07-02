@@ -120,7 +120,7 @@ class FilterFactory(object):
                 largest_confidence = confidence
                 largest_index = obj_filter.serial.index
 
-        rospy.loginfo("Confidence -- %s[%s]: %s" % (label, largest_index, largest_confidence))
+        rospy.logdebug("Confidence -- %s[%s]: %s" % (label, largest_index, largest_confidence))
         if largest_index is not None and largest_confidence > self.match_threshold:
             self.filters[label][largest_index].update(measurement)
         elif largest_confidence < self.new_filter_threshold:

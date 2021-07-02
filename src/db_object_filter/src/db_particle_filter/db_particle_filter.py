@@ -83,7 +83,7 @@ class ParticleFilter(object):
 
         self.weights += 1.e-300  # avoid divide by zero error
         self.weights /= np.sum(self.weights)  # normalize
-        # if not is_stale:
+        # if not is_stale:  # removing this adds time between stale measurements which makes the filter less confident
         self.last_measurement_time = time.time()
 
     def is_filter_stale(self):

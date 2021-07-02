@@ -192,6 +192,8 @@ class ObjectFilterNode:
             self.broadcaster.sendTransform(msg)
     
     def publish_particles(self):
+        if self.particles_pub.get_num_connections() == 0:
+            return
         particles_msg = PoseArray()
         particles_msg.header.frame_id = self.filter_frame
         particles_msg.header.stamp = rospy.Time.now()

@@ -4,7 +4,7 @@
     <arg name="waypoints_path" default="waypoints.yaml"/>
     <arg name="use_laser" default="true"/>
     
-    <include file="$(find db_config)/launch/realsense.launch"/>
+    <!-- <include file="$(find db_config)/launch/realsense.launch"/> -->
     <include file="$(find db_config)/launch/rtabmap.launch">
         <arg name="localization" value="true"/>
         <arg name="database_path" value="$(arg map_name)"/>
