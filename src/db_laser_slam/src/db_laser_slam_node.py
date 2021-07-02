@@ -6,7 +6,7 @@ import rospy
 import rospkg
 import threading
 from datetime import datetime
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from collections import defaultdict
 
 
@@ -33,11 +33,17 @@ class LaunchManager:
         self.process = Popen(self.roslaunch_args, preexec_fn=os.setpgrp)  #, stdout=PIPE, stderr=PIPE)
     
     def stop(self):
-        if self.is_running():
+        if self.process is not None:
+            rospy.loginfo("Sending SIGINT to %s" % self.roslaunch_args)
             self.process.send_signal(signal.SIGINT)
     
     def join(self, timeout):
-        self.process.wait()
+        try:
+            if self.process is not None:
+                self.process.wait(timeout=timeout)
+            return True
+        except TimeoutExpired:
+            return False
     
     def is_running(self):
         return self.process is not None and self.process.poll() is None
@@ -108,10 +114,17 @@ class DodobotLaserSlam:
     def shutdown_hook(self):
         rospy.loginfo("shutdown called")
         if self.mode == "mapping":
-            rospy.loginfo("Saving map to %s. Waiting 5 seconds." % self.map_path)
-            self.map_saver_launcher.start()
-            self.map_saver_launcher.join(timeout=5.0)
-            rospy.loginfo("Map saved!")
+            if not self.gmapping_launcher.is_running():
+                rospy.loginfo("Gmapping has stopped running. Not saving the map")
+            else:
+                self.map_saver_launcher.start()
+                rospy.loginfo("Saving map to %s. Waiting 10 seconds." % self.map_path)
+                result = self.map_saver_launcher.join(timeout=10.0)
+                print("1: map_saver is %s" % self.map_saver_launcher.process)
+                if result:
+                    rospy.loginfo("Map saved!")
+                else:
+                    rospy.loginfo("Map saver was stopped before it could finish")
         
         self.stop_all()
     
