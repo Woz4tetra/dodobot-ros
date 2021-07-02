@@ -5,7 +5,7 @@
     <!-- <include file="$(find db_config)/launch/dodobot.launch"/> -->
     <include file="$(find db_config)/launch/realsense.launch"/>
     <include file="$(find db_config)/launch/move_base.launch"/>
-    <include file="$(find db_planning)/launch/fake_map.launch"/>
+    <!-- <include file="$(find db_planning)/launch/fake_map.launch"/> -->
     <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
 
 </launch>
