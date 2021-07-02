@@ -602,11 +602,20 @@ class CentralPlanning:
 
     def run(self):
         rospy.spin()
+    
+    def test_linear(self):
+        sequence = [0.04, 0.08, 0.12, 0.14, 0.12, 0.08, 0.04, 0.0]
+        while True:
+            for position in sequence:
+                self.set_linear_z(position, self.fast_stepper_speed)
+                if not self.wait_for_linear_z():
+                    break
 
 if __name__ == "__main__":
     try:
         node = CentralPlanning()
-        node.run()
+        # node.run()
+        node.test_linear()
     except rospy.ROSInterruptException:
         pass
     finally:

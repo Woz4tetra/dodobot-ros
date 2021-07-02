@@ -123,6 +123,7 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     write_timer = ros::Time::now();
 
     packet_ok_timeout = ros::Duration(1.0);
+    linear_ok_packet_timeout = ros::Duration(7.0);
 
     jpeg_params.push_back(cv::IMWRITE_JPEG_QUALITY);
     jpeg_params.push_back(jpeg_image_quality);
@@ -654,8 +655,11 @@ void DodobotParsing::writeSerial(string name, const char *formats, ...)
     }
 }
 
-bool DodobotParsing::waitForOK(uint32_t packet_num)
+bool DodobotParsing::waitForOK(uint32_t packet_num, ros::Duration ok_timeout)
 {
+    if (ok_timeout == ros::Duration(0.0)) {
+        ok_timeout = packet_ok_timeout;
+    }
     wait_for_ok_reqs[packet_num] = -1;
     ros::Time start_timer = ros::Time::now();
     while (true)
@@ -664,7 +668,7 @@ bool DodobotParsing::waitForOK(uint32_t packet_num)
             return false;
         }
         loop();
-        if (ros::Time::now() - start_timer > packet_ok_timeout) {
+        if (ros::Time::now() - start_timer > ok_timeout) {
             ROS_WARN_STREAM("Timed out while waiting for response from packet #" << packet_num);
             return false;
         }
@@ -677,8 +681,8 @@ bool DodobotParsing::waitForOK(uint32_t packet_num)
     }
 }
 
-bool DodobotParsing::waitForOK() {
-    return waitForOK(_writePacketNum - 1);
+bool DodobotParsing::waitForOK(ros::Duration ok_timeout) {
+    return waitForOK(_writePacketNum - 1, ok_timeout);
 }
 
 
@@ -847,12 +851,20 @@ void DodobotParsing::linearCallback(const db_parsing::DodobotLinear::ConstPtr& m
     switch (msg->command_type) {
         case 0:  // position: 0
         case 1:  // velocity: 1
-            writeSerial("linear", "dd", msg->command_type, msg->command_value);
+            do {
+                writeSerial("linear", "dd", msg->command_type, msg->command_value);
+            }
+            while (!waitForOK(ros::Duration(linear_ok_packet_timeout)));
+            ROS_INFO("Linear command send successfully");
             break;
         case 2:  // stop linear:  2
         case 3:  // reset linear: 3
         case 4:  // home linear:  4
-            writeSerial("linear", "d", msg->command_type);
+            do {
+                writeSerial("linear", "d", msg->command_type);
+            }
+            while (!waitForOK(ros::Duration(linear_ok_packet_timeout)));
+            ROS_INFO("Linear command send successfully");
             break;
         default:
             // no operation: -1 (for only writing lincfg)

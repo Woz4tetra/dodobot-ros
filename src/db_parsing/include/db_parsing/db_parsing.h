@@ -131,6 +131,7 @@ private:
 
     std::map<uint32_t, int> wait_for_ok_reqs;
     ros::Duration packet_ok_timeout;
+    ros::Duration linear_ok_packet_timeout;
 
     bool use_sensor_msg_time;
     bool active_on_start, reporting_on_start;
@@ -258,8 +259,8 @@ private:
     bool readSerial();
     void writeSerialLarge(string name, vector<unsigned char>* data);
     void writeSerial(string name, const char *formats, ...);
-    bool waitForOK(uint32_t packet_num);
-    bool waitForOK();
+    bool waitForOK(uint32_t packet_num, ros::Duration ok_timeout = ros::Duration(0.0));  // 0.0 -> use default (packet_ok_timeout)
+    bool waitForOK(ros::Duration ok_timeout = ros::Duration(0.0));
 
     bool write_stop_flag;
     int write_thread_rate;
