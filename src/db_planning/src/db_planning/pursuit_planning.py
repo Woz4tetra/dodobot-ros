@@ -37,7 +37,7 @@ class PursuitPlanning:
         self.zero_epsilon = rospy.get_param("~zero_epsilon", 1E-3)
         self.stabilization_timeout = rospy.Duration(rospy.get_param("~stabilization_timeout_s", 1.0))
 
-        self.steer_kP = rospy.get_param("~steer_kP", 3.0)
+        self.steer_kP = rospy.get_param("~steer_kP", 6.0)
         self.fine_steer_kP = rospy.get_param("~fine_steer_kP", 2.0)
         self.linear_kP = rospy.get_param("~linear_kP", 10.0)
 
@@ -46,6 +46,8 @@ class PursuitPlanning:
         self.twist_lookup_avg_interval = 1.0 / 30.0
         self.timeout_turn_fudge = 0.025
         self.timeout_fudge = 1.0
+        self.loopback_y_tolerance = 0.07
+        self.loopback_theta_tolerance = 0.1
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -73,11 +75,16 @@ class PursuitPlanning:
 
     def run_pursuit(self):
         self.stop_motors()
-        rospy.sleep(0.25)  # wait for motors to settle if coming from another navigation scheme
         # assumes self.goal_pose is set
-        result_state = self.turn_towards_heading() 
-        if result_state == "success":
+        while True:
+            result_state = self.turn_towards_heading() 
+            if result_state != "success":
+                break
             result_state = self.pursue_object()
+            if result_state != "turn":
+                break
+
+
         # if result_state == "success":
         #     result_state = self.turn_towards_object()
         return result_state
@@ -105,7 +112,7 @@ class PursuitPlanning:
 
             if abs(error) < self.angle_tolerance:
                 self.stop_motors()
-                print("Turn towards error: %s" % (self.goal_pose - state))
+                rospy.loginfo("Turn towards error: %s" % (self.goal_pose - state))
                 return "success"
             
             if rospy.Time.now() - start_time > timeout_duration:
@@ -143,6 +150,13 @@ class PursuitPlanning:
             error.theta = Pose2d.normalize_theta(target_angle - state.theta)
             # print(error)
 
+            # if the robot's y or theta errors exceed certain values, jump back to turning in place
+            if abs(error.y) > self.loopback_y_tolerance or abs(error.theta) > self.loopback_theta_tolerance:
+                rospy.loginfo("Robot deviated too far from the straight path. Turning in place.")
+                self.stop_motors()
+                rospy.sleep(0.1)
+                return "turn"
+
             if abs(error.x) < self.position_tolerance:
                 self.stop_motors()
                 if success_time is None:
@@ -158,7 +172,7 @@ class PursuitPlanning:
             
             if success_time is not None:
                 if now - success_time > self.stabilization_timeout:
-                    print("Pursuit error: %s" % error)
+                    rospy.loginfo("Pursuit error: %s" % error)
                     return "success"
                 continue
             
@@ -207,7 +221,7 @@ class PursuitPlanning:
             
             if success_time is not None:
                 if now - success_time > self.stabilization_timeout:
-                    print("Turn towards error: %s" % (self.goal_pose - state))
+                    rospy.loginfo("Turn towards error: %s" % (self.goal_pose - state))
                     return "success"
                 continue
 
@@ -247,7 +261,7 @@ class PursuitPlanning:
             rospy.logerr("Goal does not match planner's frame. %s != %s" % (pose_stamped.header.frame_id, self.map_frame))
         self.goal_pose.x = pose_stamped.pose.position.x
         self.goal_pose.y = pose_stamped.pose.position.y
-        self.goal_pose.theta = self.get_theta(pose_stamped.pose.orientation)
+        self.goal_pose.theta = Pose2d.theta_from_quat(pose_stamped.pose.orientation)
 
     def get_state(self) -> Pose2d:
         try:
@@ -258,16 +272,8 @@ class PursuitPlanning:
         state = Pose2d()
         state.x = robot_map_tf.transform.translation.x
         state.y = robot_map_tf.transform.translation.y
-        state.theta = self.get_theta(robot_map_tf.transform.rotation)
+        state.theta = Pose2d.theta_from_quat(robot_map_tf.transform.rotation)
         return state
-
-    def get_theta(self, quaternion):
-        return tf_conversions.transformations.euler_from_quaternion((
-            quaternion.x,
-            quaternion.y,
-            quaternion.z,
-            quaternion.w
-        ))[2]
 
     def get_quaternion(self, yaw, as_list=False):
         quat = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, yaw)

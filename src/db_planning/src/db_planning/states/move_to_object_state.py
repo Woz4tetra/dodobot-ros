@@ -64,4 +64,4 @@ class MoveToObjectState(State):
         robot_pose = self.central_planning.get_robot_pose()
         distance_to_goal = self.central_planning.get_pose_distance(robot_pose, goal_pose)
         rospy.loginfo("move_base. Distance to goal: %s" % distance_to_goal)
-        return distance_to_goal < dist_tolerance
+        return distance_to_goal < dist_tolerance  # TODO: add angle tolerance as well

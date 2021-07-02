@@ -34,6 +34,8 @@ from db_planning.srv import GrabbingSrv, GrabbingSrvResponse
 
 from db_planning.sequence_state_machine import SequenceStateMachine
 
+from db_planning.robot_state import Pose2d
+
 from db_parsing.srv import DodobotGetState
 
 from db_audio.srv import PlayAudio
@@ -312,7 +314,7 @@ class CentralPlanning:
             rospy.logwarn("Failed to get path to goal. Goal pose is not valid")
             return None
 
-        resp = self.make_plan_srv(start=start_pose, goal=goal_pose, tolerance=0.0)
+        resp = self.make_plan_srv(start=start_pose, goal=goal_pose, tolerance=self.near_object_distance)
         
         if resp and len(resp.plan.poses) > 0:
             if distance == 0.0:
@@ -328,7 +330,13 @@ class CentralPlanning:
                         break
                 final_pose = resp.plan.poses[path_index]
             
-            goal_pose.pose.orientation = final_pose.pose.orientation  # copy just the orientation from the final pose
+            # compute the heading between the distanced final pose and the goal pose
+            final_pose_2d = Pose2d.from_ros_pose(final_pose.pose)
+            goal_pose_2d = Pose2d.from_ros_pose(goal_pose.pose)
+
+            # assign that heading as the final goal orientation
+            final_heading = Pose2d(theta=goal_pose_2d.heading(final_pose_2d))
+            goal_pose.pose.orientation = final_heading.get_theta_as_quat()
             return goal_pose
         else:
             rospy.logwarn("Failed to get path to goal. move_base failed to produce a plan")
@@ -359,9 +367,9 @@ class CentralPlanning:
         """
         Offset the pose_stamped object by the offset between base_link and gripper_link
         """
-        goal_to_gripper = self.lookup_transform(self.gripper_frame, pose_stamped.header.frame_id)
         gripper_to_base_link = self.lookup_transform(self.gripper_frame, self.base_link_frame)
         gripper_to_goal = self.lookup_transform(pose_stamped.header.frame_id, self.gripper_frame)
+        goal_to_gripper = self.lookup_transform(self.gripper_frame, pose_stamped.header.frame_id)
         if goal_to_gripper is None or gripper_to_base_link is None or gripper_to_goal is None:
             return None
 

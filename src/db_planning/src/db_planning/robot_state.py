@@ -1,19 +1,6 @@
 import math
-
-
-def clip(x, lower, upper):
-    if x == 0.0:
-        return x
-    if lower is None and upper is None:
-        return x
-    elif lower is None and upper is not None:
-        clipped_x = min(abs(x), upper)
-    if lower is not None and upper is None:
-        clipped_x = max(abs(x), lower)
-    else:
-        clipped_x = min(max(abs(x), lower), upper)
-    clipped_x = math.copysign(clipped_x, x)
-    return clipped_x
+import tf_conversions
+from geometry_msgs.msg import Quaternion
 
 
 class State:
@@ -38,6 +25,36 @@ class State:
         self.theta = state.theta
         return self
     
+    @classmethod
+    def from_ros_pose(cls, pose):
+        self = cls()
+        self.x = pose.position.x
+        self.y = pose.position.y
+        self.theta = State.theta_from_quat(pose.orientation)
+        return self
+    
+    @staticmethod
+    def theta_from_quat(quaternion):
+        return tf_conversions.transformations.euler_from_quaternion((
+            quaternion.x,
+            quaternion.y,
+            quaternion.z,
+            quaternion.w
+        ))[2]
+    
+    def get_theta_as_quat(self, as_list=False):
+        quat = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, self.theta)
+        if as_list:
+            return quat
+        
+        quat_msg = Quaternion()
+        quat_msg.x = quat[0]
+        quat_msg.y = quat[1]
+        quat_msg.z = quat[2]
+        quat_msg.w = quat[3]
+        return quat_msg
+
+
     def relative_to(self, other):
         if not isinstance(other, self.__class__):
             raise ValueError("Can't transform %s to %s" % (self.__class__, other.__class__))
@@ -55,13 +72,29 @@ class State:
         state.theta = self.theta
         return state
 
+    @staticmethod
+    def _clip(x, lower, upper):
+        if x == 0.0:
+            return x
+        if lower is None and upper is None:
+            return x
+        elif lower is None and upper is not None:
+            clipped_x = min(abs(x), upper)
+        if lower is not None and upper is None:
+            clipped_x = max(abs(x), lower)
+        else:
+            clipped_x = min(max(abs(x), lower), upper)
+        clipped_x = math.copysign(clipped_x, x)
+        return clipped_x
+
+
     def clip(self, lower, upper):
         state = self.__class__.from_state(self)
         if self.magnitude() < lower.magnitude():
-            state.theta = clip(self.theta, lower.theta, upper.theta)
+            state.theta = State._clip(self.theta, lower.theta, upper.theta)
         if abs(self.theta) < lower.theta:
-            state.x = clip(self.x, lower.x, upper.x)
-            state.y = clip(self.y, lower.y, upper.y)
+            state.x = State._clip(self.x, lower.x, upper.x)
+            state.y = State._clip(self.y, lower.y, upper.y)
         return state
     
     def magnitude(self):
