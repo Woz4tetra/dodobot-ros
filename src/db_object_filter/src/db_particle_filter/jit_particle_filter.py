@@ -62,19 +62,21 @@ def jit_resample(particles, weights, num_particles):
     weights /= np.sum(weights)  # normalize
 
 class JitParticleFilter(ParticleFilter):
-    def __init__(self, serial, num_particles, measure_std_error, input_std_error, stale_filter_time):
-        super(JitParticleFilter, self).__init__(serial, num_particles, measure_std_error, input_std_error, stale_filter_time)
+    def __init__(self, serial, num_particles, measure_std_error, stale_measure_std_error, input_std_error, stale_filter_time):
+        super(JitParticleFilter, self).__init__(serial, num_particles, measure_std_error, stale_measure_std_error, input_std_error, stale_filter_time)
 
     def predict(self, u):
         # if self.is_filter_stale():
         #     return
         jit_predict(self.particles, self.num_particles, self.input_std_error, u)
 
-    def update(self, z):
+    def update(self, z, is_stale=False):
         self.weights.fill(1.0)
         distances = jit_update(self.particles, z, self.num_particles)
         self.weights *= self.measure_distribution.pdf(distances)
         self.weights = jit_normalize_weights(self.weights)
+        # if not is_stale:
+        self.last_measurement_time = time.time()
 
     # TODO: figure out why numba-fied version of resample causes filter to become more unstable
     # def resample(self):

@@ -10,20 +10,26 @@ FilterSerial = collections.namedtuple("FilterSerial", "label index")
 
 
 class ParticleFilter(object):
-    def __init__(self, serial, num_particles, measure_std_error, input_std_error, stale_filter_time):
+    def __init__(self, serial, num_particles, measure_std_error, stale_measure_std_error, input_std_error, stale_filter_time):
         self.serial = serial
         self.num_states = 3  # x, y, z
         self.particles = np.zeros((num_particles, self.num_states))
         self.num_particles = num_particles
         self.measure_std_error = measure_std_error
+        self.stale_measure_std_error = stale_measure_std_error
         self.input_std_error = np.array(input_std_error)
         self.last_measurement_time = 0.0
         self.stale_filter_time = stale_filter_time
         self.is_stale = False
+        self.stale_measurement = None  # PoseStamped. Contains the last measurement in the global frame when the filter wasn't stale
 
         self.measure_distribution = scipy.stats.norm(0.0, self.measure_std_error)
+        self.stale_measure_distribution = scipy.stats.norm(0.0, self.stale_measure_std_error)
 
         self.initialize_weights()
+    
+    def get_name(self):
+        return "%s_%s" % (self.serial.label, self.serial.index)
     
     def is_initialized(self):
         return not np.all(self.particles == 0.0)
@@ -54,8 +60,6 @@ class ParticleFilter(object):
         with noise std
         u[0, 1, 2, 3] = linear_vx * dt, 0.0 (no Y component), 0.0 (no Z component), angular_z * dt
         """
-        # if self.is_filter_stale():
-        #     return
         # angular update
         th_dot = u[3] + randn(self.num_particles) * self.input_std_error[3]
         self.particles[:, 0] = self.particles[:, 0] * np.cos(th_dot) - self.particles[:, 1] * np.sin(th_dot)
@@ -68,20 +72,25 @@ class ParticleFilter(object):
 
         return
 
-    def update(self, z):
+    def update(self, z, is_stale=False):
         """Update particle filter according to measurement z (object position: [x, y, z])"""
-        # weight according to how far away the particle is from the measurement in x, y, z
-        self.weights.fill(1.0)
+        self.weights.fill(1.0)  # debateable as to whether this is detrimental or not (shouldn't weights be preserved between measurements?)
         distances = np.linalg.norm(self.particles - z, axis=1)
-        self.weights *= self.measure_distribution.pdf(distances)
+        if is_stale:
+            self.weights *= self.stale_measure_distribution.pdf(distances)
+        else:
+            self.weights *= self.measure_distribution.pdf(distances)
 
         self.weights += 1.e-300  # avoid divide by zero error
         self.weights /= np.sum(self.weights)  # normalize
+        # if not is_stale:
         self.last_measurement_time = time.time()
 
     def is_filter_stale(self):
         last_measurement_dt = time.time() - self.last_measurement_time
         self.is_stale = self.stale_filter_time is not None and last_measurement_dt > self.stale_filter_time
+        if not self.is_stale:
+            self.stale_measurement = None
         return self.is_stale
 
     def neff(self):

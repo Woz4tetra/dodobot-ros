@@ -7,12 +7,13 @@ from db_particle_filter import ParticleFilter, JitParticleFilter, FilterSerial
 
 
 class FilterFactory(object):
-    def __init__(self, class_labels, num_particles, meas_std_val, input_std, initial_range, 
+    def __init__(self, class_labels, num_particles, meas_std_val, stale_meas_std_val, input_std, initial_range, 
             match_cov, match_threshold, new_filter_threshold, max_item_count, confident_filter_threshold,
             stale_filter_time, use_numba=True):
         self.class_labels = class_labels
         self.num_particles = num_particles
         self.meas_std_val = meas_std_val
+        self.stale_meas_std_val = stale_meas_std_val
         self.input_std = input_std
         self.initial_range = initial_range
         self.stale_filter_time = stale_filter_time
@@ -46,7 +47,7 @@ class FilterFactory(object):
                 obj_filter = self.ParticleFilterClass(
                     FilterSerial(label=label, index=filter_index),
                     self.num_particles,
-                    self.meas_std_val, self.input_std,
+                    self.meas_std_val, self.stale_meas_std_val, self.input_std,
                     self.stale_filter_time
                 )
                 self.filters[label].append(obj_filter)
@@ -75,6 +76,7 @@ class FilterFactory(object):
             mean, variance = obj_filter.estimate()
             variance = np.linalg.norm(variance)
 
+            rospy.loginfo("Variance -- %s: %s" % (label, variance))
             # don't consider filter for removal if its variance is small
             if variance < self.confident_filter_threshold:
                 continue
@@ -100,7 +102,7 @@ class FilterFactory(object):
             for label, measurements in all_measurements.items():
                 for measurement in measurements:
                     self._analyze_measurement(label, measurement)
-    
+
     def _analyze_measurement(self, label, measurement):
         # if none of the filters for this label are initialized, initialize automatically
         if all([not obj_filter.is_initialized() for obj_filter in self.filters[label]]):
@@ -118,7 +120,7 @@ class FilterFactory(object):
                 largest_confidence = confidence
                 largest_index = obj_filter.serial.index
 
-        rospy.logdebug("%s[%s]: %s, %s" % (label, measurement, largest_index, largest_confidence))
+        rospy.loginfo("Confidence -- %s[%s]: %s" % (label, largest_index, largest_confidence))
         if largest_index is not None and largest_confidence > self.match_threshold:
             self.filters[label][largest_index].update(measurement)
         elif largest_confidence < self.new_filter_threshold:
@@ -143,3 +145,7 @@ class FilterFactory(object):
             if obj_filter.check_resample():
                 rospy.logdebug("Resampling %s_%s" % (obj_filter.serial.label, obj_filter.serial.index))
 
+    def iter_stale_filters(self):
+        for obj_filter in self.iter_filters():
+            if obj_filter.is_filter_stale():
+                yield obj_filter

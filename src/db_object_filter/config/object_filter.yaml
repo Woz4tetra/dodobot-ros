@@ -2,12 +2,14 @@
 initial_range: [0.05, 0.05, 0.05]
 input_std: [0.005, 0.005, 0.005, 0.005]
 meas_std_val: 0.05
+stale_meas_std_val: 100.0
 num_particles: 30
 
 match_cov: 0.1
-match_threshold: 0.9
-new_filter_threshold: 0.9
-confident_filter_threshold: 0.005
+match_threshold: 0.5
+new_filter_threshold: 0.5
+confident_filter_threshold: 0.009
+stale_filter_time: 3.0
 
 max_item_count:
   cozmo_cube: 0

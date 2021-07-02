@@ -44,6 +44,7 @@ class ObjectFilterNode:
         self.initial_range = rospy.get_param("~initial_range", None)
         self.input_std = rospy.get_param("~input_std", None)
         self.meas_std_val = rospy.get_param("~meas_std_val", 0.007)
+        self.stale_meas_std_val = rospy.get_param("~stale_meas_std_val", 0.07)
         self.num_particles = rospy.get_param("~num_particles", 100)
 
         self.input_std = rospy.get_param("~input_std", None)
@@ -68,7 +69,7 @@ class ObjectFilterNode:
 
         self.factory = FilterFactory(
             self.class_labels,
-            self.num_particles, self.meas_std_val, self.input_std, self.initial_range,
+            self.num_particles, self.meas_std_val, self.stale_meas_std_val, self.input_std, self.initial_range,
             self.match_cov, self.match_threshold, self.new_filter_threshold, self.max_item_count,
             self.confident_filter_threshold, self.stale_filter_time
         )
@@ -115,44 +116,57 @@ class ObjectFilterNode:
         dt = current_time - self.prev_pf_time
         self.prev_pf_time = current_time
     
-        # print("odom:\t %0.3f\t %0.3f" % (msg.twist.twist.linear.x * dt, msg.twist.twist.angular.z * dt))
         self.input_vector[0] = -msg.twist.twist.linear.x * dt
         self.input_vector[3] = -msg.twist.twist.angular.z * dt
         self.factory.predict(self.input_vector)
 
-    def predict(self):
+    def update_stale_filter(self, obj_filter):
+        obj_frame = obj_filter.get_name()
+        if obj_filter.stale_measurement is None:
+            transform = self.lookup_transform(self.global_frame, obj_frame)
+            if transform is None:
+                return
+            obj_pose = PoseStamped()
+            obj_pose.header.frame_id = self.global_frame
+            obj_pose.pose.position.x = transform.transform.translation.x
+            obj_pose.pose.position.y = transform.transform.translation.y
+            obj_pose.pose.position.z = transform.transform.translation.z
+            # objects only have meaningful XYZ. May add orientation in the future
+
+            obj_filter.stale_measurement = obj_pose
+            return 
+        else:
+            transform = self.lookup_transform(self.filter_frame, self.global_frame)
+            stale_meas_pose = tf2_geometry_msgs.do_transform_pose(obj_filter.stale_measurement, transform)
+
+            stale_measurement = np.array([
+                stale_meas_pose.pose.position.x,
+                stale_meas_pose.pose.position.y,
+                stale_meas_pose.pose.position.z,
+            ])
+
+        # rospy.loginfo("Applying stale measurement to %s. [%0.4f, %0.4f, %0.4f]" % (
+        #     obj_frame, stale_measurement[0], stale_measurement[1], stale_measurement[2])
+        # )
+        obj_filter.update(stale_measurement, is_stale=True)
+
+    def lookup_transform(self, parent_link, child_link, time_window=None, timeout=None):
+        """
+        Call tf_buffer.lookup_transform. Return None if the look up fails
+        """
+        if time_window is None:
+            time_window = rospy.Time(0)
+        else:
+            time_window = rospy.Time.now() - time_window
+
+        if timeout is None:
+            timeout = rospy.Duration(1.0)
+
         try:
-            transform = self.tf_buffer.lookup_transform(
-                self.global_frame,
-                self.filter_frame,
-                rospy.Time(0),
-                rospy.Duration(0.3)
-            )
+            return self.tf_buffer.lookup_transform(parent_link, child_link, time_window, timeout)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            rospy.logwarn("Failed to look up %s to %s. %s" % (self.global_frame, self.filter_frame, e))
+            rospy.logwarn("Failed to look up %s to %s. %s" % (parent_link, child_link, e))
             return None
-        
-        pose = tf2_geometry_msgs.do_transform_pose(self.zero_pose, transform)
-        if self.prev_transform is None or self.prev_pose is None:
-            self.prev_pose = pose
-            self.prev_transform = transform
-            return
-        # print(pose)
-        
-        dx = pose.pose.position.x - self.prev_pose.pose.position.x
-        dtheta = self.quat_to_yaw(transform.transform.rotation) - \
-            self.quat_to_yaw(self.prev_transform.transform.rotation)
-        self.prev_pose = pose
-        self.prev_transform = transform
-        print("tf:\t %0.4f\t %0.4f" % (dx, dtheta))
-        
-        # current_time = rospy.Time.now().to_sec()
-        # dt = current_time - self.prev_pf_time
-        # self.prev_pf_time = current_time
-        # print(dt, linear_vel, ang_vel)
-        self.input_vector[0] = -dx  # X linear delta position
-        self.input_vector[3] = -dtheta  # Z delta angle
-        self.factory.predict(self.input_vector)
     
     def quat_to_yaw(self, quaternion):
         return tf_conversions.transformations.euler_from_quaternion((
@@ -165,7 +179,7 @@ class ObjectFilterNode:
     def publish_all_poses(self):
         for obj_filter in self.factory.iter_filters():
             mean = obj_filter.mean()
-            name = "%s_%s" % (obj_filter.serial.label, obj_filter.serial.index)
+            name = obj_filter.get_name()
 
             msg = TransformStamped()
             msg.header.stamp = rospy.Time.now()
@@ -199,9 +213,10 @@ class ObjectFilterNode:
             rate.sleep()
             if rospy.is_shutdown():
                 break
-            # self.predict()
+            
             self.factory.check_resample()
-
+            for obj_filter in self.factory.iter_stale_filters():
+                self.update_stale_filter(obj_filter)
             self.publish_all_poses()
             
             if self.show_particles:
