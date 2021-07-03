@@ -82,7 +82,7 @@ class DodobotLaserSlam:
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
-        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
+        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path)
         self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
 
         self.launchers = [
