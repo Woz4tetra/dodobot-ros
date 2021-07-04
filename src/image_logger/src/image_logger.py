@@ -1,8 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import os
 import cv2
 import pprint
+import numpy as np
 
 import rospy
 
@@ -42,8 +43,9 @@ class ImageLogger:
 
         rospy.Subscriber(self.keyboard_topic, Int32, self.keyboard_callback)
 
-        self.capture_images = False
+        self.capture_images = True
         self.labels = {
+            "n": "none",
             "0": "BACKGROUND",
             "1": "cosmo_cube",
             "2": "blue_cut_sphere",
@@ -65,7 +67,7 @@ class ImageLogger:
             "i": "red_low_bin_and_blue_cube",
             "o": "red_low_bin_and_red_cube",
 
-            "p": "assorted"
+            "p": "assorted",
         }
         self.image_label_key = list(self.labels.keys())[0]
         pprint.pprint(self.labels)
@@ -79,8 +81,11 @@ class ImageLogger:
             return
         try:
             # Convert your ROS Image message to OpenCV2
-            cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-        except CvBridgeError, e:
+            cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "passthrough")
+            # cv2_img = cv2_img.astype(np.uint16)
+
+            # cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+        except CvBridgeError as e:
             rospy.logerr(e)
             return
 
@@ -90,7 +95,11 @@ class ImageLogger:
             self.image_capture_count[key_name] = 0
         self.image_capture_count[key_name] += 1
 
-        path = os.path.join(self.save_dir, key_name, str(timestamp)) + ".png"
+        if key_name == "none":
+            sub_name = ""
+        else:
+            sub_name = key_name
+        path = os.path.join(self.save_dir, sub_name, str(timestamp)) + ".png"
         dir = os.path.dirname(path)
         if not os.path.isdir(dir):
             os.makedirs(dir)
@@ -99,12 +108,13 @@ class ImageLogger:
         cv2.imwrite(path, cv2_img)
 
     def camera_callback(self, image_msg, depth_msg, info_msg):
+        # TODO: fully implement
         if not self.capture_images:
             return
         try:
             # Convert your ROS Image message to OpenCV2
             cv2_img = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-        except CvBridgeError, e:
+        except CvBridgeError as e:
             rospy.logerr(e)
             return
 
@@ -113,6 +123,11 @@ class ImageLogger:
         except CvBridgeError as e:
             rospy.logerr(e)
             return
+
+        key_name = self.labels[self.image_label_key]
+        if key_name not in self.image_capture_count:
+            self.image_capture_count[key_name] = 0
+        self.image_capture_count[key_name] += 1
 
         timestamp = image_msg.header.stamp
         path = os.path.join(self.save_dir, key_name, str(timestamp)) + ".png"

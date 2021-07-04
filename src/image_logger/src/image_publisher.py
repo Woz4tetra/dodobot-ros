@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from __future__ import print_function
 
@@ -17,7 +17,7 @@ image_pub = None
 def publish_image(image):
     try:
         image_msg = bridge.cv2_to_imgmsg(image, "bgr8")
-    except CvBridgeError, e:
+    except CvBridgeError as e:
         print(e)
     else:
         image_pub.publish(image_msg)
