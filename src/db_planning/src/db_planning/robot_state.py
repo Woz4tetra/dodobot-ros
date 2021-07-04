@@ -8,7 +8,15 @@ class State:
         self.x = x  # meters
         self.y = y  # meters
         self.theta = theta  # radians
-    
+
+    @classmethod
+    def none_pose(cls):
+        self = cls()
+        self.x = None
+        self.y = None
+        self.theta = None
+        return self
+
     @classmethod
     def from_xyt(cls, x=0.0, y=0.0, theta=0.0):
         self = cls()
@@ -41,7 +49,10 @@ class State:
             quaternion.z,
             quaternion.w
         ))[2]
-    
+
+    def is_none(self):
+        return self.x is None and self.y is None and self.theta is None
+
     def get_theta_as_quat(self, as_list=False):
         quat = tf_conversions.transformations.quaternion_from_euler(0.0, 0.0, self.theta)
         if as_list:
