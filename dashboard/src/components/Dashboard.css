@@ -1,0 +1,60 @@
+.container {
+  display: block;
+}
+
+.sidebar {
+  /* positioning */
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  /* sizing */
+  width: 200px;
+  height: 100vh;
+  /* coloring */
+  background: #3D78D8;
+  color: white;
+}
+
+.logo {
+  padding-left: 35px;
+  cursor: default;
+  user-select: none;
+}
+
+.menuItems {
+  list-style: none;
+  padding-left: 0px;
+  cursor: default;
+  user-select: none;
+}
+
+.menuItem {
+  padding: 10px;
+  padding-left:35px;
+}
+
+.menuItem:hover {
+  color: grey;
+}
+
+.content {
+  margin-left: 300px;
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+.contentItem {
+  background: white;
+  color: black;
+  text-align: center;
+  
+  width: 200px;
+  min-width: 300px;
+  height: 200px;
+  
+  margin: 8px;
+  
+  border-radius: 5px;
+  box-shadow: -2px 2px 5px
+}
