@@ -37,6 +37,7 @@ packages=(
     https://github.com/ros-perception/laser_filters.git
     https://github.com/ros-perception/slam_gmapping.git
     https://github.com/ros-perception/openslam_gmapping.git
+    https://github.com/ros-perception/image_transport_plugins.git
 )
 
 branches=(
@@ -64,6 +65,7 @@ branches=(
     kinetic-devel
     melodic-devel
     melodic-devel
+    noetic-devel
 )
 
 len=${#packages[@]}
