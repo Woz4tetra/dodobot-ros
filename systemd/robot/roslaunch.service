@@ -1,18 +1,21 @@
 [Unit]
-Requires=roscore.service
-PartOf=roscore.service
-After=NetworkManager.service time-sync.target roscore.service
-Description=dodobot ros launch
+# Requires=roscore.service
+# PartOf=roscore.service
+After=NetworkManager.service time-sync.target # roscore.service
+Description=roslaunch
 
 [Service]
 Type=simple
 User=ben
 Group=ben
 ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
-Restart=no
+
+Restart=always
+RestartSec=90
+StartLimitBurst=3
+
 KillSignal=SIGINT
-TimeoutStopSec=3
-FinalKillSignal=SIGKILL
+TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target

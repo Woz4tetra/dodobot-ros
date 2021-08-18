@@ -21,7 +21,7 @@ while true; do
     fi
 done
 
-if [ ! -z ${HOST_MACHINE} ]; then
+if [ -z ${HOST_MACHINE} ]; then
     HOST_MACHINE=${LOCAL_MACHINE}
 fi
 

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+if [ "$EUID" -ne 0 ]
+    then echo "Please run as root"
+    exit
+fi
 
 echo "Running dodobot-ros systemd service install script"
 
@@ -35,10 +39,10 @@ cp ${BASE_DIR}/${LAUNCH_SCRIPT_NAME} ${BIN_INSTALL_DIR}
 echo "Enabling systemd services"
 systemctl daemon-reload
 loginctl enable-linger $USER
-systemctl enable ${SERVICE_NAME}
+# systemctl enable ${SERVICE_NAME}
 systemctl enable ${LAUNCH_SERVICE_NAME}
 
-systemctl restart ${SERVICE_NAME}
+# systemctl restart ${SERVICE_NAME}
 systemctl restart ${LAUNCH_SERVICE_NAME}
 
 echo "dodobot-ros systemd service installation complete"

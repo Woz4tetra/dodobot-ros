@@ -22,8 +22,9 @@ class DriveTowards(PursuitAction):
 
     def update(self, state: Pose2d, error: Pose2d):
         # if the robot's y or theta errors exceed certain values, jump back to turning in place
-        if (abs(error.y) > self.parameters.loopback_y_tolerance or
-                abs(error.theta) > self.parameters.loopback_theta_tolerance):
+        # if (abs(error.y) > self.parameters.loopback_y_tolerance or
+        #         abs(error.theta) > self.parameters.loopback_theta_tolerance):
+        if abs(error.y) > self.parameters.loopback_y_tolerance:
             rospy.loginfo("Robot deviated too far from the straight path. Turning in place.")
             self.stop_motors()
             rospy.sleep(0.5)  # wait for object filter lag to catch up
