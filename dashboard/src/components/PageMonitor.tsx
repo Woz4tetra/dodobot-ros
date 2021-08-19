@@ -25,8 +25,10 @@ interface SensorsState {
   gripper?: DodobotGripperState,
   linear?: DodobotLinearState,
   image?: CompressedImage,
+  depth?: CompressedImage,
   // other params: DateConstructor
-  time: any,
+  colorTime: any,
+  depthTime: any,
   motors_enabled: boolean,
 
   robotStateService?: any,
@@ -43,7 +45,8 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     // setup state variables
     this.state = {
       ros: new roslib.Ros(),
-      time: new Date().getTime(),
+      colorTime: new Date().getTime(),
+      depthTime: new Date().getTime(),
       motors_enabled: false,
       linear_cmd: DEFAULT_LINEAR_VEL,
       angular_cmd: DEFAULT_ANGULAR_VEL,
@@ -57,6 +60,7 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     this.gripperCallback = this.gripperCallback.bind(this);
     this.linearCallback = this.linearCallback.bind(this);
     this.imageCallback = this.imageCallback.bind(this);
+    this.depthCallback = this.depthCallback.bind(this);
     this.handleChangeMotorState = this.handleChangeMotorState.bind(this);
     this.MotorsEnabledSection = this.MotorsEnabledSection.bind(this);
     this.handleLinearVelChange = this.handleLinearVelChange.bind(this);
@@ -152,9 +156,13 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
 
     var imageSub = new roslib.Topic({
       ros: this.state.ros,
-      name: '/camera/color/image_raw/compressed',
-      // name: '/camera/depth/image_rect_raw/compressedDepth',
-      // name: '/camera/infra1/image_rect_raw/compressed',
+      // name: '/camera/color/image_raw/compressed',
+      name: '/camera/color/image_thumb_raw/compressed',
+      messageType: 'sensor_msgs/CompressedImage'
+    });
+    var depthSub = new roslib.Topic({
+      ros: this.state.ros,
+      name: '/camera/depth/image_color_raw/compressed',
       messageType: 'sensor_msgs/CompressedImage'
     });
 
@@ -188,6 +196,7 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     gripperSub.subscribe(this.gripperCallback);
     linearSub.subscribe(this.linearCallback);
     imageSub.subscribe(this.imageCallback);
+    depthSub.subscribe(this.depthCallback);
   }
 
   // ROS Callback Functions
@@ -256,12 +265,29 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
       }
     })
   }
+  depthCallback(message: any) {
+    const imgSrc = "data:image/jpg;base64, " + message.data;
+
+    const newTime = new Date().getTime();
+    const fps = 1000 / (newTime - this.state.depthTime);
+    
+    this.setState({
+      depth: {
+        format: message.format,
+        // data: message.data,
+        imageSrc: imgSrc,
+        fps: fps
+      },
+
+      depthTime: newTime
+    });
+  }
 
   imageCallback(message: any) {
     const imgSrc = "data:image/jpg;base64, " + message.data;
 
     const newTime = new Date().getTime();
-    const fps = 1000 / (newTime - this.state.time);
+    const fps = 1000 / (newTime - this.state.colorTime);
     
     this.setState({
       image: {
@@ -271,7 +297,7 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
         fps: fps
       },
 
-      time: newTime
+      colorTime: newTime
     });
   }
 
@@ -356,7 +382,8 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     const drive = this.state.drive;
     const fsrs = this.state.fsrs;
     const image = this.state.image;
-    
+    const depth = this.state.depth;
+
     return <div>
       <a href="http://192.168.0.21:8080/admin">Pi-Hole Admin Console</a>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridGap: 20 }}>
@@ -387,12 +414,21 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
         </div>
         <hr/>
       </div> 
-      <div hidden={!image}>
-        <h2>Camera</h2>
-        Image format: {image?.format}<br/>
-        {/* Data: {image?.data}<br/> */}
-        FPS: {image?.fps.toFixed(1)}<br/>
-        <img style={{width:"700"}} src={image?.imageSrc}></img>
+      <div  style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridGap: 20 }}>
+        <div hidden={!image}>
+          <h2>Color Camera</h2>
+          Image format: {image?.format}<br/>
+          {/* Data: {image?.data}<br/> */}
+          FPS: {image?.fps.toFixed(1)}<br/>
+          <img style={{width:"700"}} src={image?.imageSrc}></img>
+        </div>
+        <div hidden={!depth}>
+          <h2>Depth Camera</h2>
+          Image format: {image?.format}<br/>
+          {/* Data: {image?.data}<br/> */}
+          FPS: {depth?.fps.toFixed(1)}<br/>
+          <img style={{width:"700"}} src={depth?.imageSrc}></img>
+        </div>
       </div>
       <div hidden={!battery}>
         <h2>Battery</h2>
@@ -402,8 +438,8 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
       </div> 
       <div hidden={!bumper}>
         <h2>Bumper</h2>
-        <p><b>Left:</b> {bumper?.left}</p>
-        <p><b>Right:</b> {bumper?.right}</p>
+        <p><b>Left:</b> {bumper?.left + ""}</p>
+        <p><b>Right:</b> {bumper?.right + ""}</p>
         <hr/>
       </div>
       <div hidden={!drive}>
