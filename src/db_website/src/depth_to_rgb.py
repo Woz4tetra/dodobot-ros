@@ -54,7 +54,7 @@ class DepthToRGB(object):
             rospy.logerr(e)
             return
         if self.color_image_pub.get_num_connections() == 0:
-            continue
+            return
         normalized = np.uint8(depth_bounded.astype(np.float64) * 255 / self.max_distance_mm)
         color_image = cv2.cvtColor(normalized, cv2.COLOR_GRAY2BGR)
         self.publish_image(color_image)

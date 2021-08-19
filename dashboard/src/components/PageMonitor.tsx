@@ -153,6 +153,8 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     var imageSub = new roslib.Topic({
       ros: this.state.ros,
       name: '/camera/color/image_raw/compressed',
+      // name: '/camera/depth/image_rect_raw/compressedDepth',
+      // name: '/camera/infra1/image_rect_raw/compressed',
       messageType: 'sensor_msgs/CompressedImage'
     });
 
@@ -356,6 +358,7 @@ export default class Sensors extends React.Component<SensorsProps,SensorsState> 
     const image = this.state.image;
     
     return <div>
+      <a href="http://192.168.0.21:8080/admin">Pi-Hole Admin Console</a>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridGap: 20 }}>
         <div>
           <this.MotorsEnabledSection />
