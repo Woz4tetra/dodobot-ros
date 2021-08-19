@@ -96,7 +96,7 @@
         <arg name="color_fps"                value="15" unless="$(arg hirez_mode)"/>
         <!-- <arg name="color_fps"                value="60" unless="$(arg hirez_mode)"/> -->
 
-        <arg name="infra_width"              value="848"/>
+        <arg name="infra_width"              value="640"/>
         <arg name="infra_height"             value="480"/>
         <arg name="enable_infra"            value="false"/>
         <arg name="enable_infra1"            value="false"/>
