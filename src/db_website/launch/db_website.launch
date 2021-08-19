@@ -3,10 +3,4 @@
         <arg name="address" value="127.0.0.1"/>
         <arg name="port" value="9090"/>
     </include>
-
-    <node name="visualization_depth_to_rgb" pkg="db_website" type="depth_to_rgb.py" output="screen" required="true">
-        <param name="max_distance" value="5.0"/>
-        <remap from="depth/image_raw" to="/camera/depth/image_rect_raw"/>
-        <remap from="depth/image_color_raw" to="/camera/depth/image_color_raw"/>
-    </node>
 </launch>

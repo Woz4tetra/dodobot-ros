@@ -38,6 +38,7 @@ packages=(
     https://github.com/ros-perception/slam_gmapping.git
     https://github.com/ros-perception/openslam_gmapping.git
     https://github.com/ros-perception/image_transport_plugins.git
+    https://github.com/RobotWebTools/rosbridge_suite.git
 )
 
 branches=(
@@ -66,6 +67,7 @@ branches=(
     melodic-devel
     melodic-devel
     noetic-devel
+    ros1
 )
 
 len=${#packages[@]}

@@ -16,4 +16,6 @@
     <!-- <include file="$(find db_config)/launch/static_transforms.launch"/> -->
     <include file="$(find db_description)/launch/db_description.launch"/>
     <!-- <include file="$(find db_config)/launch/cmd_vel_mux.launch"/> -->
+    
+    <include file="$(find db_website)/launch/website_helpers.launch"/>
 </launch>
