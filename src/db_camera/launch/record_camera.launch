@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- <arg name="image_throttle_rate" default="5.0"/>
+    <node type="throttle" name="image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+            args="messages /camera/color/image_raw $(arg image_throttle_rate) /camera/color/image_raw_throttle"/> -->
+
+    <node pkg="rosbag" type="record" name="rosbag_record_realsense"
+       args="record -o $(find db_camera)/bags/realsense
+        /camera/aligned_depth_to_color/camera_info
+        /camera/aligned_depth_to_color/image_raw
+        /camera/depth/camera_info
+        /camera/depth/image_rect_raw
+        /camera/color/camera_info
+        /camera/color/image_raw
+        
+        --duration=30 --lz4
+        " />
+</launch>

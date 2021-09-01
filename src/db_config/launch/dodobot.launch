@@ -18,4 +18,7 @@
     <!-- <include file="$(find db_config)/launch/cmd_vel_mux.launch"/> -->
     
     <include file="$(find db_website)/launch/website_helpers.launch"/>
+
+    <include file="$(find db_camera)/launch/camera_launcher.launch"/>
+
 </launch>

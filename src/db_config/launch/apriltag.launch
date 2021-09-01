@@ -1,0 +1,36 @@
+<launch>
+    <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+    <arg name="node_namespace" default="apriltag_ros_continuous_node" />
+    <arg name="camera_frame" default="camera_color_optical_frame" />
+
+    <arg name="throttle_rate" default="15" />
+
+    <arg name="image_topic" default="/camera/color/image_raw" />
+    <arg name="info_topic" default="/camera/color/camera_info" />
+
+    <arg name="image_throttle_topic" default="$(arg image_topic)_throttle" />
+    <arg name="info_throttle_topic" default="$(arg info_topic)_throttle" />
+
+
+    <!-- <node type="throttle" name="camera_image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+        args="messages $(arg image_topic) $(arg throttle_rate) $(arg image_throttle_topic)"/> -->
+    <!-- <node type="throttle" name="camera_info_topic_throttle" pkg="topic_tools" required="true" output="screen"
+        args="messages $(arg info_topic) $(arg throttle_rate) $(arg info_throttle_topic)"/> -->
+
+    <!-- Set parameters -->
+    <rosparam command="load" file="$(find db_config)/config/apriltag/settings.yaml" ns="$(arg node_namespace)" />
+    <rosparam command="load" file="$(find db_config)/config/apriltag/tags.yaml" ns="$(arg node_namespace)" />
+
+    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="$(arg node_namespace)" clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
+        <!-- Remap topics from those used in code to those on the ROS network -->
+        <remap from="image_rect" to="$(arg image_topic)" />
+        <remap from="camera_info" to="$(arg info_topic)" />
+
+        <param name="camera_frame" type="str" value="$(arg camera_frame)" />
+        <param name="remove_duplicates" type="bool" value="false" />
+        <param name="publish_tag_detections_image" type="bool" value="true" />
+    </node>
+
+    <node pkg="tf" type="static_transform_publisher" name="tag_to_rotated_pos" args="0.0 0.0 0.0 -0.5 0.5 0.5 0.5 charge_dock_tag target_rotated 30" />
+    <!-- <node pkg="tf" type="static_transform_publisher" name="tag_to_start_pos" args="-0.636 0.018 -0.11132121 0 0 0 1 target_rotated base_start_link 30" /> -->
+</launch>

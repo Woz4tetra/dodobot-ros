@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="db_camera" type="db_camera_launcher_node.py" name="db_camera_launcher" output="screen"/>
+</launch>
