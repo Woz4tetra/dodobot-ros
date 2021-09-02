@@ -13,7 +13,7 @@
             <param name="ticks_per_rotation" value="1496.88"/>
             <param name="wheel_distance_mm" value="200.0"/>
 
-            <param name="min_angular_speed" value="0.5"/>
+            <param name="min_angular_speed" value="0.7"/>
             <!-- <param name="min_angular_speed" value="2.0"/> -->
             <param name="max_angular_speed" value="6.0"/>
             <param name="min_linear_speed" value="0.06"/>

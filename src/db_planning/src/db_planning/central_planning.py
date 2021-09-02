@@ -616,10 +616,12 @@ class CentralPlanning:
     def init_pursuit_goal(self, goal_pose, **pursuit_parameters):
         parameters = get_msg_properties(ObjectPursuitGoal())
         for name, value in parameters.items():
+            if name in pursuit_parameters:
+                continue
             if type(value) == float:
-                parameters[name] = float("nan")
+                pursuit_parameters[name] = float("nan")
             if type(value) == bool:
-                parameters[name] = False
+                pursuit_parameters[name] = False
 
         goal = ObjectPursuitGoal(**pursuit_parameters)
         goal.pose = goal_pose

@@ -66,20 +66,20 @@ class PursuitAction:
             if self.is_goal_reached(error):
                 self.stop_motors()
                 if success_time is None:
-                    rospy.loginfo("Tolerance reached. Waiting for stablization")
+                    rospy.loginfo("%s Tolerance reached. Waiting for stablization" % (self.__class__.__name__))
                     success_time = now
             else:
                 success_time = None
 
             if now - start_time > self._timeout:
-                rospy.logwarn("Timeout reaching. Giving up on pursuing object")
+                rospy.logwarn("%s Timeout reaching. Giving up on pursuing object" % (self.__class__.__name__))
                 self.stop_motors()
                 return "failure"
 
             if success_time is not None:
                 if now - success_time > self.parameters.stabilization_timeout:
                     self.stop_motors()
-                    rospy.loginfo("Pursuit error: %s" % error)
+                    rospy.loginfo("%s Pursuit error: %s" % (self.__class__.__name__, error))
                     return "success"
                 continue
 

@@ -60,7 +60,7 @@ class PursuitPlanning:
             min_angular_speed=1.0,  # minimum angular command that produces chassis motion
             max_angular_speed=3.0,  # maximum allowed angular command
             zero_epsilon=1E-3,  # command values to consider zero (prevents motor whining)
-            stabilization_timeout_s=1.0,  # how long to wait for robot to settle on goal once it's reached
+            stabilization_timeout=1.0,  # how long to wait for robot to settle on goal once it's reached
             steer_kP=6.0,  # proportion constant for turn commands based on error
             fine_steer_kP=2.0,  # proportion constant for fine turn commands based on error
             linear_kP=10.0,  # proportion constant for linear commands based on error

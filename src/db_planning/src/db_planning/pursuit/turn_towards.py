@@ -25,6 +25,7 @@ class TurnTowards(PursuitAction):
         return None
 
     def is_goal_reached(self, error: Pose2d):
+        rospy.loginfo("error: %s, %s" % (error, self.parameters.angle_tolerance))
         return abs(error.theta) < self.parameters.angle_tolerance
 
     def get_command(self, error: Pose2d):
