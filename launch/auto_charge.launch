@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="map_name" default="map-{date}.yaml"/>
+
+    <include file="$(find db_config)/launch/rplidar.launch"/>
+    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
+        <arg name="map_name" value="$(arg map_name)"/>
+        <arg name="mode" value="localize"/>
+    </include>
+    <!-- <include file="$(find db_config)/launch/move_base.launch"/> -->
+    <include file="$(find db_config)/launch/apriltag.launch"/>
+    <include file="$(find db_waypoints)/launch/db_waypoints.launch"/>
+
+    <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
+
+</launch>

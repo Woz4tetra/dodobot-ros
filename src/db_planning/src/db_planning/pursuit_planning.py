@@ -17,6 +17,8 @@ from db_planning.robot_state import Pose2d
 from db_planning.pursuit import PursuitManager
 from db_planning.recursive_namespace import RecursiveNamespace
 
+from db_planning.helpers import get_msg_properties
+
 
 class PursuitPlanning:
     def __init__(self):
@@ -46,8 +48,10 @@ class PursuitPlanning:
         self.pursuit_action_server.start()
         rospy.loginfo("[%s] server started" % self.pursuit_action_name)
 
-    def get_parameters(self):
-        parameters = RecursiveNamespace(
+    def get_parameters(self, parameters: dict=None):
+        if parameters is None:
+            parameters = {}
+        pursuit_parameters = RecursiveNamespace(
             timeout_safety_factor=2.0,  # How much to multiply the allotted time estimate
             angle_tolerance=0.05,  # +/- range of acceptable stopping angles
             position_tolerance=0.05,  # +/- range of acceptable stopping distances
@@ -66,13 +70,26 @@ class PursuitPlanning:
             loopback_y_tolerance=0.07,
             # if the robot exceeds this value in theta during drive_towards, jump to turn_towards
             loopback_theta_tolerance=0.1,
+            backwards_motion_only=False,
+            turn_towards_final_heading=False,
         )
+        for name, value in parameters.items():
+            if type(value) == float and math.isnan(value):
+                continue
+            if value is None:
+                continue
+            
+            pursuit_parameters[name] = value
 
-        for name, value in parameters:
-            parameters[name] = rospy.get_param("~" + name, value)
-        return parameters
+        for name, value in pursuit_parameters:
+            pursuit_parameters[name] = rospy.get_param("~" + name, value)
+        return pursuit_parameters
 
     def pursuit_action_callback(self, goal):
+        parameters = self.get_parameters(get_msg_properties(goal))
+        rospy.loginfo("Setting pursuit parameters: %s" % parameters)
+        self.pursuit_manager.set_parameters(parameters)
+        
         self.set_goal(goal.pose)
         result = ObjectPursuitResult()
         result_state = self.pursuit_manager.run()

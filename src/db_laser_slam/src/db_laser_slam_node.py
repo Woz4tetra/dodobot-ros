@@ -1,52 +1,11 @@
 #!/usr/bin/env python3
 import os
-import sys
-import signal
 import rospy
 import rospkg
-import threading
 from datetime import datetime
-from subprocess import Popen, PIPE, TimeoutExpired
 from collections import defaultdict
 
-
-class LaunchManager:
-    roslaunch_exec = "roslaunch"
-    bash_env_exec = "/usr/bin/env"
-    def __init__(self, launch_path, *args, **kwargs):
-        
-        args_list = []
-        for arg in args:
-            args_list.append(str(arg))
-        for name, value in kwargs.items():
-            args_list.append("%s:=%s" % (name, value))
-        
-        if len(args_list) > 0:
-            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path] + args_list
-        else:
-            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path]
-        
-        self.process = None
-    
-    def start(self):
-        rospy.loginfo("roslaunch args: %s" % self.roslaunch_args)
-        self.process = Popen(self.roslaunch_args, preexec_fn=os.setpgrp)  #, stdout=PIPE, stderr=PIPE)
-    
-    def stop(self):
-        if self.process is not None:
-            rospy.loginfo("Sending SIGINT to %s" % self.roslaunch_args)
-            self.process.send_signal(signal.SIGINT)
-    
-    def join(self, timeout):
-        try:
-            if self.process is not None:
-                self.process.wait(timeout=timeout)
-            return True
-        except TimeoutExpired:
-            return False
-    
-    def is_running(self):
-        return self.process is not None and self.process.poll() is None
+from launch_manager import LaunchManager
 
 
 class DodobotLaserSlam:
@@ -59,6 +18,13 @@ class DodobotLaserSlam:
         )
         rospy.on_shutdown(self.shutdown_hook)
 
+        self.MAPPING = "mapping"
+        self.LOCALIZE = "localize"
+        self.MODES = [
+            self.MAPPING,
+            self.LOCALIZE,
+        ]
+
         self.rospack = rospkg.RosPack()
         self.package_dir = self.rospack.get_path(self.node_name)
         self.default_maps_dir = self.package_dir + "/maps"
@@ -68,6 +34,7 @@ class DodobotLaserSlam:
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
         self.map_name = rospy.get_param("~map_name", "map-{date}")
         self.date_format = rospy.get_param("~date_format", "%Y-%m-%dT%H-%M-%S--%f")
+        self.map_saver_wait_time = rospy.get_param("~map_saver_wait_time", 5.0)
 
         map_name = self.generate_map_name(self.map_name)
         self.map_path = os.path.join(self.map_dir, map_name)
@@ -82,7 +49,7 @@ class DodobotLaserSlam:
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
-        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path)
+        self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
         self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
 
         self.launchers = [
@@ -99,9 +66,12 @@ class DodobotLaserSlam:
         return name
     
     def run(self):
-        if self.mode == "mapping":
+        if self.mode not in self.MODES:
+            raise ValueError("Unknown mode '%s'. Valid modes: %s" % (self.mode, ", ".join(self.MODES)))
+
+        if self.mode == self.MAPPING:
             self.gmapping_launcher.start()
-        elif self.mode == "localize":
+        elif self.mode == self.LOCALIZE:
             self.amcl_launcher.start()
         
         rospy.spin()
@@ -112,21 +82,17 @@ class DodobotLaserSlam:
         self.map_saver_launcher.stop()
 
     def shutdown_hook(self):
-        rospy.loginfo("shutdown called")
-        if self.mode == "mapping":
-            if not self.gmapping_launcher.is_running():
-                rospy.loginfo("Gmapping has stopped running. Not saving the map")
-            else:
+        try:
+            rospy.loginfo("shutdown called")
+            if self.mode == self.MAPPING:
+                rospy.loginfo("Saving map to %s. Waiting %0.1f seconds for map saver to finish." % (
+                    self.map_path, self.map_saver_wait_time)
+                )
                 self.map_saver_launcher.start()
-                rospy.loginfo("Saving map to %s. Waiting 10 seconds." % self.map_path)
-                result = self.map_saver_launcher.join(timeout=10.0)
-                print("1: map_saver is %s" % self.map_saver_launcher.process)
-                if result:
-                    rospy.loginfo("Map saved!")
-                else:
-                    rospy.loginfo("Map saver was stopped before it could finish")
-        
-        self.stop_all()
+                self.map_saver_launcher.join(timeout=self.map_saver_wait_time)
+                rospy.loginfo("Map saved!")
+        finally:
+            self.stop_all()
     
     # def signal_handler(self, sig, frame):
     #     self.shutdown_hook()

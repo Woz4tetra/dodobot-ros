@@ -2,7 +2,7 @@ import rospy
 from smach import StateMachine
 from smach_ros import ActionServerWrapper
 
-from db_planning.states import PrecheckState, MoveToObjectState, PickupState, DeliverState, PursueObjectState
+from db_planning.states import *
 
 from db_planning.msg import SequenceRequestAction, SequenceRequestGoal, SequenceRequestResult
 
@@ -17,7 +17,9 @@ class SequenceStateMachine(ActionServerWrapper):
             StateMachine.add(
                 "PRECHECK", PrecheckState(central_planning),
                 transitions={
-                    "success": "MOVE_TO_OBJECT",
+                    "success_object": "MOVE_TO_OBJECT",
+                    "success_park": "MOVE_TO_PARK",
+                    "success_dock": "MOVE_TO_DOCK",
                     "failure": "failure",
                 },
                 remapping={
@@ -25,7 +27,7 @@ class SequenceStateMachine(ActionServerWrapper):
                     "sequence_goal": "sm_sequence_goal",
                 }
             )
-
+            
             StateMachine.add(
                 "MOVE_TO_OBJECT", MoveToObjectState(central_planning),
                 transitions={
@@ -38,7 +40,31 @@ class SequenceStateMachine(ActionServerWrapper):
                     "sequence_goal": "sm_sequence_goal",
                 }
             )
+            StateMachine.add(
+                "MOVE_TO_PARK", MoveToParkState(central_planning),
+                transitions={
+                    "success": "success",
+                    "failure": "failure",
+                    "preempted": "preempted"
+                },
+                remapping={
+                    "central_planning": "sm_central_planning",
+                    "sequence_goal": "sm_sequence_goal",
+                }
+            )
 
+            StateMachine.add(
+                "MOVE_TO_DOCK", MoveToParkState(central_planning),
+                transitions={
+                    "success": "PURSUE_DOCK",
+                    "failure": "failure",
+                    "preempted": "preempted"
+                },
+                remapping={
+                    "central_planning": "sm_central_planning",
+                    "sequence_goal": "sm_sequence_goal",
+                }
+            )
             StateMachine.add(
                 "PURSUE_OBJECT", PursueObjectState(central_planning),
                 transitions={
@@ -47,6 +73,20 @@ class SequenceStateMachine(ActionServerWrapper):
                     "failure": "failure",
                     "preempted": "preempted",
                     "too_far": "MOVE_TO_OBJECT"
+                },
+                remapping={
+                    "central_planning": "sm_central_planning",
+                    "sequence_goal": "sm_sequence_goal",
+                }
+            )
+
+            StateMachine.add(
+                "PURSUE_DOCK", PursueDockState(central_planning),
+                transitions={
+                    "success": "success",
+                    "failure": "failure",
+                    "preempted": "preempted",
+                    "too_far": "MOVE_TO_DOCK"
                 },
                 remapping={
                     "central_planning": "sm_central_planning",

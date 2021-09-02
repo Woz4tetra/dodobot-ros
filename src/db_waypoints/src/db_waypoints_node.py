@@ -26,6 +26,7 @@ from db_waypoints.srv import GetWaypoint, GetWaypointResponse
 from db_waypoints.srv import DeleteWaypoint, DeleteWaypointResponse
 from db_waypoints.srv import SavePose, SavePoseResponse
 from db_waypoints.srv import SaveRobotPose, SaveRobotPoseResponse
+from db_waypoints.srv import SaveTF, SaveTFResponse
 
 from db_waypoints.msg import FollowPathAction, FollowPathGoal, FollowPathResult
 
@@ -47,6 +48,7 @@ class DodobotWaypoints:
         self.base_frame = rospy.get_param("~base_link", "base_link")
         self.marker_size = rospy.get_param("~marker_size", 0.25)
         self.marker_color = rospy.get_param("~marker_color", (0.0, 0.0, 1.0, 1.0))
+        self.enable_waypoint_navigation = rospy.get_param("~enable_waypoint_navigation", False)
         assert (type(self.marker_color) == tuple or type(self.marker_color) == list), "type(%s) != tuple or list" % type(self.marker_color)
         assert len(self.marker_color) == 4, "len(%s) != 4" % len(self.marker_color)
         
@@ -61,7 +63,10 @@ class DodobotWaypoints:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.state_machine = WaypointStateMachine()
+        if self.enable_waypoint_navigation:
+            self.state_machine = WaypointStateMachine()
+        else:
+            self.state_machine = None
 
         self.marker_pub = rospy.Publisher("waypoint_markers", MarkerArray, queue_size=25)
 
@@ -70,6 +75,7 @@ class DodobotWaypoints:
         self.get_waypoint_srv = self.create_service("get_waypoint", GetWaypoint, self.get_waypoint_callback)
         self.delete_waypoint_srv = self.create_service("delete_waypoint", DeleteWaypoint, self.delete_waypoint_callback)
         self.save_pose_srv = self.create_service("save_pose", SavePose, self.save_pose_callback)
+        self.save_tf_srv = self.create_service("save_tf", SaveTF, self.save_tf_callback)
         self.save_robot_pose_srv = self.create_service("save_robot_pose", SaveRobotPose, self.save_robot_pose_callback)
 
         self.follow_path_server = actionlib.SimpleActionServer("follow_path", FollowPathAction, self.follow_path_callback, auto_start=False)
@@ -80,6 +86,10 @@ class DodobotWaypoints:
     # ---
 
     def follow_path_callback(self, goal):
+        if self.enable_waypoint_navigation:
+            rospy.warn("Navigation isn't enabled for this node. Set the parameter enable_waypoint_navigation to True")
+            return
+        
         waypoints = []
         for name in goal.waypoints:
             if not self.check_name(name):
@@ -122,6 +132,10 @@ class DodobotWaypoints:
     def save_robot_pose_callback(self, req):
         success = self.save_from_current(req.name)
         return SaveRobotPoseResponse(success)
+
+    def save_tf_callback(self, req):
+        success = self.save_from_tf(req.name, req.frame)
+        return SaveTFResponse(success)
 
     def reload_waypoints_callback(self, req):
         if self.load_from_path():
@@ -229,10 +243,15 @@ class DodobotWaypoints:
     def save_from_current(self, name):
         # name: str, name of waypoint
         # returns: bool, whether the file was successfully written to and whether the tf lookup was successful
+        return self.save_from_tf(name, self.base_frame)
+
+    def save_from_tf(self, name, frame):
+        # name: str, name of waypoint
+        # returns: bool, whether the file was successfully written to and whether the tf lookup was successful
         try:
-            current_tf = self.tf_buffer.lookup_transform(self.map_frame, self.base_frame, rospy.Time(0), rospy.Duration(1.0))
+            current_tf = self.tf_buffer.lookup_transform(self.map_frame, frame, rospy.Time(0), rospy.Duration(1.0))
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            rospy.logwarn("Failed to look up %s to %s. %s" % (self.map_frame, self.base_frame, e))
+            rospy.logwarn("Failed to look up %s to %s. %s" % (self.map_frame, frame, e))
             return False
         
         pose = geometry_msgs.msg.PoseStamped()

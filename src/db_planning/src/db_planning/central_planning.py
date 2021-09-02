@@ -41,6 +41,10 @@ from db_parsing.srv import DodobotGetState
 from db_audio.srv import PlayAudio
 from db_audio.srv import StopAudio
 
+from db_waypoints.srv import GetAllWaypoints
+
+from db_planning.helpers import get_msg_properties
+
 
 class CentralPlanning:
     """
@@ -72,6 +76,8 @@ class CentralPlanning:
         self.tilt_base_frame = rospy.get_param("~tilt_base_frame", "tilt_base_link")
         self.linear_frame = rospy.get_param("~linear_frame", "linear_link")
 
+        self.charge_dock_frame = rospy.get_param("~charge_dock_frame", "charge_dock_target")
+
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
         self.max_vel_x = rospy.get_param("~max_vel_x", 0.15)
         self.max_vel_theta = rospy.get_param("~max_vel_theta", 1.0)
@@ -90,6 +96,9 @@ class CentralPlanning:
 
         self.plow_into_object_offset = rospy.get_param("~plow_into_object_offset", 0.025)
 
+        self.costmap_size = rospy.get_param("~costmap_size", 3.0)
+        self.costmap_box_radius = self.costmap_size / 2.0
+
         self.local_costmap_enabled_state = None
         
         self.default_max_vel = 0.0
@@ -98,7 +107,7 @@ class CentralPlanning:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.valid_action_types = SequenceRequestGoal.PICKUP, SequenceRequestGoal.DELIVER
+        self.valid_action_types = SequenceRequestGoal.PICKUP, SequenceRequestGoal.DELIVER, SequenceRequestGoal.PARK, SequenceRequestGoal.DOCK
         self.valid_goal_types = SequenceRequestGoal.NAMED_GOAL, SequenceRequestGoal.POSE_GOAL
 
         self.sequence_sm = SequenceStateMachine(self)
@@ -123,6 +132,9 @@ class CentralPlanning:
         
         # move_base make_plan service
         self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
+        
+        # get all waypoints service
+        self.get_all_waypoints_srv = self.make_service_client("db_waypoints/get_all_waypoints", GetAllWaypoints)
         
         # obstacle layer dynamic reconfigure
         self.obstacle_layer_dyn_client = dynamic_reconfigure.client.Client("/move_base/local_costmap/obstacle_layer", timeout=30, config_callback=self.dyn_obstacle_layer_callback)
@@ -185,6 +197,7 @@ class CentralPlanning:
         """
         Return true if the action sequence is PICKUP and if the gripper is empty.
         Return true if the action sequence is DELIVER and if the gripper is grabbing.
+        Return true if the action sequence is PARK and if the gripper is empty.
         """
         is_grabbing = self.is_gripper_grabbing()
 
@@ -192,9 +205,24 @@ class CentralPlanning:
             return True
         elif goal.action == SequenceRequestGoal.DELIVER and is_grabbing:
             return True
+        elif goal.action == SequenceRequestGoal.PARK:
+            return True
+        elif goal.action == SequenceRequestGoal.DOCK and not is_grabbing:
+            return True
         else:
             return False
     
+    def lookup_waypoint(self, name):
+        response = self.get_all_waypoints_srv()
+        for index, waypoint_name in enumerate(response.names):
+            if name == waypoint_name:
+                pose = response.waypoints.poses[index]
+                pose_stamped = PoseStamped()
+                pose_stamped.header = response.waypoints.header
+                pose_stamped.pose = pose
+                return pose_stamped
+        return None
+
     def does_goal_exist(self, goal):
         """
         Check if the goal exists in the TF tree.
@@ -237,6 +265,10 @@ class CentralPlanning:
         """
         Get TF between parent and child frame as a PoseStamped object
         """
+        waypoint = self.lookup_waypoint(child_frame)
+        if waypoint is not None:
+            return waypoint
+
         transform = self.lookup_transform(parent_frame, child_frame)
         if transform is None:
             return None
@@ -261,6 +293,9 @@ class CentralPlanning:
             goal_pose = self.offset_with_gripper(goal_pose)
         return goal_pose
     
+    def get_charge_dock_goal(self):
+        return self.get_pose_in_frame(self.map_frame, self.charge_dock_frame)
+
     def get_goal_pose_with_gripper(self, goal):
         """
         Compute a pose for navigation planners such that the gripper_link is above the object in X, Y
@@ -439,11 +474,20 @@ class CentralPlanning:
             object_x = pose_tilt_base_frame.pose.position.x
             object_z = pose_tilt_base_frame.pose.position.z
         elif goal.type == SequenceRequestGoal.NAMED_GOAL:
-            camera_base_tf = self.lookup_transform(self.tilt_base_frame, goal.name)
-            if camera_base_tf is None:
-                return
-            object_x = camera_base_tf.transform.translation.x
-            object_z = camera_base_tf.transform.translation.z
+            waypoint = self.lookup_waypoint(goal.name)
+            if waypoint is None:
+                camera_base_tf = self.lookup_transform(self.tilt_base_frame, goal.name)
+                if camera_base_tf is None:
+                    return
+                object_x = camera_base_tf.transform.translation.x
+                object_z = camera_base_tf.transform.translation.z
+            else:
+                camera_base_tf = self.lookup_transform(self.map_frame, self.tilt_base_frame)
+                if camera_base_tf is None:
+                    return
+                pose_tilt_base_frame = tf2_geometry_msgs.do_transform_pose(waypoint, camera_base_tf)
+                object_x = pose_tilt_base_frame.pose.position.x
+                object_z = pose_tilt_base_frame.pose.position.z
         else:
             return
 
@@ -569,8 +613,15 @@ class CentralPlanning:
             result = self.move_action_client.wait_for_result()
             rospy.loginfo("Canceled move_base: %s" % result)
     
-    def init_pursuit_goal(self, goal_pose):
-        goal = ObjectPursuitGoal()
+    def init_pursuit_goal(self, goal_pose, **pursuit_parameters):
+        parameters = get_msg_properties(ObjectPursuitGoal())
+        for name, value in parameters.items():
+            if type(value) == float:
+                parameters[name] = float("nan")
+            if type(value) == bool:
+                parameters[name] = False
+
+        goal = ObjectPursuitGoal(**pursuit_parameters)
         goal.pose = goal_pose
         self.pursuit_client.send_goal(goal)
     

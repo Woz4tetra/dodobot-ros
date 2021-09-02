@@ -7,7 +7,7 @@ from db_planning.msg import SequenceRequestGoal
 class PrecheckState(State):
     def __init__(self, central_planning):
         super(PrecheckState, self).__init__(
-            outcomes=["success", "failure"],
+            outcomes=["success_park", "success_dock", "success_object", "failure"],
             input_keys=["sequence_goal"],
         )
         self.central_planning = central_planning
@@ -51,4 +51,9 @@ class PrecheckState(State):
             ))
             return "failure"
 
-        return "success"
+        if goal.action == SequenceRequestGoal.PARK:
+            return "success_park"
+        elif goal.action == SequenceRequestGoal.DOCK:
+            return "success_dock"
+        else:
+            return "success_object"

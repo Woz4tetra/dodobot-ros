@@ -2,25 +2,29 @@ odom_frame: odom
 base_frame: base_link
 map_frame: map
 
-map_update_interval: 1.0  # Publish new map (seconds)
+map_update_interval: 0.5  # Publish new map (seconds)
 throttle_scans: 1  # 1 = no scans skipped
 
-maxRange: 25.0 # Max sensor value
-maxUrange: 25.0 # Usable region of the sensor
-# particles: 25
+maxRange: 12.0 # Max sensor value
+maxUrange: 12.0 # Usable region of the sensor
+# maxRange: 18.0 # Max sensor value
+# maxUrange: 18.0 # Usable region of the sensor
+# maxRange: 24.0 # Max sensor value
+# maxUrange: 24.0 # Usable region of the sensor
+particles: 70
 
 # minimumScore: 40
 
 # Update frequencies
-linearUpdate: 0.1
-angularUpdate: 0.001
-temporalUpdate: 0.5
-# resampleThreshold: 0.5
+linearUpdate: 0.05
+angularUpdate: 0.05
+temporalUpdate: 0.01
+# resampleThreshold: 0.7
 
-# srr: 0.01
-# srt: 0.02
-# str: 0.01
-# stt: 0.02
+srr: 0.01
+srt: 0.03
+str: 0.03
+stt: 0.03
 
 # Initial Map Size
 xmin: -15.0
@@ -42,3 +46,4 @@ delta: 0.05
 # llsamplestep: 0.01
 # lasamplerange: 0.005
 # lasamplestep: 0.005
+minimumScore: 50

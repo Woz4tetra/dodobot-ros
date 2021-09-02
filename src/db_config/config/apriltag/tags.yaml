@@ -19,8 +19,7 @@
 #   ]
 standalone_tags:
   [
-      {id: 11, size: 0.150, name: charge_dock_tag},
-      # {id: 242, size: 0.0696, name: blissey_tag},
+      {id: 11, size: 0.112, name: charge_dock_tag},
   ]
 # ## Tag bundle definitions
 # ### Remarks

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<launch>
-    <group ns="dodobot">
-        <node name="db_launcher" pkg="db_launcher" type="db_launcher_node.py" args="" output="screen" respawn="false">
-
-        </node>
-    </group>
-</launch>

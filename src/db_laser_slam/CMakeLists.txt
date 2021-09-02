@@ -31,8 +31,3 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 catkin_package(
     CATKIN_DEPENDS rospy std_msgs message_runtime
 )
-
-# catkin_install_python(PROGRAMS
-#   src/db_laser_slam_node.py
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )

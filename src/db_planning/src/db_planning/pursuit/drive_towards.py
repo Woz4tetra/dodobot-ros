@@ -11,6 +11,9 @@ class DriveTowards(PursuitAction):
         error = self.goal_pose.relative_to(state)
         target_angle = self.goal_pose.heading(state)
         error.theta = Pose2d.normalize_theta(target_angle - state.theta)
+        if self.parameters.backwards_motion_only and error.x < 0.0:
+            error.x = 0.0
+
         return error
 
     def get_timeout(self, error):
@@ -40,4 +43,6 @@ class DriveTowards(PursuitAction):
         err_y_ang_v = self.parameters.steer_kP * error.y
         ang_v = err_t_ang_v + err_y_ang_v
         linear_v = self.parameters.linear_kP * error.x
+        if self.parameters.backwards_motion_only and linear_v < 0.0:
+            linear_v = 0.0
         return linear_v, ang_v

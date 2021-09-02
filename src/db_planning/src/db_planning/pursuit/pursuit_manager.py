@@ -2,7 +2,7 @@ from db_planning.robot_state import Pose2d
 from db_planning.recursive_namespace import RecursiveNamespace
 from .drive_towards import DriveTowards
 from .turn_towards import TurnTowards
-# from .turn_final import TurnFinal
+from .turn_final import TurnFinal
 
 
 class PursuitManager:
@@ -15,10 +15,16 @@ class PursuitManager:
 
         self.drive_towards = DriveTowards(self.pursuit_parameters, set_velocity, get_state, should_stop)
         self.turn_towards = TurnTowards(self.pursuit_parameters, set_velocity, get_state, should_stop)
-        # self.turn_final = TurnFinal(self.pursuit_parameters, set_velocity, get_state, should_stop)
+        self.turn_final = TurnFinal(self.pursuit_parameters, set_velocity, get_state, should_stop)
+
+    def set_parameters(self, parameters):
+        self.drive_towards.parameters = parameters
+        self.turn_towards.parameters = parameters
+        self.turn_final.parameters = parameters
 
     def run(self):
         self.stop_motors()
+        result_state = None
 
         # assumes self.goal_pose is set
         while True:
@@ -28,8 +34,8 @@ class PursuitManager:
             result_state = self.drive_towards.run()
             if result_state != "turn":
                 break
-        # if result_state == "success":
-        #     result_state = self.turn_final.run()
+        if self.pursuit_parameters.turn_towards_final_heading and result_state == "success":
+            result_state = self.turn_final.run()
         return result_state
 
     def stop_motors(self):
