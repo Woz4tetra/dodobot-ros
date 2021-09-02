@@ -10,8 +10,8 @@ User=ben
 Group=ben
 ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
 
-Restart=always
-RestartSec=90
+Restart=on-failure
+RestartSec=5s
 StartLimitBurst=3
 
 KillSignal=SIGINT

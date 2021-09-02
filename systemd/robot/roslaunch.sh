@@ -6,6 +6,6 @@ source /home/${USER}/.local/dodobot/dodobot-ros/bin/env.sh
 
 export ROS_HOME=/home/${USER}/.ros
 export DISPLAY=:0
-roslaunch db_config dodobot.launch &
+roslaunch db_config dodobot.launch --wait &
 PID=$!
 wait "$PID"

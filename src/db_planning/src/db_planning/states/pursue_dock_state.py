@@ -47,7 +47,9 @@ class PursueDockState(State):
             goal_pose,
             backwards_motion_only=True,
             angle_tolerance=0.12,
-            timeout_fudge=10.0,
+            position_tolerance=0.07,
+            timeout_fudge=1.0,
+            timeout_turn_fudge=5.0,
             max_linear_speed=0.15,
             
         )
