@@ -20,6 +20,7 @@ class SequenceStateMachine(ActionServerWrapper):
                     "success_object": "MOVE_TO_OBJECT",
                     "success_park": "MOVE_TO_PARK",
                     "success_dock": "MOVE_TO_DOCK",
+                    "success_undock": "MOVE_TO_UNDOCK",
                     "failure": "failure",
                 },
                 remapping={
@@ -65,6 +66,21 @@ class SequenceStateMachine(ActionServerWrapper):
                     "sequence_goal": "sm_sequence_goal",
                 }
             )
+
+
+            StateMachine.add(
+                "MOVE_TO_UNDOCK", PursueUnDockState(central_planning),
+                transitions={
+                    "success": "success",
+                    "failure": "failure",
+                    "preempted": "preempted"
+                },
+                remapping={
+                    "central_planning": "sm_central_planning",
+                    "sequence_goal": "sm_sequence_goal",
+                }
+            )
+
             StateMachine.add(
                 "PURSUE_OBJECT", PursueObjectState(central_planning),
                 transitions={

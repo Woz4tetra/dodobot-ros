@@ -107,7 +107,13 @@ class CentralPlanning:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.valid_action_types = SequenceRequestGoal.PICKUP, SequenceRequestGoal.DELIVER, SequenceRequestGoal.PARK, SequenceRequestGoal.DOCK
+        self.valid_action_types = (
+            SequenceRequestGoal.PICKUP,
+            SequenceRequestGoal.DELIVER,
+            SequenceRequestGoal.PARK,
+            SequenceRequestGoal.DOCK,
+            SequenceRequestGoal.UNDOCK
+        )
         self.valid_goal_types = SequenceRequestGoal.NAMED_GOAL, SequenceRequestGoal.POSE_GOAL
 
         self.sequence_sm = SequenceStateMachine(self)
@@ -205,7 +211,7 @@ class CentralPlanning:
             return True
         elif goal.action == SequenceRequestGoal.DELIVER and is_grabbing:
             return True
-        elif goal.action == SequenceRequestGoal.PARK:
+        elif goal.action == SequenceRequestGoal.PARK or goal.action == SequenceRequestGoal.UNDOCK:
             return True
         elif goal.action == SequenceRequestGoal.DOCK and not is_grabbing:
             return True
@@ -440,6 +446,11 @@ class CentralPlanning:
         quat.w = quat_list[3]
         return quat
     
+    def rotate_quat(self, quat, angle_rad):
+        euler = list(tf.transformations.euler_from_quaternion(self.quat_to_list(quat)))
+        euler[2] += angle_rad
+        return self.list_to_quat(tf.transformations.quaternion_from_euler(*euler))
+
     def lookup_transform(self, parent_link, child_link, time_window=None, timeout=None):
         """
         Call tf_buffer.lookup_transform. Return None if the look up fails

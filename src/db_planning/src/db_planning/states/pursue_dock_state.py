@@ -3,36 +3,21 @@ from smach import State
 from actionlib_msgs.msg import GoalStatus
 
 from db_planning.msg import SequenceRequestGoal
+from db_planning.states.base_pursue_state import BasePursueState
 
 
-class PursueDockState(State):
+class PursueDockState(BasePursueState):
     def __init__(self, central_planning):
         super(PursueDockState, self).__init__(
-            outcomes=["success", "too_far", "preempted", "failure"],
-            input_keys=["sequence_goal", "central_planning"],
+            central_planning,
+            ["success"],
+            ["too_far", "preempted", "failure"]
         )
-        self.central_planning = central_planning
         self.check_state_interval = 0.1  # seconds
         self.near_object_fudge = 0.05  # fudge factor to avoid dithering between move to object and pursuit
         self.too_close_object = 0.2  # dock is too close for camera to see well. Stop sending goals to pursuit planner
         self.distance_k = 0.9
         self.distance_to_goal = 0.0
-    
-    def exit_callback(self, goal, outcome):
-        self.central_planning.toggle_local_costmap(True)
-        self.central_planning.look_straight_ahead()
-        if outcome != str(goal.action):
-            self.central_planning.set_linear_z_to_transport(goal)
-            if not self.central_planning.wait_for_linear_z():
-                return "failure"
-            return outcome
-        else:
-            return "success"
-
-    def execute(self, userdata):
-        goal = userdata.sequence_goal
-        outcome = self.run_pursuit(goal)
-        return self.exit_callback(goal, outcome)
     
     def run_pursuit(self, goal):
         # wait for robot to settle and for object filter to update
@@ -45,13 +30,12 @@ class PursueDockState(State):
 
         self.central_planning.init_pursuit_goal(
             goal_pose,
-            backwards_motion_only=True,
+            forwards_motion_only=True,
             angle_tolerance=0.12,
             position_tolerance=0.07,
             timeout_fudge=1.0,
             timeout_turn_fudge=5.0,
             max_linear_speed=0.15,
-            
         )
 
         while True:
@@ -73,7 +57,7 @@ class PursueDockState(State):
             
             state = self.central_planning.get_pursuit_state()
             if state == "success":
-                return str(goal.action)
+                return "success"
             elif state == "failure" or state == "preempted":
                 return state
 

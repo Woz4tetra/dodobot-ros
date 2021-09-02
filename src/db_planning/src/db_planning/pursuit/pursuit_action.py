@@ -72,7 +72,7 @@ class PursuitAction:
                 success_time = None
 
             if now - start_time > self._timeout:
-                rospy.logwarn("%s Timeout reaching. Giving up on pursuing object" % (self.__class__.__name__))
+                rospy.logwarn("%s Timeout reached. Giving up on pursuing object" % (self.__class__.__name__))
                 self.stop_motors()
                 return "failure"
 

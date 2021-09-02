@@ -1,3 +1,4 @@
+import math
 import rospy
 from .pursuit_action import PursuitAction
 from db_planning.robot_state import Pose2d
@@ -10,10 +11,13 @@ class DriveTowards(PursuitAction):
     def get_error(self, state: Pose2d) -> Pose2d:
         error = self.goal_pose.relative_to(state)
         target_angle = self.goal_pose.heading(state)
+        if self.parameters.reversed:
+            target_angle += math.pi
         error.theta = Pose2d.normalize_theta(target_angle - state.theta)
-        rospy.loginfo("error: %s" % error)
-        # if self.parameters.backwards_motion_only and error.x < 0.0:
-        #     error.x = 0.0
+        if self.parameters.forwards_motion_only and error.x < 0.0:
+            error.x = 0.0
+        
+        rospy.loginfo("%s error: %s, state: %s" % (self.__class__.__name__, error, state))
 
         return error
 
@@ -44,6 +48,12 @@ class DriveTowards(PursuitAction):
         err_y_ang_v = self.parameters.steer_kP * error.y
         ang_v = err_t_ang_v + err_y_ang_v
         linear_v = self.parameters.linear_kP * error.x
-        # if self.parameters.backwards_motion_only and linear_v < 0.0:
-        #     linear_v = 0.0
+        if self.parameters.forwards_motion_only:
+            if self.parameters.reversed and linear_v < 0.0:
+                linear_v = 0.0
+            elif linear_v > 0.0:
+                linear_v = 0.0
+        
+        if self.parameters.reversed:
+            ang_v *= -1.0
         return linear_v, ang_v

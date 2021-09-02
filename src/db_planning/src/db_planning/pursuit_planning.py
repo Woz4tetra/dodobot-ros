@@ -30,6 +30,7 @@ class PursuitPlanning:
         self.pursuit_action_name = "pursuit_actions"
         self.map_frame = rospy.get_param("~global_frame", "map")
         self.base_link_frame = rospy.get_param("~robot_frame", "base_link")
+        self.test_mode = rospy.get_param("~test_mode", False)
 
         self.pursuit_parameters = self.get_parameters()
         self.pursuit_manager = PursuitManager(
@@ -47,6 +48,8 @@ class PursuitPlanning:
         self.pursuit_action_server = actionlib.SimpleActionServer(self.pursuit_action_name, ObjectPursuitAction, self.pursuit_action_callback, auto_start=False)
         self.pursuit_action_server.start()
         rospy.loginfo("[%s] server started" % self.pursuit_action_name)
+        if self.test_mode:
+            rospy.loginfo("Running pursuit in test mode")
 
     def get_parameters(self, parameters: dict=None):
         if parameters is None:
@@ -70,8 +73,9 @@ class PursuitPlanning:
             loopback_y_tolerance=0.07,
             # if the robot exceeds this value in theta during drive_towards, jump to turn_towards
             loopback_theta_tolerance=0.1,
-            backwards_motion_only=False,
+            forwards_motion_only=False,
             turn_towards_final_heading=False,
+            reversed=False,
         )
         for name, value in parameters.items():
             if type(value) == float and math.isnan(value):
@@ -168,10 +172,16 @@ class PursuitPlanning:
         return quat_msg
 
     def run(self):
-        rospy.spin()
+        if self.test_mode:
+            self.test()
+        else:
+            rospy.spin()
 
     def test(self):
-        def goto_point(x, y, theta):
+        def goto_point(x, y, theta, **kwargs):
+            self.pursuit_manager.set_parameters(kwargs)
+            rospy.loginfo("Parameters: %s" % self.pursuit_manager.pursuit_parameters)
+
             pose = PoseStamped()
             pose.header.frame_id = self.map_frame
             pose.pose.position.x = x
@@ -181,19 +191,24 @@ class PursuitPlanning:
             self.set_goal(pose)
             result_state = self.pursuit_manager.run()
             rospy.loginfo("Pursuit result: %s" % result_state)
-        goto_point(0.25, 0.05, 0.0)
+        # goto_point(0.25, 0.05, 0.0)
         # goto_point(0.0, 0.0, 0.0)
 
         # goto_point(0.5, 0.5, 0.0)
         # goto_point(0.5, -0.5, 0.0)
         # goto_point(0.0, 0.0, 0.0)
 
+        goto_point(0.5, 0.5, 0.0, reversed=True)
+        goto_point(-0.5, 0.5, 0.0, reversed=True)
+        goto_point(0.5, -0.5, 0.0, reversed=True)
+        goto_point(-0.5, -0.5, 0.0, reversed=True)
+        goto_point(0.0, 0.0, 0.0, reversed=True, turn_towards_final_heading=True)
+
 
 if __name__ == "__main__":
     node = PursuitPlanning()
     try:
         node.run()
-        # node.test()
     except rospy.ROSInterruptException:
         pass
     finally:

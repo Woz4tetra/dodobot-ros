@@ -2,6 +2,7 @@ int8 PICKUP = 1
 int8 DELIVER = 2
 int8 PARK = 3
 int8 DOCK = 4
+int8 UNDOCK = 5
 int8 action
 
 int8 NAMED_GOAL = 1

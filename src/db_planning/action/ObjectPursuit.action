@@ -16,8 +16,9 @@ float32 timeout_turn_fudge
 float32 timeout_fudge
 float32 loopback_y_tolerance
 float32 loopback_theta_tolerance
-bool backwards_motion_only
+bool forwards_motion_only
 bool turn_towards_final_heading
+bool reversed
 ---
 string status
 ---

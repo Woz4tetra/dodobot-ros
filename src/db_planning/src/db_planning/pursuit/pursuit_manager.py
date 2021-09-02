@@ -19,9 +19,10 @@ class PursuitManager:
         self.turn_final = TurnFinal(self.pursuit_parameters, set_velocity, get_state, should_stop)
 
     def set_parameters(self, parameters):
-        self.drive_towards.parameters = parameters
-        self.turn_towards.parameters = parameters
-        self.turn_final.parameters = parameters
+        self.pursuit_parameters.update(parameters)
+        self.drive_towards.parameters.update(parameters)
+        self.turn_towards.parameters.update(parameters)
+        self.turn_final.parameters.update(parameters)
 
     def run(self):
         self.stop_motors()
@@ -51,4 +52,4 @@ class PursuitManager:
         self.goal_pose.theta = theta
         self.drive_towards.set_goal(self.goal_pose)
         self.turn_towards.set_goal(self.goal_pose)
-        # self.turn_final.set_goal(self.goal_pose)
+        self.turn_final.set_goal(self.goal_pose)

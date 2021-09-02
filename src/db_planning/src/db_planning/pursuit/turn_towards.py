@@ -1,3 +1,4 @@
+import math
 import rospy
 from .pursuit_action import PursuitAction
 from db_planning.robot_state import Pose2d
@@ -9,9 +10,12 @@ class TurnTowards(PursuitAction):
 
     def get_error(self, state: Pose2d) -> Pose2d:
         target_angle = self.goal_pose.heading(state)
+        if self.parameters.reversed:
+            target_angle += math.pi
         error_angle = Pose2d.normalize_theta(target_angle - state.theta)
         error = Pose2d.from_state(state)
         error.theta = error_angle
+        rospy.loginfo("%s error: %s, state: %s" % (self.__class__.__name__, error, state))
         return error
 
     def get_timeout(self, error):
@@ -25,7 +29,6 @@ class TurnTowards(PursuitAction):
         return None
 
     def is_goal_reached(self, error: Pose2d):
-        rospy.loginfo("error: %s, %s" % (error, self.parameters.angle_tolerance))
         return abs(error.theta) < self.parameters.angle_tolerance
 
     def get_command(self, error: Pose2d):

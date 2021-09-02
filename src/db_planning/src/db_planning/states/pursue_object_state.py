@@ -3,31 +3,18 @@ from smach import State
 from actionlib_msgs.msg import GoalStatus
 
 from db_planning.msg import SequenceRequestGoal
+from db_planning.states.base_pursue_state import BasePursueState
 
 
-class PursueObjectState(State):
+class PursueObjectState(BasePursueState):
     def __init__(self, central_planning):
         super(PursueObjectState, self).__init__(
-            outcomes=[str(SequenceRequestGoal.PICKUP), str(SequenceRequestGoal.DELIVER), "too_far", "preempted", "failure"],
-            input_keys=["sequence_goal", "central_planning"],
+            central_planning,
+            [str(SequenceRequestGoal.PICKUP), str(SequenceRequestGoal.DELIVER)],
+            ["too_far", "preempted", "failure"]
         )
-        self.central_planning = central_planning
         self.check_state_interval = 0.25  # seconds
         self.near_object_fudge = 0.05  # fudge factor to avoid dithering between move to object and pursuit
-    
-    def exit_callback(self, goal, outcome):
-        self.central_planning.toggle_local_costmap(True)
-        self.central_planning.look_straight_ahead()
-        if outcome != str(goal.action):
-            self.central_planning.set_linear_z_to_transport(goal)
-            if not self.central_planning.wait_for_linear_z():
-                return "failure"
-        return outcome
-
-    def execute(self, userdata):
-        goal = userdata.sequence_goal
-        outcome = self.run_pursuit(goal)
-        return self.exit_callback(goal, outcome)
     
     def run_pursuit(self, goal):
         start_time = rospy.Time.now()

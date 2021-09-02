@@ -15,11 +15,7 @@ class RecursiveNamespace(SimpleNamespace):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        for key, val in kwargs.items():
-            if type(val) == dict:
-                setattr(self, key, RecursiveNamespace(**val))
-            elif type(val) == list or type(val) == tuple:
-                setattr(self, key, list(map(self.map_entry, val)))
+        self.update(kwargs)
 
     def __iter__(self):
         for attr_name, attr_val in self.__dict__.items():
@@ -35,6 +31,15 @@ class RecursiveNamespace(SimpleNamespace):
                 yield attr_name, result
             else:
                 yield attr_name, attr_val
+
+    def update(self, d: dict):
+        for key, val in d.items():
+            if type(val) == dict:
+                setattr(self, key, RecursiveNamespace(**val))
+            elif type(val) == list or type(val) == tuple:
+                setattr(self, key, list(map(self.map_entry, val)))
+            else:
+                setattr(self, key, val)
 
     def __getitem__(self, key):
         return getattr(self, key)
