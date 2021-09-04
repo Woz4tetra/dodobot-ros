@@ -32,6 +32,15 @@ class RecursiveNamespace(SimpleNamespace):
             else:
                 yield attr_name, attr_val
 
+    def items(self):
+        return self.__dict__.items()
+    
+    def keys(self):
+        return self.__dict__.keys()
+    
+    def values(self):
+        return self.__dict__.values()
+
     def update(self, d: dict):
         for key, val in d.items():
             if type(val) == dict:

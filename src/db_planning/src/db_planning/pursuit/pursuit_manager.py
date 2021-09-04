@@ -29,16 +29,17 @@ class PursuitManager:
         result_state = None
 
         # assumes self.goal_pose is set
-        while True:
-            rospy.loginfo("Turning towards goal")
-            result_state = self.turn_towards.run()
-            if result_state != "success":
-                break
-            rospy.loginfo("Driving towards goal")
-            result_state = self.drive_towards.run()
-            if result_state != "turn":
-                break
-        if self.pursuit_parameters.turn_towards_final_heading and result_state == "success":
+        if not self.pursuit_parameters.turn_in_place_only:
+            while True:
+                rospy.loginfo("Turning towards goal")
+                result_state = self.turn_towards.run()
+                if result_state != "success":
+                    break
+                rospy.loginfo("Driving towards goal")
+                result_state = self.drive_towards.run()
+                if result_state != "turn":
+                    break
+        if self.pursuit_parameters.turn_in_place_only or (self.pursuit_parameters.turn_towards_final_heading and result_state == "success"):
             rospy.loginfo("Turning towards final heading")
             result_state = self.turn_final.run()
         return result_state

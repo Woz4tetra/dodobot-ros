@@ -27,7 +27,6 @@ class MoveToParkState(State):
             max_vel_x=self.central_planning.max_vel_x,
             max_vel_theta=self.central_planning.max_vel_theta,
         )
-        goal_pose = self.central_planning.get_nav_goal(goal)
         if goal_pose is None:
             return "failure"
         rospy.loginfo("Start goal: %0.4f, %0.4f, %0.4f" % (goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z))

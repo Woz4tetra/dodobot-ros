@@ -14,7 +14,9 @@ import tf.transformations
 
 import dynamic_reconfigure.client
 
-from geometry_msgs.msg import PoseStamped, Quaternion
+from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Twist
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
@@ -156,6 +158,9 @@ class CentralPlanning:
         # pursuit goal updater topic
         self.pursuit_goal_pub = rospy.Publisher("pursuit_goal", PoseStamped, queue_size=10)
 
+        # direct velocity command topic
+        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
+
         # are robot motors enabled service
         self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
 
@@ -267,20 +272,25 @@ class CentralPlanning:
         rospy.logwarn("Incorrect goal_type. This should have been checked in the precheck state!")
         return None
     
-    def get_pose_in_frame(self, parent_frame, child_frame):
+    def get_pose_in_frame(self, parent_frame, child_frame, pose=None):
         """
         Get TF between parent and child frame as a PoseStamped object
         """
         waypoint = self.lookup_waypoint(child_frame)
         if waypoint is not None:
+            rospy.loginfo("%s is a waypoint. Returning look up relative to waypoint: %s" % (child_frame, waypoint))
             return waypoint
 
         transform = self.lookup_transform(parent_frame, child_frame)
         if transform is None:
             return None
-        zero_pose = PoseStamped()
-        zero_pose.header.frame_id = child_frame
-        pose_map_frame = tf2_geometry_msgs.do_transform_pose(zero_pose, transform)
+        if pose is None:
+            zero_pose = PoseStamped()
+            zero_pose.header.frame_id = child_frame
+            zero_pose.pose.orientation.w = 1.0
+            pose = zero_pose
+        pose_map_frame = tf2_geometry_msgs.do_transform_pose(pose, transform)
+        rospy.loginfo("%s -> %s is a TF. Returning look up relative to TF: %s" % (parent_frame, child_frame, pose_map_frame))
         return pose_map_frame
 
     def get_robot_pose(self):
@@ -451,6 +461,10 @@ class CentralPlanning:
         euler[2] += angle_rad
         return self.list_to_quat(tf.transformations.quaternion_from_euler(*euler))
 
+    def get_euler_z(self, quat):
+        euler = list(tf.transformations.euler_from_quaternion(self.quat_to_list(quat)))
+        return euler[2]
+
     def lookup_transform(self, parent_link, child_link, time_window=None, timeout=None):
         """
         Call tf_buffer.lookup_transform. Return None if the look up fails
@@ -548,6 +562,15 @@ class CentralPlanning:
     
     def set_linear_z_to_object_height(self, goal_pose, goal, stepper_speed=float("nan")):
         self.set_linear_z(goal_pose.pose.position.z - self.pickup_z_offset + goal.object_z_offset, stepper_speed)
+
+    def stop_motors(self):
+        self.set_twist(0.0, 0.0)
+
+    def set_twist(self, linear_x, angular_z):
+        msg = Twist()
+        msg.linear.x = linear_x
+        msg.angular.z = angular_z
+        self.cmd_vel_pub.publish(msg)
 
     def wait_for_linear_z(self):
         """
@@ -653,6 +676,76 @@ class CentralPlanning:
             return "success"
         else:
             return "??"
+
+    def turn_in_place(self, angle):
+        goal_pose = self.get_robot_pose()
+        goal_pose.pose.orientation = self.rotate_quat(goal_pose.pose.orientation, angle)
+        rospy.loginfo("Pursuit goal: %0.4f, %0.4f, %0.4f" % (
+            goal_pose.pose.position.x,
+            goal_pose.pose.position.y,
+            self.get_euler_z(goal_pose.pose.orientation))
+        )
+
+        self.init_pursuit_goal(
+            goal_pose,
+            angle_tolerance=0.07,
+            position_tolerance=1.0,
+            timeout_fudge=1.0,
+            timeout_turn_fudge=10.0,
+            max_linear_speed=0.15,
+            max_angular_speed=2.0,
+            loopback_y_tolerance=1.0,
+            turn_in_place_only=True,
+        )
+
+        check_state_interval = 0.1
+
+        while True:
+            if rospy.is_shutdown():
+                return "preempted"
+
+            rospy.sleep(check_state_interval)
+
+            state = self.get_pursuit_state()
+            if state == "success" or state == "failure" or state == "preempted":
+                return state
+
+    def drive_straight(self, distance_m):
+        goal_pose = PoseStamped()
+        goal_pose.header.frame_id = self.base_link_frame
+        goal_pose.pose.orientation.w = 1.0
+        goal_pose.pose.position.x = distance_m
+        goal_pose = self.get_pose_in_frame(self.map_frame, self.base_link_frame, goal_pose)
+
+        rospy.loginfo("Pursuit goal: %0.4f, %0.4f, %0.4f" % (
+            goal_pose.pose.position.x,
+            goal_pose.pose.position.y,
+            self.get_euler_z(goal_pose.pose.orientation))
+        )
+
+        self.init_pursuit_goal(
+            goal_pose,
+            angle_tolerance=0.15,
+            position_tolerance=0.07,
+            timeout_fudge=10.0,
+            timeout_turn_fudge=1.0,
+            max_linear_speed=0.5,
+            max_angular_speed=2.0,
+            loopback_y_tolerance=1.0,
+            reversed=distance_m < 0.0
+        )
+
+        check_state_interval = 0.1
+
+        while True:
+            if rospy.is_shutdown():
+                return "preempted"
+
+            rospy.sleep(check_state_interval)
+
+            state = self.get_pursuit_state()
+            if state == "success" or state == "failure" or state == "preempted":
+                return state
 
     def cancel_pursuit_goal(self):
         self.pursuit_client.cancel_all_goals()

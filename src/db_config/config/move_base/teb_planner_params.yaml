@@ -216,7 +216,7 @@ obstacle_poses_affected: 30 # 30
 # Buffer zone around obstacles with non-zero penalty costs (should be
 # larger than min_obstacle_dist in order to take effect). Also refer to
 # the weight weight_inflation.
-inflation_dist: 0.2 # 0.6
+inflation_dist: 0.02 # 0.6
 
 # If this parameter is set to true, the motion of obstacles with non-
 # zero velocity (provided via user-supplied obstacles on topic

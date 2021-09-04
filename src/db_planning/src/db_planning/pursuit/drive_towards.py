@@ -49,9 +49,9 @@ class DriveTowards(PursuitAction):
         ang_v = err_t_ang_v + err_y_ang_v
         linear_v = self.parameters.linear_kP * error.x
         if self.parameters.forwards_motion_only:
-            if self.parameters.reversed and linear_v < 0.0:
+            if self.parameters.reversed and linear_v > 0.0:
                 linear_v = 0.0
-            elif linear_v > 0.0:
+            elif linear_v < 0.0:
                 linear_v = 0.0
         
         if self.parameters.reversed:

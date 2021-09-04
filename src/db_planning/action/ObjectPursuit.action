@@ -19,6 +19,7 @@ float32 loopback_theta_tolerance
 bool forwards_motion_only
 bool turn_towards_final_heading
 bool reversed
+bool turn_in_place_only
 ---
 string status
 ---

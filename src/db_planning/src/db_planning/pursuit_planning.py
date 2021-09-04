@@ -75,6 +75,7 @@ class PursuitPlanning:
             loopback_theta_tolerance=0.1,
             forwards_motion_only=False,
             turn_towards_final_heading=False,
+            turn_in_place_only=False,
             reversed=False,
         )
         for name, value in parameters.items():
