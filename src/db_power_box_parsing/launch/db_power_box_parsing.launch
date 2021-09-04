@@ -1,0 +1,9 @@
+<launch>
+    <group ns="dodobot">
+        <node type="db_power_box_parsing_node" name="db_power_box_parsing" pkg="db_power_box_parsing" required="true" output="screen">
+            <param name="serial_port" type="string" value="/dev/ttyTHS1"/>
+            <param name="serial_baud" type="int" value="115200"/>
+            <param name="use_sensor_msg_time" type="bool" value="false"/>
+        </node>
+    </group>
+</launch>
