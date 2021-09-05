@@ -50,6 +50,7 @@ void DodobotSerial::write(string name, const char *formats, ...)
     if (ready() && make_packet(name, formats, args))
     {
         DODOBOT_SERIAL.write((uint8_t*)write_char_buffer, write_char_index);
+        ROS_DEBUG("Writing packet: %s", format_packet(write_char_buffer, write_char_index).c_str());
         write_packet_num++;
     }
     va_end(args);
@@ -568,6 +569,7 @@ bool DodobotSerial::parse_packet()
 
     if (calc_checksum != recv_checksum) {
         // checksum failed
+        ROS_WARN("Found a packet with a mismatching checksum. 0x%02x != 0x%02x", calc_checksum, recv_checksum);
         write_txrx(4);  // error 4: checksums don't match
         read_packet_num++;
         return false;
@@ -631,21 +633,23 @@ void DodobotSerial::log_packet_error_code(uint32_t code, uint32_t packet_num)
     if (code == 0) {
         return;
     }
-    ROS_WARN("Packet %d returned error code %u", packet_num, code);
+    string error_message;
     switch (code) {
-        case 1: ROS_WARN("\tc1 != \\x12"); break;
-        case 2: ROS_WARN("\tc2 != \\x13"); break;
-        case 3: ROS_WARN("\tpacket is too short"); break;
-        case 4: ROS_WARN("\tchecksums don't match"); break;
-        case 5: ROS_WARN("\tpacket count segment not found"); break;
-        case 6: ROS_WARN("\tpacket counts not synchronized"); break;
-        case 7: ROS_WARN("\tfailed to find category segment"); break;
-        case 8: ROS_WARN("\tinvalid format"); break;
-        case 9: ROS_WARN("\tpacket didn't end with stop character"); break;
-        case 10: ROS_WARN("\tpacket segment is too long"); break;
-        case 11: ROS_WARN("\tpacket didn't end with stop character"); break;
-        default: ROS_ERROR("\t%u is an unknown error code!", code); break;
+        case 1: error_message = "c1 != \\x12"; break;
+        case 2: error_message = "c2 != \\x13"; break;
+        case 3: error_message = "packet is too short"; break;
+        case 4: error_message = "checksums don't match"; break;
+        case 5: error_message = "packet count segment not found"; break;
+        case 6: error_message = "packet counts not synchronized"; break;
+        case 7: error_message = "failed to find category segment"; break;
+        case 8: error_message = "invalid format"; break;
+        case 9: error_message = "packet didn't end with stop character"; break;
+        case 10: error_message = "packet segment is too long"; break;
+        case 11: error_message = "packet didn't end with stop character"; break;
+        default: error_message = "unknown error code!"; break;
     }
+
+    ROS_WARN("Packet %d returned error code %u: %s", packet_num, code, error_message.c_str());
 }
 
 string format_char(unsigned char c)
@@ -656,7 +660,7 @@ string format_char(unsigned char c)
     else if (c == 13) return "\\r";
     else if (c == 11 || c == 12 || c <= 9 || (14 <= c && c <= 31) || 127 <= c)
     {
-        char* temp_buf;
+        char* temp_buf = new char[4];
         sprintf(temp_buf, "\\x%02x", c);
         return string(temp_buf);
     }

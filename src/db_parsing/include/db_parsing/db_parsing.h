@@ -217,6 +217,12 @@ private:
 
     ros::Subscriber notification_sub;
     void notifyCallback(const db_parsing::DodobotNotify::ConstPtr& msg);
+    void sendNotification(int level, string message, int timeout);
+
+    bool prev_charge_state;
+    ros::Subscriber is_charging_sub;
+    void isChargingCallback(const std_msgs::BoolConstPtr& msg);
+    void writeIsCharging(bool state);
 
     bool motorsReady();
     bool robotReady();

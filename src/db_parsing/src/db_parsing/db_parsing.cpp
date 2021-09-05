@@ -90,6 +90,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
 
     display_img_buf = new vector<unsigned char>();
 
+    prev_charge_state = false;
+
     gripper_pub = nh.advertise<db_parsing::DodobotGripper>("gripper", 50);
     tilter_pub = nh.advertise<db_parsing::DodobotTilter>("tilter", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear", 50);
@@ -110,6 +112,8 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     keyboard_sub = nh.subscribe<keyboard_listener::KeyEvent>("keys", 50, &DodobotParsing::keyboardCallback, this);
     robot_functions_sub = nh.subscribe<db_parsing::DodobotFunctionsListing>("functions", 50, &DodobotParsing::robotFunctionsCallback, this);
     notification_sub = nh.subscribe<db_parsing::DodobotNotify>("notify", 50, &DodobotParsing::notifyCallback, this);
+
+    is_charging_sub = nh.subscribe<std_msgs::Bool>("is_charging", 10, &DodobotParsing::isChargingCallback, this);
 
     pid_service = nh.advertiseService("dodobot_pid", &DodobotParsing::set_pid, this);
     file_service = nh.advertiseService("dodobot_file", &DodobotParsing::upload_file, this);
@@ -1113,8 +1117,13 @@ void DodobotParsing::robotFunctionsCallback(const db_parsing::DodobotFunctionsLi
 }
 
 void DodobotParsing::notifyCallback(const db_parsing::DodobotNotify::ConstPtr& msg) {
-    writeSerial("notify", "dsu", msg->level, msg->message.c_str(), msg->timeout);
+    sendNotification(msg->level, msg->message, msg->timeout);
 }
+
+void DodobotParsing::sendNotification(int level, string message, int timeout_ms) {
+    writeSerial("notify", "dsu", level, message.c_str(), timeout_ms);
+}
+
 
 void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
 {
@@ -1134,6 +1143,22 @@ void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
     }
     writeImage(cv_ptr->image);
 }
+
+void DodobotParsing::isChargingCallback(const std_msgs::BoolConstPtr& msg)
+{
+    writeIsCharging(msg->data);
+}
+
+void DodobotParsing::writeIsCharging(bool state)
+{
+    writeSerial("charge", "d", state);
+    if (state && state != prev_charge_state) {
+        sendNotification(0, "Charging", 3000);
+    }
+    prev_charge_state = state;
+}
+
+
 void DodobotParsing::writeImage(const cv::Mat& image)
 {
     cv::Mat resized;
