@@ -10,6 +10,7 @@
 
 #include "ros/ros.h"
 #include "ros/console.h"
+#include "std_msgs/Bool.h"
 #include "std_msgs/Int64.h"
 #include "std_msgs/Int16MultiArray.h"
 #include "sensor_msgs/Imu.h"
@@ -53,11 +54,11 @@ char PACKET_START_0 = '\x12';
 char PACKET_START_1 = '\x34';
 char PACKET_STOP = '\n';
 
-struct StructReadyState {
+typedef struct StructReadyState {
     uint32_t time_ms;
     string robot_name;
     bool is_ready;
-};
+} StructReadyState_t;
 
 struct StructRobotState {
     uint32_t time_ms;
