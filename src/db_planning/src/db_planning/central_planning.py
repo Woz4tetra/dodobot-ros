@@ -47,6 +47,12 @@ from db_audio.srv import StopAudio
 
 from db_waypoints.srv import GetAllWaypoints
 
+from db_laser_slam.srv import SetSlamMode
+from db_laser_slam.srv import GetSlamMode
+
+from db_launcher.srv import SetLaunch
+from db_launcher.srv import GetLaunch
+
 from dodobot_tools.helpers import get_msg_properties
 from dodobot_tools.robot_state import Pose2d
 
@@ -85,6 +91,7 @@ class CentralPlanning:
 
         self.set_motor_state_allowed = rospy.get_param("~set_motor_state_allowed", False)
         self.home_linear_allowed = rospy.get_param("~home_linear_allowed", False)
+        self.set_navigation_allowed = rospy.get_param("~set_navigation_allowed", False)
 
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
         self.max_vel_x = rospy.get_param("~max_vel_x", 0.15)
@@ -163,7 +170,20 @@ class CentralPlanning:
         self.local_planner_dyn_client = dynamic_reconfigure.client.Client("/move_base/%s" % self.local_planner_name, timeout=30, config_callback=self.dyn_local_planner_callback)
         self.local_planner_start_config = self.local_planner_dyn_client.get_configuration()
 
-        # camera tilter service
+        # camera launcher services
+        self.start_camera_srv = self.make_service_client("start_camera", Trigger)
+        self.stop_camera_srv = self.make_service_client("stop_camera", Trigger)
+        self.is_camera_running_srv = self.make_service_client("is_camera_running", Trigger)
+
+        # laser slam launcher services
+        self.set_slam_mode_srv = self.make_service_client("set_slam_mode", SetSlamMode)
+        self.get_slam_mode_srv = self.make_service_client("get_slam_mode", GetSlamMode)
+
+        # general launcher service
+        self.set_launch_srv = self.make_service_client("set_launch", SetLaunch)
+        self.get_launch_srv = self.make_service_client("get_launch", GetLaunch)
+
+        # camera tilter topic
         self.tilter_pub = rospy.Publisher("tilter_orientation", Quaternion, queue_size=100)
 
         # pursuit goal updater topic
@@ -834,7 +854,6 @@ class CentralPlanning:
         else:
             rospy.logwarn("Homing the linear stepper is not permitted if home_linear_allowed is False")
 
-
     def set_pose_estimate(self, pose_stamped, x_std=0.5, y_std=0.5, theta_std_deg=15.0):
         rospy.loginfo("Setting robot pose estimate to %s" % pose_stamped)
         pose_cov_stamped = PoseWithCovarianceStamped()
@@ -863,6 +882,138 @@ class CentralPlanning:
         pose2 = Pose2d.from_ros_pose(self.get_robot_pose().pose)
         return pose1.distance(pose2) > distance_threshold_m
 
+    def set_navigation_active(self):
+        if not self.central_planning.start_navigation_launches():
+            rospy.logwarn("Navigation failed to start!")
+            return False
+
+        rospy.loginfo("Waiting for launches to start")
+        if not self.central_planning.wait_for_navigation_launches_to_start():
+            rospy.logwarn("Timedout while waiting for navigation to start")
+            return False
+
+        rospy.loginfo("All launches started!")
+
+        if self.central_planning.is_charging:
+            rospy.loginfo("Detected that robot is charging. Setting location to dock")
+            self.central_planning.set_robot_pose_to_name("dock")
+        
+        return True
+    
+    def set_navigation_idle(self):
+        rospy.loginfo("Successfully docked. Shutting down navigation launches")
+        if not self.central_planning.stop_navigation_launches():
+            rospy.logwarn("Navigation failed to stop!")
+            return False
+
+        rospy.loginfo("Waiting for launches to stop")
+        if not self.central_planning.wait_for_navigation_launches_to_sop():
+            rospy.logwarn("Timedout while waiting for navigation to stop")
+            return False
+            
+        rospy.loginfo("All launches stopped!")
+        return True
+
+    def is_navigation_running(self):
+        if not self.is_camera_running_srv().success:
+            rospy.loginfo("Camera is not running")
+            return False
+
+        if self.get_slam_mode_srv().mode == GetSlamMode.IDLE:
+            rospy.loginfo("SLAM is not running")
+            return False
+
+        for launch_name in ("rplidar", "april_tags", "move_base"):
+            if not self.get_launch_srv(launch_name).is_running:
+                rospy.loginfo("%s is not running" % launch_name)
+                return False
+        
+        return True
+
+    def start_navigation_launches(self, map_name="map-{date}", slam_mode=SetSlamMode.LOCALIZE):
+        if not self.set_navigation_allowed:
+            rospy.logerr("Setting navigation is not permitted if set_navigation_allowed is False")
+            return False
+        rospy.loginfo("Starting navigation launches")
+
+        result = self.start_camera_srv()
+        if not result.success:
+            rospy.logerr(result.message)
+            return False
+        rospy.loginfo("Camera launch started")
+        
+        result = self.set_slam_mode_srv(map_name, slam_mode)
+        if not result.success:
+            rospy.logerr(result.message)
+            return False
+        rospy.loginfo("SLAM launch started")
+        
+        for launch_name in ("rplidar", "april_tags", "move_base"):
+            result = self.set_launch_srv(launch_name, SetLaunch.START)
+            if not result.success:
+                rospy.logerr(result.message)
+                return False
+            rospy.loginfo("%s launch started" % launch_name)
+
+        return True
+
+    def stop_navigation_launches(self):
+        if not self.set_navigation_allowed:
+            rospy.logerr("Setting navigation is not permitted if set_navigation_allowed is False")
+            return False
+        
+        result = self.stop_camera_srv()
+        if not result.success:
+            rospy.logerr(result.message)
+            return False
+        
+        result = self.set_slam_mode_srv("", SetSlamMode.IDLE)
+        if not result.success:
+            rospy.logerr(result.message)
+            return False
+        
+        for launch_name in ("rplidar", "april_tags", "move_base"):
+            result = self.set_launch_srv(launch_name, SetLaunch.STOP)
+            if not result.success:
+                rospy.logerr(result.message)
+                return False
+
+        return True
+    
+    def wait_for_navigation_launches_to_start(self, timeout_s=120.0):
+        start_wait_time = rospy.Time.now()
+        def has_timedout():
+            return rospy.Time.now() - start_wait_time > rospy.Duration(timeout_s)
+
+        while not self.is_camera_running_srv().success:
+            rospy.sleep(0.1)
+            if has_timedout():
+                return False
+        for launch_name in ("rplidar", "april_tags", "move_base"):
+            while not self.get_launch_srv(launch_name).is_running:
+                rospy.sleep(0.1)
+                if has_timedout():
+                    return False
+        
+        return True
+    
+    def wait_for_navigation_launches_to_stop(self, timeout_s=120.0):
+        start_wait_time = rospy.Time.now()
+        def has_timedout():
+            return rospy.Time.now() - start_wait_time > rospy.Duration(timeout_s)
+
+        while self.is_camera_running_srv().success:
+            rospy.sleep(0.1)
+            if has_timedout():
+                return False
+        for launch_name in ("rplidar", "april_tags", "move_base"):
+            while self.get_launch_srv(launch_name).is_running:
+                rospy.sleep(0.1)
+                if has_timedout():
+                    return False
+        
+        return True
+    
     def run(self):
         rospy.spin()
     

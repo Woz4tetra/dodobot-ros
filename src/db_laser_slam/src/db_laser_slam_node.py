@@ -5,6 +5,11 @@ import rospkg
 from datetime import datetime
 from collections import defaultdict
 
+from db_laser_slam.srv import SetSlamMode, SetSlamModeResponse
+from db_laser_slam.srv import GetSlamMode, GetSlamModeResponse
+
+from std_srvs.srv import Trigger, TriggerResponse
+
 from dodobot_tools.launch_manager import LaunchManager
 
 
@@ -20,9 +25,11 @@ class DodobotLaserSlam:
 
         self.MAPPING = "mapping"
         self.LOCALIZE = "localize"
+        self.IDLE = "idle"
         self.MODES = [
             self.MAPPING,
             self.LOCALIZE,
+            self.IDLE
         ]
 
         self.rospack = rospkg.RosPack()
@@ -30,16 +37,14 @@ class DodobotLaserSlam:
         self.default_maps_dir = self.package_dir + "/maps"
         self.default_launches_dir = self.package_dir + "/launch/sublaunch"
 
+        self.service_ns_name = rospy.get_param("~service_ns_name", "/dodobot")
         self.mode = rospy.get_param("~mode", "mapping")
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
         self.map_name = rospy.get_param("~map_name", "map-{date}")
         self.date_format = rospy.get_param("~date_format", "%Y-%m-%dT%H-%M-%S--%f")
         self.map_saver_wait_time = rospy.get_param("~map_saver_wait_time", 5.0)
 
-        map_name = self.generate_map_name(self.map_name)
-        self.map_path = os.path.join(self.map_dir, map_name)
-        self.map_dir = os.path.dirname(self.map_path)
-        self.map_name = os.path.basename(self.map_path)
+        self.set_map_paths()
 
         if not os.path.isdir(self.map_dir):
             os.makedirs(self.map_dir)
@@ -47,32 +52,74 @@ class DodobotLaserSlam:
         self.gmapping_launch_path = rospy.get_param("~gmapping_launch", self.default_launches_dir + "/gmapping.launch")
         self.amcl_launch_path = rospy.get_param("~amcl_launch", self.default_launches_dir + "/amcl.launch")
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
-        self.rplidar_launch_path = rospy.get_param("~rplidar_launch", self.default_launches_dir + "/rplidar.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
         self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
         self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
-        self.rplidar_launcher = LaunchManager(self.rplidar_launch_path)
 
         self.launchers = [
             self.gmapping_launcher,
             self.amcl_launcher,
             self.map_saver_launcher,
-            self.rplidar_launcher
         ]
+
+        self.switch_mode_srv = rospy.Service(self.service_ns_name + "/set_slam_mode", SetSlamMode, self.switch_mode_callback)
+        self.get_mode_srv = rospy.Service(self.service_ns_name + "/get_slam_mode", GetSlamMode, self.get_mode_callback)
 
         # signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
     
+    def set_map_paths(self):
+        map_name = self.generate_map_name(self.map_name)
+        self.map_path = os.path.join(self.map_dir, map_name)
+        self.map_dir = os.path.dirname(self.map_path)
+        self.map_name = os.path.basename(self.map_path)
+    
+    def switch_mode_callback(self, req):
+        try:
+            self.check_mode_valid(self.mode)
+        except ValueError as error:
+            return SetSlamModeResponse(False, str(error))
+        if self.mode == req.mode:
+            return SetSlamModeResponse(True, "Mode is already set to %s" % req.mode)
+
+        self.mode = req.mode
+        if self.mode == self.IDLE:
+            self.shutdown_hook()
+        
+        if self.mode == self.LOCALIZE:
+            self.save_map()
+
+        if req.map_name:
+            self.map_name = req.map_name
+            self.set_map_paths()
+            rospy.loginfo("Setting map path to %s" % self.map_path)
+            self.amcl_launcher.set_args(map_path=self.map_path + ".yaml")
+            self.map_saver_launcher.set_args(map_path=self.map_path)
+
+        if self.mode == self.LOCALIZE:
+            self.gmapping_launcher.stop()
+            self.amcl_launcher.start()
+        elif self.mode == self.MAPPING:
+            self.gmapping_launcher.start()
+            self.amcl_launcher.stop()
+        
+        return SetSlamModeResponse(True, "Mode is now set to %s" % req.mode)
+    
+    def get_mode_callback(self, req):
+        return GetSlamModeResponse(self.mode)
+
     def generate_map_name(self, name_format):
         date_str = datetime.now().strftime(self.date_format)
         name = name_format.format_map(defaultdict(str, date=date_str))
         return name
     
-    def run(self):
-        if self.mode not in self.MODES:
+    def check_mode_valid(self, mode):
+        if mode not in self.MODES:
             raise ValueError("Unknown mode '%s'. Valid modes: %s" % (self.mode, ", ".join(self.MODES)))
 
-        self.rplidar_launcher.start()
+    def run(self):
+        self.check_mode_valid(self.mode)
+
         if self.mode == self.MAPPING:
             self.gmapping_launcher.start()
         elif self.mode == self.LOCALIZE:
@@ -88,15 +135,18 @@ class DodobotLaserSlam:
         try:
             rospy.loginfo("shutdown called")
             if self.mode == self.MAPPING:
-                rospy.loginfo("Saving map to %s. Waiting %0.1f seconds for map saver to finish." % (
-                    self.map_path, self.map_saver_wait_time)
-                )
-                self.map_saver_launcher.start()
-                self.map_saver_launcher.join(timeout=self.map_saver_wait_time)
-                rospy.loginfo("Map saved!")
+                self.save_map()
         finally:
             self.stop_all()
     
+    def save_map(self):
+        rospy.loginfo("Saving map to %s. Waiting %0.1f seconds for map saver to finish." % (
+            self.map_path, self.map_saver_wait_time)
+        )
+        self.map_saver_launcher.start()
+        self.map_saver_launcher.join(timeout=self.map_saver_wait_time)
+        rospy.loginfo("Map saved!")
+
     # def signal_handler(self, sig, frame):
     #     self.shutdown_hook()
     #     self.stop_event.set()

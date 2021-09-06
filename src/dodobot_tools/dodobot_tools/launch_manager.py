@@ -10,7 +10,11 @@ class LaunchManager:
     roslaunch_exec = "roslaunch"
     bash_env_exec = "/usr/bin/env"
     def __init__(self, launch_path, *args, **kwargs):
-        
+        self.launch_path = launch_path
+        self.set_args(*args, **kwargs)
+        self.process = None
+    
+    def set_args(self, *args, **kwargs):
         args_list = []
         for arg in args:
             args_list.append(str(arg))
@@ -18,12 +22,11 @@ class LaunchManager:
             args_list.append("%s:=%s" % (name, value))
         
         if len(args_list) > 0:
-            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path] + args_list
+            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, self.launch_path] + args_list
         else:
-            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, launch_path]
+            self.roslaunch_args = [self.bash_env_exec, self.roslaunch_exec, self.launch_path]
         
-        self.process = None
-    
+
     def start(self):
         if self.is_running():
             rospy.loginfo("roslaunch already running. args: %s" % self.roslaunch_args)

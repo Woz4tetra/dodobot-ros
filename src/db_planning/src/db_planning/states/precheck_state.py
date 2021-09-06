@@ -14,6 +14,15 @@ class PrecheckState(State):
 
     def execute(self, userdata):
         goal = userdata.sequence_goal
+
+        if not self.central_planning.is_navigation_running():
+            if self.set_navigation_allowed:
+                if not self.set_navigation_active():
+                    return "failure"
+            else:
+                rospy.logwarn("Navigation is not active! Cannot start action.")
+                return "failure"
+
         if not self.central_planning.are_drive_motors_active():
             if self.central_planning.set_motor_state_allowed:
                 self.central_planning.set_drive_motors_active(True)

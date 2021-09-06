@@ -1,13 +1,29 @@
 #!/usr/bin/env python3
+import os
 import rospy
 import rospkg
+import rostopic
 
-from std_srvs.srv import Trigger, TriggerResponse
+from db_launcher.srv import SetLaunch, SetLaunchResponse
+from db_launcher.srv import GetLaunch, GetLaunchResponse
 
 from dodobot_tools.launch_manager import LaunchManager
 
 
-class DodobotCameraLauncher:
+class TopicListener:
+    def __init__(self, topic: str, min_rate: float):
+        self.topic = topic
+        self.min_rate = min_rate
+        self.rate = rostopic.ROSTopicHz(-1)
+        self.subscriber = rospy.Subscriber(self.topic, rospy.AnyMsg, self.rate.callback_hz, callback_args=self.topic)
+    
+    def is_publishing(self):
+        return self.get_rate() > self.min_rate
+
+    def get_rate(self):
+        return self.rate.get_hz([self.topic])
+
+class DodobotLauncher:
     def __init__(self):
         self.node_name = "db_launcher"
         rospy.init_node(
@@ -17,58 +33,96 @@ class DodobotCameraLauncher:
         )
         rospy.on_shutdown(self.shutdown_hook)
 
+        self.launch_config = rospy.get_param("~launches", None)
+        self.service_ns = rospy.get_param("~service_ns", "/dodobot")
+        self.ring_buffer_length = rospy.get_param("~ring_buffer_length", 10)
+        assert self.launch_config is not None
+
         self.rospack = rospkg.RosPack()
-        self.package_dir = self.rospack.get_path(self.package_name)
-        self.default_launches_dir = self.package_dir + "/launch"
-
-        self.camera_launch_path = rospy.get_param("~camera_launch", self.default_launches_dir + "/db_camera.launch")
-        self.record_launch_path = rospy.get_param("~record_launch", self.default_launches_dir + "/record_camera.launch")
-
-        self.camera_launcher = LaunchManager(self.camera_launch_path)
-        self.record_launcher = LaunchManager(self.record_launch_path)
-
-        self.launchers = [
-            self.camera_launcher,
-            self.record_launcher,
-        ]
-
-        self.start_camera_srv = rospy.Service(self.service_ns_name + "/start_camera", Trigger, self.start_camera_callback)
-        self.stop_camera_srv = rospy.Service(self.service_ns_name + "/stop_camera", Trigger, self.stop_camera_callback)
-        self.start_record_srv = rospy.Service(self.service_ns_name + "/start_record", Trigger, self.start_record_callback)
-        self.stop_record_srv = rospy.Service(self.service_ns_name + "/stop_record", Trigger, self.stop_record_callback)
+        self.launchers = self.build_launchers(self.launch_config)
+        self.listeners = self.build_topic_listeners(self.launch_config)
+        self.set_launch_srv = rospy.Service(self.service_ns + "/set_launch", SetLaunch, self.set_launch_callback)
+        self.get_launch_srv = rospy.Service(self.service_ns + "/get_launch", GetLaunch, self.get_launch_callback)
 
         rospy.loginfo("%s init complete" % self.node_name)
 
-    def start_camera_callback(self, req):
-        started = self.camera_launcher.start()
-        return TriggerResponse(started, "Camera started" if started else "Camera is already running!")
+    def build_launchers(self, launch_config):
+        launchers = {}
+        for name, data in launch_config.items():
+            package = data.get("package", "")
+            path = data.get("path", "")
+            on_start = data.get("on_start", False)
+
+            if not package:
+                if not os.path.isfile(path):
+                    raise ValueError("Package is not provided for %s and path is not valid: %s" % (name, path))
+                else:
+                    launch_path = path
+            else:
+                package_dir = self.rospack.get_path(package)
+                launch_dir = package_dir + "/launch"
+
+                launch_path = launch_dir + "/" + path
+            
+            launcher = LaunchManager(launch_path)
+            launchers[name] = launcher
+            if on_start:
+                launcher.start()
+        return launchers
+
+    def build_topic_listeners(self, launch_config):
+        listeners = {}
+        for name, data in launch_config.items():
+            launch_listeners = {}
+            topics = data.get("topics", {})
+            for topic, min_rate in topics.items():
+                listener = TopicListener(topic, min_rate)
+                launch_listeners[topic] = listener
+            listeners[name] = launch_listeners
+        return listeners
+
+    def set_launch_callback(self, req):
+        if req.name not in self.launchers:
+            return SetLaunchResponse(False, "Not a valid launch name: '%s'" % (req.name))
+
+        if req.mode == SetLaunch.MODE_START:
+            self.launchers[req.name].start()
+        elif req.mode == SetLaunch.MODE_STOP:
+            self.launchers[req.name].stop()
+        else:
+            return SetLaunchResponse(False, "Invalid mode '%s' for launch '%s'" % (req.mode, req.name))
+        return SetLaunchResponse(True, "Launched %s" % req.name)
     
-    def stop_camera_callback(self, req):
-        stopped = self.camera_launcher.stop()
-        self.record_launcher.stop()
-        return TriggerResponse(stopped, "Camera stopped" if stopped else "Camera is already stopped!")
-    
-    def start_record_callback(self, req):
-        started = self.record_launcher.start()
-        return TriggerResponse(started, "Recording started" if started else "Recording is already running!")
-    
-    def stop_record_callback(self, req):
-        stopped = self.record_launcher.stop()
-        return TriggerResponse(stopped, "Recording stopped" if stopped else "Recording is already stopped!")
-    
+    def get_launch_callback(self, req):
+        if req.name not in self.launchers:
+            return GetLaunchResponse(False, "Not a valid launch name: '%s'" % (req.name))
+
+        if self.launchers[req.name].is_running():
+            if req.name in self.listeners:
+                listener = self.listeners[req.name]
+                if listener.is_publishing():
+                    return GetLaunchResponse(False,
+                        "Launch %s is running, but not publishing above %s Hz. Publishing at %s Hz" % (
+                            req.name, listener.min_rate, listener.get_rate()
+                        ))
+            return GetLaunchResponse(True, "Launch %s is running")
+        else:
+            return GetLaunchResponse(False, "Launch %s is not running" % req.name)
+
     def run(self):
         rospy.spin()
-        
+    
     def stop_all(self):
-        for launcher in self.launchers:
+        for launcher in self.launchers.values():
             launcher.stop()
 
     def shutdown_hook(self):
         self.stop_all()
+    
 
 
 if __name__ == "__main__":
-    node = DodobotCameraLauncher()
+    node = DodobotLauncher()
     try:
         node.run()
     except rospy.ROSInterruptException:

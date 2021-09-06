@@ -6,10 +6,8 @@
         <arg name="map_name" value="$(arg map_name)"/>
         <arg name="mode" value="localize"/>
     </include>
-    <!-- <include file="$(find db_config)/launch/move_base.launch"/> -->
-    <include file="$(find db_config)/launch/apriltag.launch"/>
+    <include file="$(find db_planning)/launch/db_planning.launch"/>
     <include file="$(find db_waypoints)/launch/db_waypoints.launch"/>
-
-    <!-- <include file="$(find db_planning)/launch/db_planning.launch"/> -->
-
+    <include file="$(find db_launcher)/launch/db_launcher.launch"/>
+    <include file="$(find db_camera)/launch/camera_launcher.launch"/>
 </launch>

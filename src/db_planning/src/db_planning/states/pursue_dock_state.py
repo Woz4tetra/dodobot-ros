@@ -88,6 +88,10 @@ class PursueDockState(BasePursueState):
                 if self.ram_dock():
                     # self.central_planning.set_robot_pose_to_name(self.central_planning.charge_dock_frame)
                     self.central_planning.set_pose_estimate(goal_pose)
+
+                    if self.set_navigation_allowed:
+                        if not self.central_planning.set_navigation_idle():
+                            return "failure"
                     return "success"
                 else:
                     return "failure"

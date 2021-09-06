@@ -1,0 +1,8 @@
+uint8 MODE_START = 1
+uint8 MODE_STOP = 2
+
+string name
+uint8 mode
+---
+bool success
+string message

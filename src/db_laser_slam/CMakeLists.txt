@@ -11,16 +11,22 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_python_setup() # added if there is a setup.py. In this case for the node
 
-# ## Generate messages in the 'msg' folder
+add_service_files(
+    FILES
+    SetSlamMode.srv
+    GetSlamMode.srv
+)
+
+## Generate messages in the 'msg' folder
 # add_message_files(
 #     FILES
 # )
-#
-# ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#     DEPENDENCIES
-#     std_msgs
-# )
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+)
 # add_library(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)
 # add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.py)
 # add_dependencies(${PROJECT_NAME}_node ${PROJECT_NAME}_gencfg)
