@@ -26,7 +26,8 @@ DodobotPowerBoxParsing::DodobotPowerBoxParsing(ros::NodeHandle* nodehandle):nh(*
 
     is_charging_timer = nh.createTimer(ros::Duration(0.25), &DodobotPowerBoxParsing::is_charging_timer_callback, this);
 
-    light_ring_sub = nh.subscribe<std_msgs::Int32>("light_ring", 50, &DodobotPowerBoxParsing::light_ring_callback, this);
+    ring_light_sub = nh.subscribe<std_msgs::ColorRGBA>("ring_light", 50, &DodobotPowerBoxParsing::ring_light_callback, this);
+    color_raw_sub = nh.subscribe<std_msgs::UInt32>("ring_light_raw", 50, &DodobotPowerBoxParsing::color_raw_callback, this);
 
     serial_interface = new DodobotSerial();
 
@@ -64,7 +65,7 @@ void DodobotPowerBoxParsing::loop()
 
 void DodobotPowerBoxParsing::stop()
 {
-    set_ring_pattern(0);
+    set_ring_color(0);
     serial_interface->close();
 }
 
@@ -112,11 +113,12 @@ int DodobotPowerBoxParsing::run()
     return exit_code;
 }
 
-void DodobotPowerBoxParsing::light_ring_callback(const std_msgs::Int32ConstPtr& msg)
-{
-    int pattern_index = msg->data;
-    set_ring_pattern(pattern_index);
-    ROS_INFO("Setting pattern to %d", pattern_index);
+void DodobotPowerBoxParsing::ring_light_callback(const std_msgs::ColorRGBAConstPtr& msg) {
+    set_ring_color(msg->r, msg->g, msg->b, msg->a);
+}
+
+void DodobotPowerBoxParsing::color_raw_callback(const std_msgs::UInt32ConstPtr& msg) {
+    set_ring_color(msg->data);
 }
 
 void DodobotPowerBoxParsing::is_charging_timer_callback(const ros::TimerEvent& event)
@@ -148,6 +150,17 @@ void DodobotPowerBoxParsing::power_packet_callback(float shunt_voltage, float bu
     );
 }
 
-void DodobotPowerBoxParsing::set_ring_pattern(int pattern_index) {
-    serial_interface->write("pix", "d", pattern_index);
+void DodobotPowerBoxParsing::set_ring_color(double r_channel, double g_channel, double b_channel, double a_channel)
+{
+    uint8_t r, g, b, w;
+    r = (uint8_t)(r_channel * 255.0);
+    g = (uint8_t)(g_channel * 255.0);
+    b = (uint8_t)(b_channel * 255.0);
+    w = (uint8_t)(a_channel * 255.0);  // using alpha channel for white led channel
+    uint32_t color = ((uint32_t)w << 24) | ((uint32_t)r << 16) | ((uint32_t)g <<  8) | b;
+    serial_interface->write("pix", "u", color);
+}
+
+void DodobotPowerBoxParsing::set_ring_color(uint32_t color) {
+    serial_interface->write("pix", "u", color);
 }

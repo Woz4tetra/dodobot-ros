@@ -4,7 +4,8 @@
 
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
-#include "std_msgs/Int32.h"
+#include "std_msgs/UInt32.h"
+#include "std_msgs/ColorRGBA.h"
 #include "sensor_msgs/BatteryState.h"
 #include "dodobot_serial.h"
 
@@ -27,7 +28,8 @@ private:
     ros::Publisher battery_pub;
     sensor_msgs::BatteryState battery_msg;
 
-    ros::Subscriber light_ring_sub;
+    ros::Subscriber ring_light_sub;
+    ros::Subscriber color_raw_sub;
 
     ros::Publisher is_charging_pub;
     ros::Timer is_charging_timer;
@@ -41,9 +43,11 @@ private:
 
     void power_packet_callback(float shunt_voltage, float bus_voltage, float current_mA, float power_mW, float load_voltage);
     void is_charging_timer_callback(const ros::TimerEvent& event);
-    void light_ring_callback(const std_msgs::Int32ConstPtr& msg);
+    void ring_light_callback(const std_msgs::ColorRGBAConstPtr& msg);
+    void color_raw_callback(const std_msgs::UInt32ConstPtr& msg);
 
-    void set_ring_pattern(int pattern_index);
+    void set_ring_color(double r_channel, double g_channel, double b_channel, double a_channel);
+    void set_ring_color(uint32_t color);
 public:
     DodobotPowerBoxParsing(ros::NodeHandle* nodehandle);
     int run();
