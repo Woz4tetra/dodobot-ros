@@ -21,10 +21,25 @@ class PursueDockState(BasePursueState):
     
     def ram_dock(self):
         rospy.loginfo("RAMMING DOCK!")
-        self.central_planning.set_twist(0.75, 0.0)
+        start_time = rospy.Time.now()
+        while not self.central_planning.is_charging:
+            self.central_planning.set_twist(0.65, 0.0)
+            rospy.sleep(0.1)
+            if rospy.Time.now() - start_time > rospy.Duration(10.0):
+                break
+        self.central_planning.set_twist(0.4, 0.0)
         rospy.sleep(0.75)
         self.central_planning.set_twist(0.0, 0.0)
-        rospy.sleep(0.5)
+        
+        while self.central_planning.is_robot_moving(time_delay=1.0):
+            pass
+
+        if self.central_planning.is_charging:
+            rospy.loginfo("Successfully docked with charging station")
+            return True
+        else:
+            rospy.logwarn("Failed docked with charging station!!")
+            return False
 
     def run_pursuit(self, goal):
         # wait for robot to settle and for object filter to update
@@ -70,8 +85,12 @@ class PursueDockState(BasePursueState):
             
             state = self.central_planning.get_pursuit_state()
             if state == "success":
-                self.ram_dock()
-                return "success"
+                if self.ram_dock():
+                    # self.central_planning.set_robot_pose_to_name(self.central_planning.charge_dock_frame)
+                    self.central_planning.set_pose_estimate(goal_pose)
+                    return "success"
+                else:
+                    return "failure"
             elif state == "failure" or state == "preempted":
                 return state
 

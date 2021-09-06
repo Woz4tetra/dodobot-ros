@@ -1,6 +1,6 @@
 import rospy
-from db_planning.robot_state import Pose2d
-from db_planning.recursive_namespace import RecursiveNamespace
+from dodobot_tools.robot_state import Pose2d
+from dodobot_tools.recursive_namespace import RecursiveNamespace
 from .drive_towards import DriveTowards
 from .turn_towards import TurnTowards
 from .turn_final import TurnFinal

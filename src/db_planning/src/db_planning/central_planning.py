@@ -17,14 +17,15 @@ import dynamic_reconfigure.client
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 from nav_msgs.srv import GetPlan
 
-from std_srvs.srv import Trigger, TriggerResponse
+from std_srvs.srv import Trigger
 
-import std_msgs.msg
+from std_msgs.msg import Bool
 
 from db_planning.msg import FrontLoaderAction, FrontLoaderGoal, FrontLoaderResult
 from db_planning.msg import GripperAction, GripperGoal, GripperResult
@@ -36,16 +37,18 @@ from db_planning.srv import GrabbingSrv, GrabbingSrvResponse
 
 from db_planning.sequence_state_machine import SequenceStateMachine
 
-from db_planning.robot_state import Pose2d
+from db_parsing.msg import DodobotLinear
 
 from db_parsing.srv import DodobotGetState
+from db_parsing.srv import DodobotSetState
 
 from db_audio.srv import PlayAudio
 from db_audio.srv import StopAudio
 
 from db_waypoints.srv import GetAllWaypoints
 
-from db_planning.helpers import get_msg_properties
+from dodobot_tools.helpers import get_msg_properties
+from dodobot_tools.robot_state import Pose2d
 
 
 class CentralPlanning:
@@ -80,6 +83,9 @@ class CentralPlanning:
 
         self.charge_dock_frame = rospy.get_param("~charge_dock_frame", "charge_dock_target")
 
+        self.set_motor_state_allowed = rospy.get_param("~set_motor_state_allowed", False)
+        self.home_linear_allowed = rospy.get_param("~home_linear_allowed", False)
+
         self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.112)
         self.max_vel_x = rospy.get_param("~max_vel_x", 0.15)
         self.max_vel_theta = rospy.get_param("~max_vel_theta", 1.0)
@@ -102,6 +108,8 @@ class CentralPlanning:
         self.costmap_box_radius = self.costmap_size / 2.0
 
         self.local_costmap_enabled_state = None
+
+        self.is_charging = False
         
         self.default_max_vel = 0.0
         self.default_max_vel_theta = 0.0
@@ -129,6 +137,9 @@ class CentralPlanning:
         # front loader ready service
         self.front_loader_ready_srv = self.make_service_client("front_loader_ready_service", Trigger)
 
+        # linear commands topic (for homing)
+        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=5)
+        
         # pursuit action client
         self.pursuit_client = self.make_action_client(self.pursuit_namespace, ObjectPursuitAction)
         
@@ -161,8 +172,16 @@ class CentralPlanning:
         # direct velocity command topic
         self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
 
+        # is charging topic
+        self.linear_sub = rospy.Subscriber("is_charging", Bool, self.is_charging_callback, queue_size=10)
+
+        self.pose_estimate_pub = rospy.Publisher("/initialpose", PoseWithCovarianceStamped, queue_size=5)
+
         # are robot motors enabled service
         self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
+
+        # set motors enabled service
+        self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
 
         # audio services
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
@@ -203,6 +222,9 @@ class CentralPlanning:
     
     def dyn_local_planner_callback(self, config):
         rospy.logdebug("Local planner config set to %s" % str(config))
+
+    def is_charging_callback(self, msg):
+        self.is_charging = msg.data
 
     def is_gripper_ok(self, goal):
         """
@@ -309,8 +331,39 @@ class CentralPlanning:
             goal_pose = self.offset_with_gripper(goal_pose)
         return goal_pose
     
-    def get_charge_dock_goal(self):
-        return self.get_pose_in_frame(self.map_frame, self.charge_dock_frame)
+    def average_within_std_dev(self, samples, std_dev_threshold):
+        avg = np.average(samples, axis=0)
+        std = np.std(samples, axis=0)
+        std_bounds = std * std_dev_threshold
+        centered = samples - avg
+        out_bounds_indices = []
+        for index in range(len(centered)):
+            centered_sample = centered[index]
+            if not np.all((-std_bounds <= centered_sample) & (centered_sample <= std_bounds)):
+                out_bounds_indices.append(index)
+        culled_samples = np.delete(samples, out_bounds_indices, axis=0)
+        selected_sample = np.average(culled_samples, axis=0)
+        
+        return selected_sample
+    
+    def get_charge_dock_goal(self, std_dev_threshold=1.0, num_samples=10):
+        samples = []
+        for _ in range(num_samples):
+            pose = self.get_pose_in_frame(self.map_frame, self.charge_dock_frame)
+            pose_2d = Pose2d.from_ros_pose(pose.pose)
+            samples.append(pose_2d)
+        samples = Pose2d.to_array(samples)
+        
+        selected_sample = self.average_within_std_dev(samples, std_dev_threshold)
+
+        selected_pose_2d = Pose2d.from_xyt(*selected_sample.tolist())
+        selected_pose_3d = selected_pose_2d.to_ros_pose()
+
+        dock_goal = PoseStamped()
+        dock_goal.header.frame_id = self.map_frame
+        dock_goal.pose = selected_pose_3d
+
+        return dock_goal
 
     def get_goal_pose_with_gripper(self, goal):
         """
@@ -756,6 +809,59 @@ class CentralPlanning:
         self.cancel_pursuit_goal()
         self.set_planner_to_default()
         self.set_linear_z(float("nan"), self.fast_stepper_speed)
+
+    def are_drive_motors_active(self):
+        return self.get_robot_state().active
+
+    def set_drive_motors_active(self, state):
+        if self.set_motor_state_allowed:
+            rospy.loginfo("Setting drive motors to %s" % "active" if state else "inactive")
+            self.set_motor_state(True, bool(state))
+        else:
+            rospy.logwarn("Setting drive motor active is not permitted if set_motor_state_allowed is False")
+
+    def get_linear_stepper_ready_state(self):
+        return self.front_loader_ready_srv()
+
+    def home_linear_stepper(self):
+        if self.home_linear_allowed:
+            rospy.loginfo("Homing linear stepper")
+            msg = DodobotLinear()
+            msg.command_type = 4  # home stepper command
+            msg.max_speed = -1
+            msg.acceleration = -1
+            self.linear_pub.publish(msg)
+        else:
+            rospy.logwarn("Homing the linear stepper is not permitted if home_linear_allowed is False")
+
+
+    def set_pose_estimate(self, pose_stamped, x_std=0.5, y_std=0.5, theta_std_deg=15.0):
+        rospy.loginfo("Setting robot pose estimate to %s" % pose_stamped)
+        pose_cov_stamped = PoseWithCovarianceStamped()
+        pose_cov_stamped.header = pose_stamped.header
+        pose_cov_stamped.pose.pose = pose_stamped.pose
+        theta_std_rad = math.radians(theta_std_deg)
+        pose_cov_stamped.pose.covariance = [
+            x_std * x_std, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, y_std * y_std, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, theta_std_rad * theta_std_rad
+        ]
+
+        self.pose_estimate_pub.publish(pose_cov_stamped)
+
+    def set_robot_pose_to_name(self, name, x_std=0.5, y_std=0.5, theta_std_deg=15.0):
+        rospy.loginfo("Setting robot pose estimate to %s" % name)
+        pose_stamped = self.get_pose_in_frame(self.map_frame, name)
+        self.set_pose_estimate(pose_stamped, x_std, y_std, theta_std_deg)
+    
+    def is_robot_moving(self, distance_threshold_m=0.001, time_delay=0.05):
+        pose1 = Pose2d.from_ros_pose(self.get_robot_pose().pose)
+        rospy.sleep(time_delay)
+        pose2 = Pose2d.from_ros_pose(self.get_robot_pose().pose)
+        return pose1.distance(pose2) > distance_threshold_m
 
     def run(self):
         rospy.spin()

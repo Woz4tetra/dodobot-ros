@@ -2,11 +2,14 @@
     <group ns="dodobot" >
         <node name="db_planning_central"      pkg="db_planning" type="central_planning.py" output="screen" required="true">
             <rosparam file="$(find db_planning)/config/central_planning.yaml" command="load"/>
+            <param name="set_motor_state_allowed" value="true" />
+            <param name="home_linear_allowed" value="true" />
         </node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
         <node name="db_planning_gripper" pkg="db_planning" type="gripper_planning.py" output="screen" required="true"></node>
         <node name="db_planning_pursuit" pkg="db_planning" type="pursuit_planning.py" output="screen" required="true">
             <param name="test_mode" value="false" />
         </node>
+        <node name="db_planning_simple" pkg="db_planning" type="simple_planning.py" output="screen" required="true"></node>
     </group>
 </launch>

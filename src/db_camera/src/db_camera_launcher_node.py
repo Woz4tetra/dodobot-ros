@@ -4,7 +4,7 @@ import rospkg
 
 from std_srvs.srv import Trigger, TriggerResponse
 
-from launch_manager import LaunchManager
+from dodobot_tools.launch_manager import LaunchManager
 
 
 class DodobotCameraLauncher:

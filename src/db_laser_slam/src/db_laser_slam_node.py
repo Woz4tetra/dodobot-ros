@@ -5,7 +5,7 @@ import rospkg
 from datetime import datetime
 from collections import defaultdict
 
-from launch_manager import LaunchManager
+from dodobot_tools.launch_manager import LaunchManager
 
 
 class DodobotLaserSlam:
@@ -47,15 +47,18 @@ class DodobotLaserSlam:
         self.gmapping_launch_path = rospy.get_param("~gmapping_launch", self.default_launches_dir + "/gmapping.launch")
         self.amcl_launch_path = rospy.get_param("~amcl_launch", self.default_launches_dir + "/amcl.launch")
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
+        self.rplidar_launch_path = rospy.get_param("~rplidar_launch", self.default_launches_dir + "/rplidar.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
         self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
         self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
+        self.rplidar_launcher = LaunchManager(self.rplidar_launch_path)
 
         self.launchers = [
             self.gmapping_launcher,
             self.amcl_launcher,
             self.map_saver_launcher,
+            self.rplidar_launcher
         ]
 
         # signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
@@ -69,6 +72,7 @@ class DodobotLaserSlam:
         if self.mode not in self.MODES:
             raise ValueError("Unknown mode '%s'. Valid modes: %s" % (self.mode, ", ".join(self.MODES)))
 
+        self.rplidar_launcher.start()
         if self.mode == self.MAPPING:
             self.gmapping_launcher.start()
         elif self.mode == self.LOCALIZE:
@@ -77,9 +81,8 @@ class DodobotLaserSlam:
         rospy.spin()
         
     def stop_all(self):
-        self.gmapping_launcher.stop()
-        self.amcl_launcher.stop()
-        self.map_saver_launcher.stop()
+        for launcher in self.launchers:
+            launcher.stop()
 
     def shutdown_hook(self):
         try:

@@ -19,7 +19,7 @@ print(spline.spline(0.0, 1))
 print(spline.spline(0.0, 0))
 
 # points = np.array([point for point in spline.iter(500)])
-# goals = np.array([waypoint.tolist() for waypoint in waypoints])
+# goals = np.array([waypoint.to_list() for waypoint in waypoints])
 
 # plt.plot(points[:, 0], points[:, 1])
 # plt.plot(goals[:, 0], goals[:, 1])

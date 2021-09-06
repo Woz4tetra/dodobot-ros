@@ -1,7 +1,7 @@
 import math
 import rospy
 from .pursuit_action import PursuitAction
-from db_planning.robot_state import Pose2d
+from dodobot_tools.robot_state import Pose2d
 
 
 class DriveTowards(PursuitAction):

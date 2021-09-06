@@ -1,6 +1,8 @@
 import math
+import numpy as np
 import tf_conversions
 from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Pose
 
 
 class State:
@@ -138,7 +140,7 @@ class State:
     def get_normalize_theta(self):
         return self.normalize_theta(self.theta)
     
-    def tolist(self, states="xyt"):
+    def to_list(self, states="xyt"):
         output = []
         for state in states:
             if state == "x":
@@ -148,6 +150,17 @@ class State:
             elif state == "t":
                 output.append(self.theta)
         return output
+
+    @classmethod
+    def to_array(cls, poses: list):
+        return np.array([pose.to_list() for pose in poses])
+
+    def to_ros_pose(self):
+        ros_pose = Pose()
+        ros_pose.position.x = self.x
+        ros_pose.position.y = self.y
+        ros_pose.orientation = self.get_theta_as_quat()
+        return ros_pose
 
     def __add__(self, other):
         if not isinstance(other, self.__class__):

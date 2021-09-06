@@ -86,7 +86,7 @@ class State:
         dy = self.y - other.y
         return math.sqrt(dx * dx + dy * dy)
     
-    def tolist(self, states="xyt"):
+    def to_list(self, states="xyt"):
         output = []
         for state in states:
             if state == "x":

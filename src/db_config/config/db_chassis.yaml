@@ -2,10 +2,10 @@
 dictitems:
   kd_A: 0.0
   kd_B: 0.0
-  ki_A: 0.0
-  ki_B: 0.0
-  kp_A: 0.1
-  kp_B: 0.1
+  ki_A: 0.1
+  ki_B: 0.1
+  kp_A: 0.2
+  kp_B: 0.2
   speed_kA: 0.9
   speed_kB: 0.9
 state: []

@@ -14,15 +14,21 @@ class PrecheckState(State):
 
     def execute(self, userdata):
         goal = userdata.sequence_goal
-        result = self.central_planning.get_robot_state()
-        if not result.active:
-            rospy.logwarn("Motors are not active! Cannot start action.")
-            return "failure"
+        if not self.central_planning.are_drive_motors_active():
+            if self.central_planning.set_motor_state_allowed:
+                self.central_planning.set_drive_motors_active(True)
+            else:
+                rospy.logwarn("Motors are not active! Cannot start action.")
+                return "failure"
 
-        result = self.central_planning.front_loader_ready_srv()
-        if not result.success:
-            rospy.logwarn("Front loader is not ready! Cannot start action: %s" % result.message)
-            return "failure"
+        if goal.action != SequenceRequestGoal.UNDOCK:
+            result = self.central_planning.get_linear_stepper_ready_state()
+            if not result.success:
+                if self.central_planning.home_linear_allowed:
+                    self.central_planning.home_linear_stepper()
+                else:
+                    rospy.logwarn("Front loader is not ready! Cannot start action: %s" % result.message)
+                    return "failure"
         
         if goal.action not in self.central_planning.valid_action_types:
             rospy.logwarn("Invalid action type: %s" % goal.action)
@@ -41,10 +47,11 @@ class PrecheckState(State):
             if not self.central_planning.wait_for_gripper():
                 return "failure"
         
-        self.central_planning.set_linear_z_to_transport(goal)
-        if not self.central_planning.wait_for_linear_z():
-            return "failure"
-        
+        if goal.action != SequenceRequestGoal.UNDOCK:
+            self.central_planning.set_linear_z_to_transport(goal)
+            if not self.central_planning.wait_for_linear_z():
+                return "failure"
+            
         if not self.central_planning.does_goal_exist(goal):
             rospy.logwarn("Goal does not exist: %s"  % (
                 goal.pose_stamped if goal.type == SequenceRequestGoal.POSE_GOAL else goal.name

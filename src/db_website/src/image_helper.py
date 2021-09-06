@@ -26,8 +26,11 @@ class ImageHelper(object):
         )
 
         self.max_distance = rospy.get_param("~max_distance", 5.0)
-        self.resize_width = rospy.get_param("~resize_width", None)
-        self.resize_height = rospy.get_param("~resize_height", None)
+        self.color_resize_width = rospy.get_param("~color_resize_width", None)
+        self.color_resize_height = rospy.get_param("~color_resize_height", None)
+        self.depth_resize_width = rospy.get_param("~depth_resize_width", None)
+        self.depth_resize_height = rospy.get_param("~depth_resize_height", None)
+        self.frame_skip = rospy.get_param("~frame_skip", 0)
 
         self.max_distance_mm = int(self.max_distance * 1000.0)
 
@@ -53,15 +56,19 @@ class ImageHelper(object):
             publisher.publish(image_msg)
 
     def color_callback(self, msg):
+        if self.frame_skip > 1 and msg.header.seq % self.frame_skip != 0:
+            return
         try:
             color_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         except CvBridgeError as e:
             rospy.logerr(e)
             return
-        color_image = self.resize(color_image)
+        color_image = self.resize(color_image, self.color_resize_width, self.color_resize_height)
         self.publish_image(self.thumb_color_image_pub, color_image)
 
     def depth_callback(self, msg):
+        if self.frame_skip > 1 and msg.header.seq % self.frame_skip != 0:
+            return
         try:
             depth_image = self.bridge.imgmsg_to_cv2(msg, "passthrough")
         except CvBridgeError as e:
@@ -73,16 +80,16 @@ class ImageHelper(object):
         # normalized = np.uint8(depth_bounded.astype(np.float64) * 255 / np.max(depth_bounded))
         # color_image = cv2.cvtColor(normalized, cv2.COLOR_GRAY2BGR)
         color_image = cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
-        color_image = self.resize(color_image)
+        color_image = self.resize(color_image, self.depth_resize_width, self.depth_resize_height)
         self.publish_image(self.depth_color_image_pub, color_image)
 
-    def resize(self, image):
-        if self.resize_width is not None or self.resize_height is not None:
-            if self.resize_width is None:
-                self.resize_width = image.shape[1]
-            if self.resize_height is None:
-                self.resize_height = image.shape[0]
-            image = cv2.resize(image, (self.resize_width, self.resize_height))
+    def resize(self, image, resize_width, resize_height):
+        if resize_width is not None or resize_height is not None:
+            if resize_width is None:
+                resize_width = image.shape[1]
+            if resize_height is None:
+                resize_height = image.shape[0]
+            image = cv2.resize(image, (resize_width, resize_height))
         return image
 
 if __name__ == "__main__":
