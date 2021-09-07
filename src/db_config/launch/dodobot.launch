@@ -20,11 +20,14 @@
     
     <include file="$(find db_website)/launch/website_helpers.launch"/>
 
+    <!-- <arg name="map_name" default="map-{date}.yaml"/>
+
+    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
+        <arg name="map_name" value="$(arg map_name)"/>
+        <arg name="mode" value="idle"/>
+    </include>
     <include file="$(find db_waypoints)/launch/db_waypoints.launch"/>
     <include file="$(find db_launcher)/launch/db_launcher.launch"/>
     <include file="$(find db_camera)/launch/camera_launcher.launch"/>
-    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
-        <arg name="map_name" value="map-2021-09-01T22-50-03--023582"/>
-        <arg name="mode" value="idle"/>
-    </include>
+     -->
 </launch>

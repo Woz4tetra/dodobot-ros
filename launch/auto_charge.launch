@@ -9,4 +9,5 @@
     <include file="$(find db_waypoints)/launch/db_waypoints.launch"/>
     <include file="$(find db_launcher)/launch/db_launcher.launch"/>
     <include file="$(find db_camera)/launch/camera_launcher.launch"/>
+    
 </launch>

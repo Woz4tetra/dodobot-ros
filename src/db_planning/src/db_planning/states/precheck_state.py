@@ -23,6 +23,9 @@ class PrecheckState(State):
                 rospy.logwarn("Navigation is not active! Cannot start action.")
                 return "failure"
 
+        self.central_planning.toggle_local_costmap(True)
+        self.central_planning.set_planner_to_default()
+
         if not self.central_planning.are_drive_motors_active():
             if self.central_planning.set_motor_state_allowed:
                 self.central_planning.set_drive_motors_active(True)
