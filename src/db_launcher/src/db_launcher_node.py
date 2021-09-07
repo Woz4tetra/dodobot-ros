@@ -21,7 +21,12 @@ class TopicListener:
         return self.get_rate() > self.min_rate
 
     def get_rate(self):
-        return self.rate.get_hz([self.topic])
+        rospy.sleep(1.0)
+        result = self.rate.get_hz(self.topic)
+        if result is None:
+            return 0.0
+        else:
+            return result[0]
 
 class DodobotLauncher:
     def __init__(self):
@@ -85,13 +90,13 @@ class DodobotLauncher:
         if req.name not in self.launchers:
             return SetLaunchResponse(False, "Not a valid launch name: '%s'" % (req.name))
 
-        if req.mode == SetLaunch.MODE_START:
+        if req.mode == 1:  # SetLaunch.MODE_START
             self.launchers[req.name].start()
-        elif req.mode == SetLaunch.MODE_STOP:
+        elif req.mode == 2:  # SetLaunch.MODE_STOP
             self.launchers[req.name].stop()
         else:
             return SetLaunchResponse(False, "Invalid mode '%s' for launch '%s'" % (req.mode, req.name))
-        return SetLaunchResponse(True, "Launched %s" % req.name)
+        return SetLaunchResponse(True, ("Starting" if req.mode == 1 else "Stopping") + " " + str(req.name))
     
     def get_launch_callback(self, req):
         if req.name not in self.launchers:
@@ -99,12 +104,12 @@ class DodobotLauncher:
 
         if self.launchers[req.name].is_running():
             if req.name in self.listeners:
-                listener = self.listeners[req.name]
-                if listener.is_publishing():
-                    return GetLaunchResponse(False,
-                        "Launch %s is running, but not publishing above %s Hz. Publishing at %s Hz" % (
-                            req.name, listener.min_rate, listener.get_rate()
-                        ))
+                for topic, listener in self.listeners[req.name].items():
+                    if listener.is_publishing():
+                        return GetLaunchResponse(False,
+                            "Launch %s is running, but topic '%s' not publishing above %s Hz. Publishing at %s Hz" % (
+                                req.name, topic, listener.min_rate, listener.get_rate()
+                            ))
             return GetLaunchResponse(True, "Launch %s is running")
         else:
             return GetLaunchResponse(False, "Launch %s is not running" % req.name)

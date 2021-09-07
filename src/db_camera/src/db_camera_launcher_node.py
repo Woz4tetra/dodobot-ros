@@ -52,7 +52,12 @@ class DodobotCameraLauncher:
         rospy.loginfo("%s init complete" % self.node_name)
 
     def get_publish_rate(self):
-        return self.camera_topic.get_hz([self.camera_topic])
+        rospy.sleep(1.0)
+        result = self.camera_rate.get_hz(self.camera_topic)
+        if result is None:
+            return 0.0
+        else:
+            return result[0]
 
     def start_camera_callback(self, req):
         started = self.camera_launcher.start()
@@ -61,7 +66,7 @@ class DodobotCameraLauncher:
     def is_camera_running_callback(self, req):
         if self.camera_launcher.is_running():
             rate = self.get_publish_rate()
-            if self.get_publish_rate() > self.min_rate_threshold:
+            if rate > self.min_rate_threshold:
                 return TriggerResponse(True, "Camera is running and publishing at %0.2f Hz" % rate)
             else:
                 return TriggerResponse(False, "Camera is running but not publishing above the threshold: %0.2f" % rate)

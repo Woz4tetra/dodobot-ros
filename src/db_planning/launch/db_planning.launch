@@ -4,6 +4,7 @@
             <rosparam file="$(find db_planning)/config/central_planning.yaml" command="load"/>
             <param name="set_motor_state_allowed" value="true" />
             <param name="home_linear_allowed" value="true" />
+            <param name="set_navigation_allowed" value="true" />
         </node>
         <node name="db_planning_front_loader" pkg="db_planning" type="front_loader_planning.py" output="screen" required="true"></node>
         <node name="db_planning_gripper" pkg="db_planning" type="gripper_planning.py" output="screen" required="true"></node>

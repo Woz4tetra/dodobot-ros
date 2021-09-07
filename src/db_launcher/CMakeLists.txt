@@ -10,6 +10,9 @@ project(db_launcher)
 
 find_package(catkin REQUIRED COMPONENTS
     rospy
+    std_msgs
+    message_generation
+    genmsg
 )
 
 ## System dependencies are found with CMake's conventions
@@ -53,11 +56,11 @@ catkin_python_setup()
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  GetLaunch.srv
+  SetLaunch.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -67,10 +70,10 @@ catkin_python_setup()
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##

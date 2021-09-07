@@ -17,7 +17,8 @@ class BasePursueState(State):
         self.central_planning = central_planning
 
     def exit_callback(self, goal, success):
-        self.central_planning.toggle_local_costmap(True)
+        if self.central_planning.is_move_base_running():
+            self.central_planning.toggle_local_costmap(True)
         self.central_planning.look_straight_ahead()
         if not success:
             self.central_planning.set_linear_z_to_transport(goal)

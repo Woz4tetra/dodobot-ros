@@ -26,6 +26,7 @@ class DodobotLaserSlam:
         self.MAPPING = "mapping"
         self.LOCALIZE = "localize"
         self.IDLE = "idle"
+        self.NONE = "none"
         self.MODES = [
             self.MAPPING,
             self.LOCALIZE,
@@ -38,7 +39,8 @@ class DodobotLaserSlam:
         self.default_launches_dir = self.package_dir + "/launch/sublaunch"
 
         self.service_ns_name = rospy.get_param("~service_ns_name", "/dodobot")
-        self.mode = rospy.get_param("~mode", "mapping")
+        self.start_mode = rospy.get_param("~mode", "mapping")
+        self.mode = self.NONE
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
         self.map_name = rospy.get_param("~map_name", "map-{date}")
         self.date_format = rospy.get_param("~date_format", "%Y-%m-%dT%H-%M-%S--%f")
@@ -52,15 +54,18 @@ class DodobotLaserSlam:
         self.gmapping_launch_path = rospy.get_param("~gmapping_launch", self.default_launches_dir + "/gmapping.launch")
         self.amcl_launch_path = rospy.get_param("~amcl_launch", self.default_launches_dir + "/amcl.launch")
         self.map_saver_launch_path = rospy.get_param("~map_saver_launch", self.default_launches_dir + "/map_saver.launch")
+        self.fake_map_launch_path = rospy.get_param("~fake_map_launch", self.default_launches_dir + "/fake_map.launch")
 
         self.gmapping_launcher = LaunchManager(self.gmapping_launch_path)
         self.amcl_launcher = LaunchManager(self.amcl_launch_path, map_path=self.map_path + ".yaml")
         self.map_saver_launcher = LaunchManager(self.map_saver_launch_path, map_path=self.map_path)
+        self.fake_map_launcher = LaunchManager(self.fake_map_launch_path)
 
         self.launchers = [
             self.gmapping_launcher,
             self.amcl_launcher,
             self.map_saver_launcher,
+            self.fake_map_launcher,
         ]
 
         self.switch_mode_srv = rospy.Service(self.service_ns_name + "/set_slam_mode", SetSlamMode, self.switch_mode_callback)
@@ -75,35 +80,45 @@ class DodobotLaserSlam:
         self.map_name = os.path.basename(self.map_path)
     
     def switch_mode_callback(self, req):
-        try:
-            self.check_mode_valid(self.mode)
-        except ValueError as error:
-            return SetSlamModeResponse(False, str(error))
-        if self.mode == req.mode:
-            return SetSlamModeResponse(True, "Mode is already set to %s" % req.mode)
-
-        self.mode = req.mode
-        if self.mode == self.IDLE:
-            self.shutdown_hook()
+        success, message = self.switch_mode(req.mode, req.map_name)
+        return SetSlamModeResponse(success, message)
+    
+    def switch_mode(self, mode, map_name):
+        rospy.loginfo("Requesting mode switch to '%s'" % mode)
+        if not self.is_mode_valid(mode):
+            return False, "Unknown mode '%s'. Valid modes: %s" % (mode, ", ".join(self.MODES))
         
-        if self.mode == self.LOCALIZE:
+        if self.mode == mode:
+            return True, "Mode is already set to %s" % mode
+
+        if mode == self.IDLE:
+            self.fake_map_launcher.start()
+        else:
+            self.fake_map_launcher.stop()
+        
+        if self.mode == self.MAPPING:  # if mode was mapping, save the map
             self.save_map()
 
-        if req.map_name:
-            self.map_name = req.map_name
+        if map_name:
+            self.map_name = map_name
             self.set_map_paths()
             rospy.loginfo("Setting map path to %s" % self.map_path)
             self.amcl_launcher.set_args(map_path=self.map_path + ".yaml")
             self.map_saver_launcher.set_args(map_path=self.map_path)
 
-        if self.mode == self.LOCALIZE:
+        if mode == self.LOCALIZE:
             self.gmapping_launcher.stop()
             self.amcl_launcher.start()
-        elif self.mode == self.MAPPING:
+        elif mode == self.MAPPING:
             self.gmapping_launcher.start()
             self.amcl_launcher.stop()
+        else:
+            self.gmapping_launcher.stop()
+            self.amcl_launcher.stop()
         
-        return SetSlamModeResponse(True, "Mode is now set to %s" % req.mode)
+        self.mode = mode
+        rospy.loginfo("Mode switched to %s" % self.mode)
+        return True, "Mode is now set to %s" % self.mode
     
     def get_mode_callback(self, req):
         return GetSlamModeResponse(self.mode)
@@ -113,17 +128,11 @@ class DodobotLaserSlam:
         name = name_format.format_map(defaultdict(str, date=date_str))
         return name
     
-    def check_mode_valid(self, mode):
-        if mode not in self.MODES:
-            raise ValueError("Unknown mode '%s'. Valid modes: %s" % (self.mode, ", ".join(self.MODES)))
+    def is_mode_valid(self, mode):
+        return mode in self.MODES
 
     def run(self):
-        self.check_mode_valid(self.mode)
-
-        if self.mode == self.MAPPING:
-            self.gmapping_launcher.start()
-        elif self.mode == self.LOCALIZE:
-            self.amcl_launcher.start()
+        self.switch_mode(self.start_mode, self.map_name)
         
         rospy.spin()
         

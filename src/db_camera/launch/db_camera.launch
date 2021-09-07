@@ -6,8 +6,8 @@
     <arg name="compute_pointcloud" default="true"/>
     <arg name="pointcloud_use_hw" default="false"/>
 
-    <node     if="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense/realsense_hirez_config.yaml" />
-    <node unless="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_config)/config/realsense/realsense_slam_config.yaml" />
+    <node     if="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_camera)/config/realsense_hirez_config.yaml" />
+    <node unless="$(arg hirez_mode)" name="dynamic_reconfigure_load_camera" pkg="dynamic_reconfigure" type="dynparam" args="load /camera/rgb_camera $(find db_camera)/config/realsense_slam_config.yaml" />
 
     <!-- <remap from="/camera/depth/color/points" to="/camera/depth_registered/points" /> -->
 

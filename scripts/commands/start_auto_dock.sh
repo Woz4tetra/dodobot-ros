@@ -16,14 +16,14 @@ else
 fi
 
 tmux select-pane -t "$SESSION:0.0"
-tmux send -t $SESSION "~/dodobot-ros/scripts/commands/start_camera.sh" ENTER
+# tmux send -t $SESSION "~/dodobot-ros/scripts/commands/start_camera.sh" ENTER
 tmux send -t $SESSION "roslaunch ~/dodobot-ros/launch/auto_charge.launch map_name:=map-2021-09-01T22-50-03--023582" ENTER
 
-tmux select-pane -t "$SESSION:0.1"
-tmux send -t $SESSION "roslaunch db_planning db_planning.launch" ENTER
+# tmux select-pane -t "$SESSION:0.1"
+# tmux send -t $SESSION "roslaunch db_planning db_planning.launch" ENTER
 
-tmux select-pane -t "$SESSION:0.2"
-tmux send -t $SESSION "roslaunch db_config move_base.launch" ENTER
+# tmux select-pane -t "$SESSION:0.2"
+# tmux send -t $SESSION "roslaunch db_config move_base.launch" ENTER
 
 tmux select-pane -t "$SESSION:0.3"
 tmux send -t $SESSION "~/dodobot-ros/scripts/commands/dock.sh"

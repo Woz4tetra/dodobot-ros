@@ -16,8 +16,8 @@ class PrecheckState(State):
         goal = userdata.sequence_goal
 
         if not self.central_planning.is_navigation_running():
-            if self.set_navigation_allowed:
-                if not self.set_navigation_active():
+            if self.central_planning.set_navigation_allowed:
+                if not self.central_planning.set_navigation_active():
                     return "failure"
             else:
                 rospy.logwarn("Navigation is not active! Cannot start action.")

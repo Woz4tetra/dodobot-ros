@@ -1,6 +1,6 @@
-string MAPPING = "mapping"
-string LOCALIZE = "localize"
-string IDLE = "idle"
+string MAPPING=mapping
+string LOCALIZE=localize
+string IDLE=idle
 
 string mode
 string map_name

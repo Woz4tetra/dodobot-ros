@@ -1,21 +1,20 @@
-launches:
-  april_tags:
-    package: "db_config"
-    path: "apriltag.launch"
-    topics:
-      /tag_detections: 1.0
-    on_start: false
-  move_base:
-    package: "db_config"
-    path: "move_base.launch"
-    on_start: false
-  db_planning:
-    package: "db_planning"
-    path: "db_planning.launch"
-    on_start: true
-  rplidar:
-    package: "db_config"
-    path: "rplidar.launch"
-    on_start: false
-    topics:
-      /laser/scan_filtered: 2.0
+april_tags:
+  package: "db_config"
+  path: "apriltag.launch"
+  # topics:
+  #   /tag_detections: 1.0
+  on_start: false
+move_base:
+  package: "db_config"
+  path: "move_base.launch"
+  on_start: true
+db_planning:
+  package: "db_planning"
+  path: "db_planning.launch"
+  on_start: true
+rplidar:
+  package: "db_config"
+  path: "rplidar.launch"
+  on_start: false
+  topics:
+    /laser/scan_filtered: 2.0

@@ -42,8 +42,8 @@ from db_parsing.msg import DodobotLinear
 from db_parsing.srv import DodobotGetState
 from db_parsing.srv import DodobotSetState
 
-from db_audio.srv import PlayAudio
-from db_audio.srv import StopAudio
+# from db_audio.srv import PlayAudio
+# from db_audio.srv import StopAudio
 
 from db_waypoints.srv import GetAllWaypoints
 
@@ -116,7 +116,7 @@ class CentralPlanning:
 
         self.local_costmap_enabled_state = None
 
-        self.is_charging = False
+        self.is_charging = None
         
         self.default_max_vel = 0.0
         self.default_max_vel_theta = 0.0
@@ -134,6 +134,15 @@ class CentralPlanning:
         self.valid_goal_types = SequenceRequestGoal.NAMED_GOAL, SequenceRequestGoal.POSE_GOAL
 
         self.sequence_sm = SequenceStateMachine(self)
+
+        # are robot motors enabled service
+        self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
+
+        # set motors enabled service
+        self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
+
+        if self.set_motor_state_allowed:
+            self.set_drive_motors_active(True)
 
         # front loader action client
         self.front_loader_action = self.make_action_client(self.front_loader_action_name, FrontLoaderAction)
@@ -154,10 +163,10 @@ class CentralPlanning:
         self.gripper_grabbing_srv = self.make_service_client("gripper_grabbing_service", GrabbingSrv)
 
         # move_base action client
-        self.move_action_client = self.make_action_client(self.move_base_namespace, MoveBaseAction)
+        self.move_action_client = self.make_action_client(self.move_base_namespace, MoveBaseAction, wait=False)
         
         # move_base make_plan service
-        self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan)
+        self.make_plan_srv = self.make_service_client(self.move_base_namespace + "/make_plan", GetPlan, wait=False)
         
         # get all waypoints service
         self.get_all_waypoints_srv = self.make_service_client("db_waypoints/get_all_waypoints", GetAllWaypoints)
@@ -197,30 +206,29 @@ class CentralPlanning:
 
         self.pose_estimate_pub = rospy.Publisher("/initialpose", PoseWithCovarianceStamped, queue_size=5)
 
-        # are robot motors enabled service
-        self.get_robot_state = self.make_service_client("get_state", DodobotGetState)
-
-        # set motors enabled service
-        self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
-
         # audio services
-        self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
-        self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
+        # self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
+        # self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
         # central_planning sequence action server
         self.sequence_sm.run_server()
         rospy.loginfo("[%s] Dodobot sequence server started" % self.node_name)
 
+        while self.is_charging is None:
+            rospy.sleep(0.1)
+        rospy.loginfo("Charging signal received")
+
         rospy.loginfo("[%s] --- Dodobot central planning is up! ---" % self.node_name)
     
-    def make_action_client(self, name, action):
+    def make_action_client(self, name, action, wait=True):
         """
         Create an actionlib client and wait for the server to connect
         """
         action = actionlib.SimpleActionClient(name, action)
-        rospy.loginfo("Waiting for action server %s" % name)
-        action.wait_for_server()
-        rospy.loginfo("[%s] %s action server connected" % (self.node_name, name))
+        if wait:
+            rospy.loginfo("Waiting for action server %s" % name)
+            action.wait_for_server()
+            rospy.loginfo("[%s] %s action server connected" % (self.node_name, name))
         return action
     
     def make_service_client(self, name, srv_type, timeout=None, wait=True):
@@ -820,14 +828,18 @@ class CentralPlanning:
             if state == "success" or state == "failure" or state == "preempted":
                 return state
 
+    def is_move_base_running(self):
+        return self.get_launch_srv("move_base").is_running
+
     def cancel_pursuit_goal(self):
         self.pursuit_client.cancel_all_goals()
     
     def cancel(self):
-        self.toggle_local_costmap(True)
-        self.cancel_move_base()
+        if self.is_move_base_running():
+            self.toggle_local_costmap(True)
+            self.cancel_move_base()
+            self.set_planner_to_default()
         self.cancel_pursuit_goal()
-        self.set_planner_to_default()
         self.set_linear_z(float("nan"), self.fast_stepper_speed)
 
     def are_drive_motors_active(self):
@@ -836,7 +848,7 @@ class CentralPlanning:
     def set_drive_motors_active(self, state):
         if self.set_motor_state_allowed:
             rospy.loginfo("Setting drive motors to %s" % "active" if state else "inactive")
-            self.set_motor_state(True, bool(state))
+            self.set_robot_state(True, bool(state))
         else:
             rospy.logwarn("Setting drive motor active is not permitted if set_motor_state_allowed is False")
 
@@ -883,35 +895,39 @@ class CentralPlanning:
         return pose1.distance(pose2) > distance_threshold_m
 
     def set_navigation_active(self):
-        if not self.central_planning.start_navigation_launches():
+        if not self.start_navigation_launches():
             rospy.logwarn("Navigation failed to start!")
             return False
 
         rospy.loginfo("Waiting for launches to start")
-        if not self.central_planning.wait_for_navigation_launches_to_start():
+        if not self.wait_for_navigation_launches_to_start():
             rospy.logwarn("Timedout while waiting for navigation to start")
             return False
 
         rospy.loginfo("All launches started!")
 
-        if self.central_planning.is_charging:
+        if self.is_charging:
             rospy.loginfo("Detected that robot is charging. Setting location to dock")
-            self.central_planning.set_robot_pose_to_name("dock")
+            self.set_robot_pose_to_name("dock")
         
         return True
     
     def set_navigation_idle(self):
         rospy.loginfo("Successfully docked. Shutting down navigation launches")
-        if not self.central_planning.stop_navigation_launches():
+        if not self.stop_navigation_launches():
             rospy.logwarn("Navigation failed to stop!")
             return False
 
         rospy.loginfo("Waiting for launches to stop")
-        if not self.central_planning.wait_for_navigation_launches_to_sop():
+        if not self.wait_for_navigation_launches_to_stop():
             rospy.logwarn("Timedout while waiting for navigation to stop")
             return False
             
         rospy.loginfo("All launches stopped!")
+
+        if self.set_motor_state_allowed:
+            self.set_drive_motors_active(False)
+            rospy.loginfo("Deactivating drive motors")
         return True
 
     def is_navigation_running(self):
@@ -919,7 +935,7 @@ class CentralPlanning:
             rospy.loginfo("Camera is not running")
             return False
 
-        if self.get_slam_mode_srv().mode == GetSlamMode.IDLE:
+        if self.get_slam_mode_srv().mode == "idle":
             rospy.loginfo("SLAM is not running")
             return False
 
@@ -930,7 +946,7 @@ class CentralPlanning:
         
         return True
 
-    def start_navigation_launches(self, map_name="map-{date}", slam_mode=SetSlamMode.LOCALIZE):
+    def start_navigation_launches(self, slam_mode="localize", map_name=""):
         if not self.set_navigation_allowed:
             rospy.logerr("Setting navigation is not permitted if set_navigation_allowed is False")
             return False
@@ -942,14 +958,14 @@ class CentralPlanning:
             return False
         rospy.loginfo("Camera launch started")
         
-        result = self.set_slam_mode_srv(map_name, slam_mode)
+        result = self.set_slam_mode_srv(slam_mode, map_name)
         if not result.success:
             rospy.logerr(result.message)
             return False
         rospy.loginfo("SLAM launch started")
         
         for launch_name in ("rplidar", "april_tags", "move_base"):
-            result = self.set_launch_srv(launch_name, SetLaunch.START)
+            result = self.set_launch_srv(launch_name, 1)  # SetLaunch.MODE_START
             if not result.success:
                 rospy.logerr(result.message)
                 return False
@@ -967,13 +983,13 @@ class CentralPlanning:
             rospy.logerr(result.message)
             return False
         
-        result = self.set_slam_mode_srv("", SetSlamMode.IDLE)
+        result = self.set_slam_mode_srv("idle", "")
         if not result.success:
             rospy.logerr(result.message)
             return False
         
         for launch_name in ("rplidar", "april_tags", "move_base"):
-            result = self.set_launch_srv(launch_name, SetLaunch.STOP)
+            result = self.set_launch_srv(launch_name, 2)  # SetLaunch.MODE_STOP
             if not result.success:
                 rospy.logerr(result.message)
                 return False
@@ -1015,6 +1031,10 @@ class CentralPlanning:
         return True
     
     def run(self):
+        if not self.is_charging and not self.is_navigation_running():
+            if self.set_navigation_allowed:
+                self.set_navigation_active()
+
         rospy.spin()
     
     def test_linear(self):
