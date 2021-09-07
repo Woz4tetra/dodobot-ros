@@ -720,7 +720,10 @@ class CentralPlanning:
         self.local_planner_dyn_client.update_configuration(config)
     
     def set_planner_to_default(self):
-        self.local_planner_dyn_client.update_configuration(self.local_planner_start_config)
+        try:
+            self.local_planner_dyn_client.update_configuration(self.local_planner_start_config)
+        except dynamic_reconfigure.DynamicReconfigureCallbackException as e:
+            rospy.logerr(e)
 
     def cancel_move_base(self):
         self.move_action_client.cancel_all_goals()
