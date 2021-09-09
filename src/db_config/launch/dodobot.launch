@@ -2,7 +2,6 @@
 <launch>
     <arg name="db_chassis_publish_odom_tf" default="true"/>
 
-    <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_config)/config/db_chassis.yaml" />
     <include file="$(find db_chassis)/launch/db_chassis.launch">
         <arg name="db_chassis_publish_odom_tf" value="$(arg db_chassis_publish_odom_tf)"/>
     </include>

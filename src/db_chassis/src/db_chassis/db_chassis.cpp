@@ -62,6 +62,17 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     ros::param::param<string>("~linear_frame", linear_frame, "linear_link");
     ros::param::param<string>("~linear_base_frame", linear_base_frame, "linear_base_link");
 
+    // PID parameters
+    ros::param::param<double>("~kP_A", kP_A_default, 0.1);
+    ros::param::param<double>("~kP_B", kP_B_default, 0.1);
+    ros::param::param<double>("~kI_A", kI_A_default, 0.0);
+    ros::param::param<double>("~kI_B", kI_B_default, 0.0);
+    ros::param::param<double>("~kD_A", kD_A_default, 0.0);
+    ros::param::param<double>("~kD_B", kD_B_default, 0.0);
+    ros::param::param<double>("~kA_speed", kA_speed_default, 0.9);
+    ros::param::param<double>("~kB_speed", kB_speed_default, 0.9);
+    
+
     // Odometry conversions
     wheel_radius_m = wheel_radius_mm / 1000.0;
     wheel_distance_m = wheel_distance_mm / 1000.0;
@@ -196,7 +207,7 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
 
 void DodobotChassis::setup()
 {
-
+    set_pid(kP_A_default, kI_A_default, kD_A_default, kP_B_default, kI_B_default, kD_B_default, kA_speed_default, kB_speed_default);
 }
 
 void DodobotChassis::loop()
@@ -249,15 +260,20 @@ void DodobotChassis::dynamic_callback(db_chassis::DodobotChassisConfig &config, 
     //     first_time_pid_setup = true;
     //     return;
     // }
+    set_pid(config.kp_A, config.ki_A, config.kd_A, config.kp_B, config.ki_B, config.kd_B, config.speed_kA, config.speed_kB);
+}
+
+void DodobotChassis::set_pid(double kP_A, double kP_B, double kI_A, double kI_B, double kD_A, double kD_B, double speed_kA, double speed_kB)
+{
     db_parsing::DodobotPidSrv srv;
-    srv.request.kp_A = config.kp_A;
-    srv.request.ki_A = config.ki_A;
-    srv.request.kd_A = config.kd_A;
-    srv.request.kp_B = config.kp_B;
-    srv.request.ki_B = config.ki_B;
-    srv.request.kd_B = config.kd_B;
-    srv.request.speed_kA = config.speed_kA;
-    srv.request.speed_kB = config.speed_kB;
+    srv.request.kp_A = kP_A;
+    srv.request.ki_A = kI_A;
+    srv.request.kd_A = kD_A;
+    srv.request.kp_B = kP_B;
+    srv.request.ki_B = kI_B;
+    srv.request.kd_B = kD_B;
+    srv.request.speed_kA = speed_kA;
+    srv.request.speed_kB = speed_kB;
 
     set_pid_srv.call(srv);
 }

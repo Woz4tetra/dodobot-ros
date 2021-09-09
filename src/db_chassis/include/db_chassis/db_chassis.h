@@ -119,6 +119,11 @@ private:
     string linear_frame;
     string linear_base_frame;
 
+    double kP_A_default, kP_B_default;
+    double kI_A_default, kI_B_default;
+    double kD_A_default, kD_B_default;
+    double kA_speed_default, kB_speed_default;
+
     // converted variables
     double wheel_radius_m;
     double m_to_tick_factor;
@@ -210,6 +215,7 @@ private:
     ros::ServiceClient set_pid_srv;
     string pid_service_name;
     bool first_time_pid_setup;
+    void set_pid(double kP_A, double kP_B, double kI_A, double kI_B, double kD_A, double kD_B, double speed_kA, double speed_kB);
 
     void setup();
     void loop();
