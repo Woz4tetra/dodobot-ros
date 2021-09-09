@@ -902,11 +902,6 @@ class CentralPlanning:
             rospy.logwarn("Navigation failed to start!")
             return False
 
-        rospy.loginfo("Waiting for launches to start")
-        if not self.wait_for_navigation_launches_to_start():
-            rospy.logwarn("Timedout while waiting for navigation to start")
-            return False
-
         rospy.loginfo("All launches started!")
 
         if self.is_charging:
@@ -938,7 +933,8 @@ class CentralPlanning:
             rospy.loginfo("Camera is not running")
             return False
 
-        if self.get_slam_mode_srv().mode == "idle":
+        result = self.get_slam_mode_srv()
+        if result.mode == "idle" or not result.is_publishing:
             rospy.loginfo("SLAM is not running")
             return False
 
@@ -949,31 +945,82 @@ class CentralPlanning:
         
         return True
 
-    def start_navigation_launches(self, slam_mode="localize", map_name=""):
-        if not self.set_navigation_allowed:
-            rospy.logerr("Setting navigation is not permitted if set_navigation_allowed is False")
-            return False
-        rospy.loginfo("Starting navigation launches")
+    def has_timed_out(self, start_wait_time, timeout_s):
+        return rospy.Time.now() - start_wait_time > rospy.Duration(timeout_s)
 
+    def start_camera(self, timeout_s):
         result = self.start_camera_srv()
         if not result.success:
             rospy.logerr(result.message)
             return False
         rospy.loginfo("Camera launch started")
         
+        start_wait_time = rospy.Time.now()
+        while not self.is_camera_running_srv().success:
+            rospy.sleep(0.5)
+            if self.has_timed_out(start_wait_time, timeout_s):
+                rospy.logerr("Timed out while waiting for camera to start!")
+                return False
+        rospy.loginfo("Camera launch is running")
+        
+        return True
+
+    def start_slam(self, slam_mode, map_name, timeout_s):
         result = self.set_slam_mode_srv(slam_mode, map_name)
         if not result.success:
             rospy.logerr(result.message)
             return False
         rospy.loginfo("SLAM launch started")
+        start_wait_time = rospy.Time.now()
+        while True:
+            result = self.get_slam_mode_srv()
+            if result.mode != "idle" and result.is_publishing:
+                break
+            
+            rospy.sleep(0.5)
+            if self.has_timed_out(start_wait_time, timeout_s):
+                rospy.logerr("Timed out while waiting for SLAM to start!")
+                return False
+        rospy.loginfo("SLAM is running")
         
-        for launch_name in ("rplidar", "april_tags", "move_base"):
+        return True
+
+    def start_launchers(self, names, timeout_s):
+        for launch_name in names:
             result = self.set_launch_srv(launch_name, 1)  # SetLaunch.MODE_START
             if not result.success:
                 rospy.logerr(result.message)
                 return False
             rospy.loginfo("%s launch started" % launch_name)
 
+        # wait for launches to start
+        start_wait_time = rospy.Time.now()
+        
+        for launch_name in names:
+            while not self.get_launch_srv(launch_name).is_running:
+                rospy.sleep(0.5)
+                if self.has_timed_out(start_wait_time, timeout_s):
+                    rospy.logerr("Timed out while waiting for launches (%s) to start!" % str(names))
+                    return False
+        rospy.loginfo("Launches are running: %s" % str(names))
+
+        return True
+
+    def start_navigation_launches(self, slam_mode="localize", map_name="", timeout_s=30.0):
+        if not self.set_navigation_allowed:
+            rospy.logerr("Setting navigation is not permitted if set_navigation_allowed is False")
+            return False
+        rospy.loginfo("Starting navigation launches")
+
+        if not self.start_camera(timeout_s):
+            return False
+        if not self.start_launchers(("rplidar", "april_tags"), timeout_s):
+            return False
+        if not self.start_slam(slam_mode, map_name, timeout_s):
+            return False
+        if not self.start_launchers(("move_base",), timeout_s):
+            return False
+        
         return True
 
     def stop_navigation_launches(self):
@@ -999,24 +1046,7 @@ class CentralPlanning:
 
         return True
     
-    def wait_for_navigation_launches_to_start(self, timeout_s=120.0):
-        start_wait_time = rospy.Time.now()
-        def has_timedout():
-            return rospy.Time.now() - start_wait_time > rospy.Duration(timeout_s)
-
-        while not self.is_camera_running_srv().success:
-            rospy.sleep(0.1)
-            if has_timedout():
-                return False
-        for launch_name in ("rplidar", "april_tags", "move_base"):
-            while not self.get_launch_srv(launch_name).is_running:
-                rospy.sleep(0.1)
-                if has_timedout():
-                    return False
-        
-        return True
-    
-    def wait_for_navigation_launches_to_stop(self, timeout_s=120.0):
+    def wait_for_navigation_launches_to_stop(self, timeout_s=60.0):
         start_wait_time = rospy.Time.now()
         def has_timedout():
             return rospy.Time.now() - start_wait_time > rospy.Duration(timeout_s)

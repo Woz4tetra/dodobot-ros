@@ -4,13 +4,13 @@
 
     <arg name="image_throttle_rate" default="1.0"/>
 
-    <!-- <node type="throttle" name="image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <!-- <node type="throttle" name="image_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages /camera/color/image_raw $(arg image_throttle_rate) /camera/color/image_raw_throttled"/> -->
-    <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages /camera/aligned_depth_to_color/image_raw $(arg image_throttle_rate) /camera/aligned_depth_to_color/image_raw_throttled"/>
-    <!-- <node type="throttle" name="image_info_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <!-- <node type="throttle" name="image_info_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages /camera/color/camera_info $(arg image_throttle_rate) /camera/color/camera_info_throttled"/> -->
-    <!-- <node type="throttle" name="depth_info_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <!-- <node type="throttle" name="depth_info_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages /camera/depth/camera_info $(arg image_throttle_rate) /camera/depth/camera_info_throttled"/> -->
 
     <!-- <node pkg="rosbag" type="record" name="rosbag_record_image"
@@ -21,7 +21,7 @@
             /camera/depth/camera_info_throttled
             " /> -->
 
-    <node name="image_logger" pkg="image_logger" type="image_logger.py" output="screen" required="true">
+    <node name="image_logger" pkg="image_logger" type="image_logger.py" output="log" required="true">
         <!-- <param name="image_topic" value="/camera/color/image_raw_throttled"/> -->
         <param name="image_topic" value="/camera/aligned_depth_to_color/image_raw_throttled"/>
         <param name="keyboard_topic" value="/keys"/>

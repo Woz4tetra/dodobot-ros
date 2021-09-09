@@ -1,13 +1,15 @@
 april_tags:
   package: "db_config"
   path: "apriltag.launch"
-  # topics:
-  #   /tag_detections: 1.0
+  topics:
+    /tag_detections: None
   on_start: false
 move_base:
   package: "db_config"
   path: "move_base.launch"
   on_start: true
+  topics:
+    /move_base: None
 db_planning:
   package: "db_planning"
   path: "db_planning.launch"

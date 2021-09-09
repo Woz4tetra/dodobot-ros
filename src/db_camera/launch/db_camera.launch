@@ -19,10 +19,10 @@
         <!-- <arg name="depth_topic_throttle_rate" default="15.0"/>
         <arg name="depth_topic" value="depth/image_rect_raw_throttle"/>
         <node if="$(eval depth_registered_processing and sw_registered_processing)"
-            type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="screen"
+            type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="log"
             args="messages depth/image_rect_raw $(arg depth_topic_throttle_rate) $(arg depth_topic)"/> -->
 
-        <node pkg="nodelet" type="nodelet" args="manager" name="$(arg post_processing_manager_name)" output="screen"/>
+        <node pkg="nodelet" type="nodelet" args="manager" name="$(arg post_processing_manager_name)" output="log"/>
 
         <node if="$(eval compute_pointcloud and not pointcloud_use_hw)" pkg="nodelet" type="nodelet" name="downsample_rgb"
                 args="load image_proc/crop_decimate $(arg post_processing_manager_name)">

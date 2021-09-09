@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="log">
         <remap from="/cmd_vel" to="/dodobot/cmd_vel"/>
         <remap from="/odom" to="/dodobot/odom"/>
         <rosparam file="$(find db_config)/config/move_base/move_base_global_params.yaml" command="load"/>
@@ -17,7 +17,7 @@
         <rosparam file="$(find db_config)/config/move_base/costmap_global_params.yaml" command="load" ns="global_costmap"/>
     </node>
 
-    <node name="standalone_converter" pkg="costmap_converter" type="standalone_converter" output="screen">
+    <node name="standalone_converter" pkg="costmap_converter" type="standalone_converter" output="log">
         <param name="converter_plugin" value="costmap_converter::CostmapToDynamicObstacles" />
         <param name="costmap_topic" value="/move_base/local_costmap/costmap" />
         <param name="odom_topic" value="/dodobot/odom" />

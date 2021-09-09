@@ -45,7 +45,7 @@ class DodobotCameraLauncher:
         self.stop_record_srv = rospy.Service(self.service_ns_name + "/stop_record", Trigger, self.stop_record_callback)
         self.is_camera_running_srv = rospy.Service(self.service_ns_name + "/is_camera_running", Trigger, self.is_camera_running_callback)
 
-        self.camera_rate = rostopic.ROSTopicHz(-1)
+        self.camera_rate = rostopic.ROSTopicHz(15)
         self.camera_topic = "/camera/color/image_raw"
         rospy.Subscriber(self.camera_topic, rospy.AnyMsg, self.camera_rate.callback_hz, callback_args=self.camera_topic, queue_size=1)
 
@@ -61,7 +61,7 @@ class DodobotCameraLauncher:
 
     def start_camera_callback(self, req):
         started = self.camera_launcher.start()
-        return TriggerResponse(started, "Camera started" if started else "Camera is already running!")
+        return TriggerResponse(True, "Camera started" if started else "Camera is already running!")
     
     def is_camera_running_callback(self, req):
         if self.camera_launcher.is_running():
@@ -76,18 +76,21 @@ class DodobotCameraLauncher:
     def stop_camera_callback(self, req):
         stopped = self.camera_launcher.stop()
         self.record_launcher.stop()
-        return TriggerResponse(stopped, "Camera stopped" if stopped else "Camera is already stopped!")
+        return TriggerResponse(True, "Camera stopped" if stopped else "Camera is already stopped!")
     
     def start_record_callback(self, req):
         started = self.record_launcher.start()
-        return TriggerResponse(started, "Recording started" if started else "Recording is already running!")
+        return TriggerResponse(True, "Recording started" if started else "Recording is already running!")
     
     def is_camera_recording_callback(self, req):
-        TriggerResponse()
+        if self.record_launcher.is_running():
+            return TriggerResponse(True, "Camera is recording")
+        else:
+            return TriggerResponse(False, "Camera is not recording")
 
     def stop_record_callback(self, req):
         stopped = self.record_launcher.stop()
-        return TriggerResponse(stopped, "Recording stopped" if stopped else "Recording is already stopped!")
+        return TriggerResponse(True, "Recording stopped" if stopped else "Recording is already stopped!")
     
     def run(self):
         rospy.spin()

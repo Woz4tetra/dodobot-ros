@@ -2,6 +2,7 @@
 import os
 import rospy
 import rospkg
+import rostopic
 from datetime import datetime
 from collections import defaultdict
 
@@ -40,6 +41,9 @@ class DodobotLaserSlam:
 
         self.service_ns_name = rospy.get_param("~service_ns_name", "/dodobot")
         self.start_mode = rospy.get_param("~mode", "mapping")
+        self.min_localize_rate_threshold = rospy.get_param("~min_localize_rate_threshold", 1.0)
+        self.min_mapping_rate_threshold = rospy.get_param("~min_mapping_rate_threshold", 1.0)
+        
         self.mode = self.NONE
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
         self.map_name = rospy.get_param("~map_name", "map-{date}")
@@ -71,8 +75,39 @@ class DodobotLaserSlam:
         self.switch_mode_srv = rospy.Service(self.service_ns_name + "/set_slam_mode", SetSlamMode, self.switch_mode_callback)
         self.get_mode_srv = rospy.Service(self.service_ns_name + "/get_slam_mode", GetSlamMode, self.get_mode_callback)
 
+        # self.localize_rate = rostopic.ROSTopicHz(15)
+        self.localize_topic = "/amcl_pose"
+        # rospy.Subscriber(self.localize_topic, rospy.AnyMsg, self.localize_rate.callback_hz, callback_args=self.localize_topic, queue_size=1)
+
+        # self.map_rate = rostopic.ROSTopicHz(15)
+        self.map_topic = "/map"
+        # rospy.Subscriber(self.map_topic, rospy.AnyMsg, self.map_rate.callback_hz, callback_args=self.map_topic, queue_size=1)
+
         # signal.signal(signal.SIGINT, lambda sig, frame: self.signal_handler(sig, frame))
     
+    def get_publish_rate(self, rate_obj, topic):
+        result = rate_obj.get_hz(topic)
+        if result is None:
+            return 0.0
+        else:
+            return result[0]
+
+    def topic_exists(self, check_topic):
+        for topic, msg_type in rospy.get_published_topics():
+            if check_topic in topic:
+                return True
+        return False
+
+    def is_publishing(self):
+        if self.mode == self.LOCALIZE:
+            # return self.get_publish_rate(self.localize_rate, self.localize_topic) > self.min_localize_rate_threshold
+            return self.topic_exists(self.localize_topic)
+        elif self.mode == self.MAPPING:
+            # return self.get_publish_rate(self.map_rate, self.map_topic) > self.min_mapping_rate_threshold
+            return self.topic_exists(self.map_topic)
+        else:
+            return True
+
     def set_map_paths(self):
         map_name = self.generate_map_name(self.map_name)
         self.map_path = os.path.join(self.map_dir, map_name)
@@ -121,7 +156,7 @@ class DodobotLaserSlam:
         return True, "Mode is now set to %s" % self.mode
     
     def get_mode_callback(self, req):
-        return GetSlamModeResponse(self.mode)
+        return GetSlamModeResponse(self.mode, self.is_publishing())
 
     def generate_map_name(self, name_format):
         date_str = datetime.now().strftime(self.date_format)

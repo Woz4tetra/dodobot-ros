@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="dodobot" >
-        <node name="db_object_filter" pkg="db_object_filter" type="db_object_filter_node.py" output="screen">
+        <node name="db_object_filter" pkg="db_object_filter" type="db_object_filter_node.py" output="log">
             <rosparam param="class_labels" file="$(find db_detectnet)/config/labels.yaml" command="load"/>
             <rosparam file="$(find db_object_filter)/config/object_filter.yaml" command="load"/>
         </node>

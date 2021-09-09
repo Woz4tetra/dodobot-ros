@@ -15,6 +15,13 @@ class PrecheckState(State):
     def execute(self, userdata):
         goal = userdata.sequence_goal
 
+        if not self.central_planning.are_drive_motors_active():
+            if self.central_planning.set_motor_state_allowed:
+                self.central_planning.set_drive_motors_active(True)
+            else:
+                rospy.logwarn("Motors are not active! Cannot start action.")
+                return "failure"
+                
         if not self.central_planning.is_navigation_running():
             if self.central_planning.set_navigation_allowed:
                 if not self.central_planning.set_navigation_active():
@@ -25,13 +32,6 @@ class PrecheckState(State):
 
         self.central_planning.toggle_local_costmap(True)
         self.central_planning.set_planner_to_default()
-
-        if not self.central_planning.are_drive_motors_active():
-            if self.central_planning.set_motor_state_allowed:
-                self.central_planning.set_drive_motors_active(True)
-            else:
-                rospy.logwarn("Motors are not active! Cannot start action.")
-                return "failure"
 
         if goal.action != SequenceRequestGoal.UNDOCK:
             result = self.central_planning.get_linear_stepper_ready_state()

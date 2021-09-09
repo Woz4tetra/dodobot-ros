@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <node pkg="db_launcher" type="db_launcher_node.py" name="db_launcher" output="screen">
+    <node pkg="db_launcher" type="db_launcher_node.py" name="db_launcher" output="log">
         <rosparam param="launches" file="$(find db_launcher)/config/launcher.yaml" command="load"/>
     </node>
 </launch>

@@ -14,11 +14,22 @@ class TopicListener:
     def __init__(self, topic: str, min_rate: float):
         self.topic = topic
         self.min_rate = min_rate
-        self.rate = rostopic.ROSTopicHz(-1)
+        self.rate = rostopic.ROSTopicHz(15)
         self.subscriber = rospy.Subscriber(self.topic, rospy.AnyMsg, self.rate.callback_hz, callback_args=self.topic)
     
-    def is_publishing(self):
-        return self.get_rate() > self.min_rate
+    def topic_exists(self):
+        for topic, msg_type in rospy.get_published_topics():
+            if self.topic in topic:
+                return True
+        return False
+
+    def is_active(self):
+        if not self.topic_exists():
+            return False
+        if self.min_rate is None:
+            return True
+        else:
+            return self.get_rate() > self.min_rate
 
     def get_rate(self):
         rospy.sleep(1.0)
@@ -105,7 +116,7 @@ class DodobotLauncher:
         if self.launchers[req.name].is_running():
             if req.name in self.listeners:
                 for topic, listener in self.listeners[req.name].items():
-                    if listener.is_publishing():
+                    if listener.is_active():
                         return GetLaunchResponse(False,
                             "Launch %s is running, but topic '%s' not publishing above %s Hz. Publishing at %s Hz" % (
                                 req.name, topic, listener.min_rate, listener.get_rate()

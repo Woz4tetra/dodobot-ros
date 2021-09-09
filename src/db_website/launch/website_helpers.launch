@@ -1,5 +1,5 @@
 <launch>
-    <node name="visualization_image_helpers" pkg="db_website" type="image_helper.py" output="screen" required="false">
+    <node name="visualization_image_helpers" pkg="db_website" type="image_helper.py" output="log" required="false">
         <param name="max_distance" value="5.0"/>
         <param name="color_resize_width" value="480"/>
         <param name="color_resize_height" value="270"/>
@@ -12,13 +12,13 @@
         <remap from="color/image_raw" to="/camera/color/image_raw"/>
         <remap from="color/image_thumb_raw" to="/camera/color/image_thumb_raw"/>
     </node>
-    <node name="visualization_depth_to_rgb_compression" pkg="image_transport" type="republish" output="screen" required="false" args="
+    <node name="visualization_depth_to_rgb_compression" pkg="image_transport" type="republish" output="log" required="false" args="
     raw
     in:=/camera/depth/image_color_raw
     compressed
     out:=/camera/depth/image_color_raw
     "/>
-    <node name="visualization_thumb_compression" pkg="image_transport" type="republish" output="screen" required="false" args="
+    <node name="visualization_thumb_compression" pkg="image_transport" type="republish" output="log" required="false" args="
     raw
     in:=/camera/color/image_thumb_raw
     compressed

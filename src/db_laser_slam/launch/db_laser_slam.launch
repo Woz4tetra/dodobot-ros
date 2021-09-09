@@ -2,7 +2,7 @@
 <launch>
     <arg name="map_name" default="map-{date}"/>
     <arg name="mode" default="mapping"/> <!-- "mapping", "localize" -->
-    <node pkg="db_laser_slam" type="db_laser_slam_node.py" name="db_laser_slam" output="screen">
+    <node pkg="db_laser_slam" type="db_laser_slam_node.py" name="db_laser_slam" output="log">
         <param name="mode" value="$(arg mode)"/>
         <param name="map_name" value="$(arg map_name)"/>
     </node>

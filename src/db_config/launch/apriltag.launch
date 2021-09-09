@@ -12,16 +12,16 @@
     <arg name="info_throttle_topic" default="$(arg info_topic)_throttle" />
 
 
-    <!-- <node type="throttle" name="apriltag_image_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <!-- <node type="throttle" name="apriltag_image_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages $(arg image_topic) $(arg throttle_rate) $(arg image_throttle_topic)"/>
-    <node type="throttle" name="apriltag_info_topic_throttle" pkg="topic_tools" required="true" output="screen"
+    <node type="throttle" name="apriltag_info_topic_throttle" pkg="topic_tools" required="true" output="log"
         args="messages $(arg info_topic) $(arg throttle_rate) $(arg info_throttle_topic)"/> -->
     
     <!-- Set parameters -->
     <rosparam command="load" file="$(find db_config)/config/apriltag/settings.yaml" ns="$(arg node_namespace)" />
     <rosparam command="load" file="$(find db_config)/config/apriltag/tags.yaml" ns="$(arg node_namespace)" />
 
-    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="$(arg node_namespace)" clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
+    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="$(arg node_namespace)" clear_params="true" output="log" launch-prefix="$(arg launch_prefix)" >
         <!-- Remap topics from those used in code to those on the ROS network -->
         <remap from="image_rect" to="$(arg image_topic)" />
         <remap from="camera_info" to="$(arg info_topic)" />

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <group ns="camera">
-        <node pkg="nodelet" type="nodelet" name="camera_nodelet_manager" args="manager" output="screen"/>
+        <node pkg="nodelet" type="nodelet" name="camera_nodelet_manager" args="manager" output="log"/>
 
-        <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync camera_nodelet_manager" output="screen">
+        <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="load rtabmap_ros/rgbd_sync camera_nodelet_manager" output="log">
             <param name="compressed_rate"  type="double" value="5.0"/>
             <param name="approx_sync"      type="bool"   value="false"/>
 

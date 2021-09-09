@@ -73,7 +73,7 @@ clearing_rotation_allowed: true
 
 # Determines whether or not to shutdown the costmaps of the node when
 # move_base is in an inactive state
-shutdown_costmaps: true
+shutdown_costmaps: false
 
 # How long in seconds to allow for oscillation before executing recovery
 # behaviors. A value of 0.0 corresponds to an infinite timeout.

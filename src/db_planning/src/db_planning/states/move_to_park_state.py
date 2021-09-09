@@ -29,7 +29,6 @@ class MoveToParkState(State):
         )
         if goal_pose is None:
             return "failure"
-        rospy.loginfo("Start goal: %0.4f, %0.4f, %0.4f" % (goal_pose.pose.position.x, goal_pose.pose.position.y, goal_pose.pose.position.z))
 
         self.central_planning.set_move_base_goal(goal_pose)
         self.central_planning.look_straight_ahead()
@@ -41,7 +40,8 @@ class MoveToParkState(State):
             state = self.central_planning.get_move_base_state()
             if state == GoalStatus.SUCCEEDED:
                 return "success"
-            elif state == GoalStatus.ABORTED:
-                return "preempted"
+            elif state not in (GoalStatus.ACTIVE, GoalStatus.PENDING):
+                rospy.logwarn("move_base failed to park the robot: %s" % state)
+                return "failure"
 
             rospy.sleep(self.check_state_interval)

@@ -3,7 +3,7 @@
     <arg name="config_locks"  default="$(find db_config)/config/twist_mux/twist_mux_locks.yaml"/>
     <arg name="config_topics" default="$(find db_config)/config/twist_mux/twist_mux_topics.yaml"/>
 
-    <node pkg="twist_mux" type="twist_mux" name="twist_mux" output="screen">
+    <node pkg="twist_mux" type="twist_mux" name="twist_mux" output="log">
         <remap from="cmd_vel_out" to="/dodobot/cmd_vel"/>
 
         <!-- <rosparam file="$(arg config_locks)"  command="load"/> -->

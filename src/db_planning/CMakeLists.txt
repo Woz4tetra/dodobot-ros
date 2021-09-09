@@ -18,6 +18,7 @@ catkin_python_setup() # added if there is a setup.py. In this case for the node
 add_service_files(
     FILES
     GrabbingSrv.srv
+    NamedPose.srv
 )
 
 add_action_files(

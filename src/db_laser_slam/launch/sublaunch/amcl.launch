@@ -1,9 +1,9 @@
 <launch>
     <arg name="map_path"           default="map.yaml"/>
-    <node pkg="amcl" type="amcl" name="amcl" output="screen">
+    <node pkg="amcl" type="amcl" name="amcl" output="log">
         <rosparam file="$(find db_laser_slam)/config/amcl.yaml" command="load"/>
         <remap from="scan" to="/laser/scan_filtered"/>
         <!-- <remap from="scan" to="/laser/scan"/> -->
     </node>
-    <node name="map_server" pkg="map_server" type="map_server" output="screen" args="$(arg map_path)"/>
+    <node name="map_server" pkg="map_server" type="map_server" output="log" args="$(arg map_path)"/>
 </launch>

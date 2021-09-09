@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <node name="realsense_cloud_to_scan" pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" output="screen">
+    <node name="realsense_cloud_to_scan" pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" output="log">
         <remap from="cloud_in" to="/camera/depth_registered/points" />
         <remap from="scan" to="/camera/scan" />
 

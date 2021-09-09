@@ -1,5 +1,5 @@
 <launch>
-    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="log">
         <remap from="scan" to="/laser/scan_filtered"/>
         <!-- <remap from="scan" to="/laser/scan"/> -->
         <rosparam command="load" file="$(find db_laser_slam)/config/gmapping.yaml" />

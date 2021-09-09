@@ -2,9 +2,9 @@
 <launch>
     <param name="use_sim_time" value="true"/>
     <arg name="bag_name" default=""/>
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--pause --clock $(find db_laser_slam)/bags/$(arg bag_name)"/>
+    <node pkg="rosbag" type="play" name="player" output="log" args="--pause --clock $(find db_laser_slam)/bags/$(arg bag_name)"/>
 
-    <node pkg="db_laser_slam" type="odom_bag_publisher.py" name="odom_bag_publisher" output="screen">
+    <node pkg="db_laser_slam" type="odom_bag_publisher.py" name="odom_bag_publisher" output="log">
         <remap from="odom" to="/tj2/odom/filtered"/>
     </node>
     <include file="$(find tj2_rplidar)/launch/laser_filter.launch"/>

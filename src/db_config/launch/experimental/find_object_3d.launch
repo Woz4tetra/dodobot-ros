@@ -2,7 +2,7 @@
     <!-- Example finding 3D poses of the objects detected -->
     <!-- $roslaunch openni_launch openni.launch depth_registration:=true -->
 
-    <node name="find_object_3d" pkg="find_object_2d" type="find_object_2d" output="screen">
+    <node name="find_object_3d" pkg="find_object_2d" type="find_object_2d" output="log">
         <param name="gui" value="false" type="bool"/>
         <param name="settings_path" value="~/.ros/find_object_2d.ini" type="str"/>
         <param name="subscribe_depth" value="true" type="bool"/>
@@ -15,7 +15,7 @@
     </node>
 
     <!-- Example of tf synchronisation with the objectsStamped message -->
-    <node name="tf_example" pkg="find_object_2d" type="tf_example" output="screen">
+    <node name="tf_example" pkg="find_object_2d" type="tf_example" output="log">
         <param name="map_frame_id" value="/map" type="string"/>
         <param name="object_prefix" value="object" type="str"/>
     </node>

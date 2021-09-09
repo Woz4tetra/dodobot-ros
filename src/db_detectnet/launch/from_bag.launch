@@ -2,10 +2,10 @@
 <launch>
     <param name="use_sim_time" value="true"/>
     <arg name="bag_name" default=""/>
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--pause --clock $(find db_config)/bags/$(arg bag_name) --loop"/>
+    <node pkg="rosbag" type="play" name="player" output="log" args="--pause --clock $(find db_config)/bags/$(arg bag_name) --loop"/>
 
     <group ns="dodobot" >
-        <node name="db_detectnet" pkg="db_detectnet" type="db_detectnet_node" output="screen">
+        <node name="db_detectnet" pkg="db_detectnet" type="db_detectnet_node" output="log">
             <param name="model_name" value=""/>
 
             <param name="model_path" value="$(find db_detectnet)/models/dodobot_objects_mb2-ssd-lite/mb2-ssd-lite.onnx"/>
