@@ -26,6 +26,9 @@
             <param name="angular_axis" value="$(arg joystick_angular_axis)" />
             <param name="stepper_axis" value="4" />
             <param name="tilter_axis" value="4" />
+
+            <param name="detection_topic" value="detections" />
+            <param name="joystick_mode" value="1" />
         </node>
     </group>
 </launch>

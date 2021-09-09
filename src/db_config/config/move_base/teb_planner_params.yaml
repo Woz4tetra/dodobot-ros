@@ -10,10 +10,10 @@
 acc_lim_x: 1.0 # 0.5
 
 # Maximum angular acceleration of the robot in radians/sec^2
-acc_lim_theta: 5.0 # 0.5
+acc_lim_theta: 1.0 # 0.5
 
 # Maximum translational velocity of the robot in meters/sec
-max_vel_x: 0.3  # 0.5 # max speed 0.69 m/s
+max_vel_x: 0.4 # max speed 0.69 m/s
 
 # Maximum absolute translational velocity of the robot while driving
 # backwards in meters/sec. See optimization parameter

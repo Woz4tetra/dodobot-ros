@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-from __future__ import division
-from __future__ import print_function
+import os
+import cv2
 import traceback
 import math
 import random
-
-import tf
 import time
+
 import rospy
+import rospkg
+
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Float64, Bool
+
+from vision_msgs.msg import Detection2DArray
 
 from db_parsing.msg import DodobotLinear
 from db_parsing.msg import DodobotState
@@ -24,14 +26,30 @@ from db_parsing.srv import DodobotSetState
 from db_audio.srv import PlayAudio
 from db_audio.srv import StopAudio
 
+from db_joystick.srv import SetJoystickMode, SetJoystickModeResponse
+
+from dodobot_tools.pascal_voc import PascalVOCFrame
+
+import ctypes
+# a thread gets killed improperly within CvBridge without this causing segfaults
+libgcc_s = ctypes.CDLL('libgcc_s.so.1')
+
+from cv_bridge import CvBridge, CvBridgeError
+
 
 MAX_INT32 = 0x7fffffff
 
 
+NORMAL = 1
+IMAGE_LABEL = 2
+
+
 class ParsingJoystick:
     def __init__(self):
+        self.package_name = "db_joystick"
+        self.node_name = "parsing_joystick"
         rospy.init_node(
-            "parsing_joystick",
+            self.node_name,
             disable_signals=True
             # log_level=rospy.DEBUG
         )
@@ -64,6 +82,19 @@ class ParsingJoystick:
 
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
+
+        self.joystick_mode = rospy.get_param("~joystick_mode", NORMAL)
+        self.valid_modes = (NORMAL, IMAGE_LABEL)
+        assert self.is_mode_valid(self.joystick_mode)
+
+        self.detection_topic = rospy.get_param("~detection_topic", "detections")
+        self.detection_dir = rospy.get_param("~detection_dir", None)
+        if self.detection_dir is None:
+            rospack = rospkg.RosPack()
+            package_dir = rospack.get_path(self.package_name)
+            self.detection_dir = package_dir + "/detections"
+        if not os.path.isdir(self.detection_dir):
+            os.makedirs(self.detection_dir)
 
         # https://play.pokemonshowdown.com/audio/cries/
         self.soundboard_right = [
@@ -112,6 +143,9 @@ class ParsingJoystick:
         self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
         self.robot_state_sub = rospy.Subscriber("state", DodobotState, self.robot_state_callback, queue_size=100)
         self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=50)
+        self.detections_sub = None
+        if self.joystick_mode == IMAGE_LABEL:
+            self.connect_to_detections()
 
         self.max_joy_val = 1.0
         self.prev_brake_engage_time = rospy.Time.now()
@@ -130,14 +164,43 @@ class ParsingJoystick:
         self.linear_vel_command = 0.0
         self.prev_linear_vel_command = 0.0
 
+        self.detection = None
+
+        self.bridge = CvBridge()
+
         # Services
         self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
         self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
         self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
 
-        time.sleep(3.0)  # give a change for the audio node to come up
+        self.joystick_mode_srv = rospy.Service("joystick_mode", SetJoystickMode, self.joystick_mode_callback)
+
+        time.sleep(3.0)  # give a chance for the audio node to come up
 
         self.play_audio("chansey")
+
+    def is_mode_valid(self, mode):
+        return mode in self.valid_modes
+        
+    def joystick_mode_callback(self, req):
+        if self.is_mode_valid(req.mode):
+            self.joystick_mode = req.mode
+            if self.joystick_mode == IMAGE_LABEL:
+                self.connect_to_detections()
+            elif self.joystick_mode == NORMAL:
+                self.disconnect_from_detections()
+
+            return SetJoystickModeResponse(True)
+        else:
+            return SetJoystickModeResponse(False)
+    
+    def connect_to_detections(self):
+        self.detections_sub = rospy.Subscriber(self.detection_topic, Detection2DArray, self.detections_callback, queue_size=10)
+    
+    def disconnect_from_detections(self):
+        if self.detections_sub is not None:
+            self.detections_sub.unregister()
+            self.detections_sub = None
 
     def play_audio(self, name):
         try:
@@ -302,6 +365,9 @@ class ParsingJoystick:
                 self.set_linear(0.0)
             else:
                 self.tilt_speed = 0
+        if self.joystick_mode == IMAGE_LABEL:
+            if self.did_button_change(msg, 5):
+                self.save_last_detection()
 
         if self.did_axis_change(msg, 6):
             if msg.axes[6] > 0:  # D-pad left
@@ -343,14 +409,43 @@ class ParsingJoystick:
             self.cmd_vel_pub.publish(self.twist_command)
             return
 
+    def detections_callback(self, msg):
+        self.detection = msg
+
+    def save_last_detection(self):
+        if self.detection is None:
+            rospy.logwarn("Detection is empty!")
+            return
+        rospy.loginfo("Saving last detection")
+        
+        if len(self.detection.detections) == 0:
+            rospy.logwarn("Detection is has no image!")
+            return
+
+        image_msg = self.detection.detections[0].source_img
+        try:
+            color_image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
+        except CvBridgeError as e:
+            rospy.logerr(e)
+            return
+        
+        detection_timestamp = self.detection.header.stamp.to_sec()
+        image_path = self.detection_dir + "/%s.jpg" % (detection_timestamp)
+        detection_path = self.detection_dir + "/%s.xml" % (detection_timestamp)
+        rospy.loginfo("Writing detection to %s" % detection_path)
+
+        pascal_frame = PascalVOCFrame.from_ros_msg(self.class_mapping, color_image.shape, self.detection)
+        pascal_frame.set_image_path(image_path)
+        pascal_frame.write(detection_path)
+
+        cv2.imwrite(image_path, color_image)
+
+
     def run(self):
         if not self.enabled:
             return
         clock_rate = rospy.Rate(15.0)
-
-        prev_time = rospy.get_rostime()
         while not rospy.is_shutdown():
-
             self.cmd_vel_pub.publish(self.twist_command)
             clock_rate.sleep()
 

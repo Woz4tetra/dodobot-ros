@@ -16,7 +16,7 @@
             <param name="output_bbox" value="boxes"/>
             <param name="overlay_flags" value="box,labels,conf"/>
             <param name="mean_pixel_value" value="0.0"/>
-            <param name="threshold" value="0.3"/>
+            <param name="threshold" value="0.8"/>
 
             <param name="min_valid_dist" value="0.06"/>
             <param name="max_valid_dist" value="0.75"/>
@@ -36,6 +36,7 @@
 
             <param name="approx_sync"           value="false"/>
             <param name="publish_debug_image"     value="true"/>
+            <param name="publish_with_source_image"     value="true"/>
 
             <!-- <rosparam param="detectnet_labels" file="$(find db_detectnet)/config/labels.yaml" command="load"/> -->
             <rosparam param="detectnet_marker_colors" file="$(find db_detectnet)/config/marker_colors.yaml" command="load"/>

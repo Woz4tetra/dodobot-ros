@@ -120,6 +120,8 @@ private:
     bool _publish_with_frame;
     string _target_frame;
 
+    bool _publish_with_source_image;
+
     double _min_valid_dist;
     double _max_valid_dist;
 

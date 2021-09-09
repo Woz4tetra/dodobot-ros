@@ -1,0 +1,6 @@
+int32 NORMAL=1
+int32 IMAGE_LABEL=2
+
+int32 mode
+---
+bool success

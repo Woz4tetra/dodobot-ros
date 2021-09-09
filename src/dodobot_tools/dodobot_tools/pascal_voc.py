@@ -1,5 +1,7 @@
 import os
 from lxml import etree
+from vision_msgs.msg import Detection2D
+from vision_msgs.msg import Detection2DArray
 
 
 def add_xml_prop(root, name, value=None):
@@ -23,6 +25,23 @@ class PascalVOCObject:
         self.bndbox = [0, 0, 0, 0]
 
     @classmethod
+    def from_ros_msg(cls, image_width, image_height, class_mapping: list, msg: Detection2D):
+        class_id = msg.results[0].id
+        bbox_msg = msg.bbox
+        class_name = class_mapping[class_id]
+
+        self = cls()
+        self.name = class_name
+        self.bndbox[0] = bbox_msg.center.x - bbox_msg.size_x / 2.0
+        self.bndbox[1] = bbox_msg.center.y - bbox_msg.size_y / 2.0
+        self.bndbox[2] = bbox_msg.center.x + bbox_msg.size_x / 2.0
+        self.bndbox[3] = bbox_msg.center.y + bbox_msg.size_y / 2.0
+
+        self.truncated = self.is_truncated(image_width, image_height)
+
+        return self
+
+    @classmethod
     def from_open_images(cls, class_name, annotation, width, height):
         self = cls()
 
@@ -41,6 +60,8 @@ class PascalVOCObject:
         self.bndbox[1] = 0
         self.bndbox[2] = width
         self.bndbox[3] = height
+
+        self.truncated = self.is_truncated(width, height)
 
         return self
 
@@ -96,12 +117,12 @@ class PascalVOCObject:
 
 
 class PascalVOCFrame:
-    def __init__(self):
+    def __init__(self, database_name="dodobot_object"):
         self.folder = ""
         self.filename = ""
         self.path = ""
 
-        self.database = "dodobot_objects"
+        self.database = database_name
 
         self.width = 0
         self.height = 0
@@ -111,7 +132,20 @@ class PascalVOCFrame:
 
         self.objects = []
 
-    def set_path(self, path):
+    @classmethod
+    def from_ros_msg(cls, class_mapping: list, image_shape, msg: Detection2DArray):
+        self = cls()
+        height, width, depth = image_shape
+        self.width = width
+        self.height = height
+        self.depth = depth
+
+        for detection in msg.detections:
+            object = PascalVOCObject.from_ros_msg(width, height, class_mapping, detection)
+            self.add_object(object)
+        return self
+
+    def set_image_path(self, path):
         self.folder = os.path.basename(os.path.dirname(path))
         self.filename = os.path.basename(path)
         self.path = path

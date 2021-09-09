@@ -32,6 +32,8 @@ DodobotDetectNet::DodobotDetectNet(ros::NodeHandle* nodehandle) :
     ros::param::param<bool>("~publish_with_frame", _publish_with_frame, true);
     ros::param::param<string>("~target_frame", _target_frame, "base_link");
 
+    ros::param::param<bool>("~publish_with_source_image", _publish_with_source_image, false);
+
     _marker_persistance = ros::Duration(_marker_persistance_s);
     _overlay_flags = detectNet::OverlayFlagsFromStr(_overlay_str.c_str());
 
@@ -471,6 +473,10 @@ int DodobotDetectNet::detect(const ImageConstPtr& color_image, vision_msgs::Dete
 
 			// create a detection sub-message
 			vision_msgs::Detection2D detMsg;
+
+            if (_publish_with_source_image && n == 0) {
+                detMsg.source_img = *color_image;
+            }
 
 			detMsg.bbox.size_x = det->Width();
 			detMsg.bbox.size_y = det->Height();
