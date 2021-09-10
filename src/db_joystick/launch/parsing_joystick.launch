@@ -29,6 +29,7 @@
 
             <param name="detection_topic" value="detections" />
             <param name="joystick_mode" value="1" />
+            <rosparam param="class_labels" file="$(find db_detectnet)/config/labels.yaml" command="load"/>
         </node>
     </group>
 </launch>

@@ -39,12 +39,12 @@
             <param name="pad_extension_offset" value="0.00406250"/>
             <param name="central_axis_dist" value="0.015"/>
 
-            <param name="kP_A" value="0.25"/>
-            <param name="kP_B" value="0.25"/>
+            <param name="kP_A" value="0.15"/>
+            <param name="kP_B" value="0.15"/>
             <param name="kD_A" value="0.0"/>
             <param name="kD_B" value="0.0"/>
-            <param name="kI_A" value="0.1"/>
-            <param name="kI_B" value="0.1"/>
+            <param name="kI_A" value="0.0"/>
+            <param name="kI_B" value="0.0"/>
 
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <!-- <param name="odom_estimate_method" value="runge-kutta"/> -->

@@ -83,6 +83,9 @@ class ParsingJoystick:
         self.deadzone_joy_val = rospy.get_param("~deadzone_joy_val", 0.05)
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
 
+        self.class_mapping = rospy.get_param("~class_labels", None)
+        assert self.class_mapping is not None
+
         self.joystick_mode = rospy.get_param("~joystick_mode", NORMAL)
         self.valid_modes = (NORMAL, IMAGE_LABEL)
         assert self.is_mode_valid(self.joystick_mode)
@@ -366,7 +369,7 @@ class ParsingJoystick:
             else:
                 self.tilt_speed = 0
         if self.joystick_mode == IMAGE_LABEL:
-            if self.did_button_change(msg, 5):
+            if self.is_button_down(msg, 5):
                 self.save_last_detection()
 
         if self.did_axis_change(msg, 6):

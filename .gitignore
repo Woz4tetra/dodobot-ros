@@ -6,6 +6,7 @@ images
 src/db_laser_slam/maps
 src/db_detectnet/models
 src/db_tensorflow/models
+src/db_joystick/detections/
 training/exported-models/*
 training/models/*
 training/pre-trained-models/*
