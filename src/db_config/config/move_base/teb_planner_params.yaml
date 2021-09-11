@@ -10,7 +10,7 @@
 acc_lim_x: 1.0 # 0.5
 
 # Maximum angular acceleration of the robot in radians/sec^2
-acc_lim_theta: 1.0 # 0.5
+acc_lim_theta: 1.5 # 0.5
 
 # Maximum translational velocity of the robot in meters/sec
 max_vel_x: 0.4 # max speed 0.69 m/s
@@ -22,7 +22,7 @@ max_vel_x_backwards: 0.3  # 0.69
 
 # Maximum angular velocity of the robot in radians/secThe following
 # parameters are relevant only for carlike robots:
-max_vel_theta: 3.0  # 6.0
+max_vel_theta: 6.0  # 6.0
 
 ## The following parameters are relevant only for holonomic robots:
 
