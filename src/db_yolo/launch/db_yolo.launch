@@ -1,0 +1,23 @@
+<launch>
+    <group ns="dodobot" >
+        <node name="db_yolo" pkg="db_yolo" type="db_yolo" output="screen" required="false">
+            <param name="model_path" value="$(find db_yolo)/models/powercell_2021-01-30.torchscript"/>
+            <param name="classes_path" value="$(find db_yolo)/models/powercell_2021.names"/>
+            <rosparam param="yolo_z_depth_estimations" file="$(find db_yolo)/config/depth_estimations.yaml" command="load"/>
+            <!-- <remap from="overlay" to="powercell/overlay"/> -->
+
+            <param name="confidence_threshold" value="0.2"/>
+            <param name="nms_iou_threshold" value="0.2"/>
+
+            <param name="publish_overlay" value="true"/>
+            <param name="report_loop_times" value="false"/>
+            <param name="marker_persistance" value="0.25"/>
+            <param name="circle_mask_border_offset_px" value="0"/>
+            <param name="circle_mask_border_divisor" value="2"/>
+
+            <remap from="color/image_raw" to="/camera/color/image_raw"/>
+            <remap from="depth/image_raw" to="/camera/aligned_depth_to_color/image_raw"/>
+            <remap from="color/camera_info" to="/camera/color/camera_info"/>            
+        </node>
+    </group>
+</launch>

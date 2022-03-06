@@ -1,0 +1,12 @@
+left:
+  X: 0
+  Y: 1
+right:
+  X: 3
+  Y: 4
+brake:
+  L: 2
+  R: 5
+dpad:
+  horizontal: 6
+  vertical: 7

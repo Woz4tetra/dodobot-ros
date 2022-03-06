@@ -1,0 +1,6 @@
+source ${HOME}/ben/scripts/set_master.sh eth0
+source ${HOME}/packages_ros_ws/devel/setup.bash
+source ${HOME}/noetic_ws/install_isolated/setup.bash
+source ${HOME}/ros_ws/devel/setup.bash
+
+alias rm="rm -I"

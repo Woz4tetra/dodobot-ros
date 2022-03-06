@@ -1,0 +1,37 @@
+<launch>
+    <group ns="dodobot" >
+        <node name="db_yolo" pkg="db_yolo" type="db_yolo_node.py" output="screen" required="false">
+            <param name="model_path" value="$(find db_yolo)/models/cargo_2022-01-28.pt"/>
+            <param name="confidence_threshold" value="0.75"/>
+            <param name="nms_iou_threshold" value="0.45"/>
+
+            <param name="publish_overlay" value="false"/>
+            <param name="publish_delayed_image" value="false"/>
+            <param name="report_loop_times" value="false"/>
+            <param name="marker_persistance" value="0.25"/>
+            <param name="use_depth" value="true"/>
+            <param name="sync_method" value="last_depth"/>
+
+            <remap from="detections" to="cargo/detections"/>
+            <remap from="markers" to="cargo/markers"/>
+            <remap from="color/image_raw" to="/camera/color/image_raw"/>
+            <remap from="depth/image_raw" to="/camera/aligned_depth_to_color/image_raw"/>
+            <remap from="color/camera_info" to="/camera/color/camera_info"/>
+            <remap from="overlay" to="cargo/overlay"/>
+
+            <rosparam param="z_depth_estimations" file="$(find db_yolo)/config/depth_estimations.yaml" command="load"/>
+        </node>
+        <node name="overlay_compressed_image" pkg="image_transport" type="republish" output="screen" required="false" args="
+            raw
+            in:=overlay
+            compressed
+            out:=overlay
+        "/>
+        <node name="delayed_compressed_image" pkg="image_transport" type="republish" output="screen" required="false" args="
+            raw
+            in:=delayed_image
+            compressed
+            out:=delayed_image
+        "/>
+    </group>
+</launch>

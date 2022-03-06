@@ -6,21 +6,18 @@ Description=roscore
 Type=forking
 User=ben
 Group=ben
-# Start roscore as a fork and then wait for the tcp port to be opened
+# Start roscore as a fork and then wait for the tcp port to be opened.
 # Source all the environment variables, start roscore in a fork
 # Since the service type is forking, systemd doesn’t mark it as
 # 'started' until the original process exits, so we have the
 # non-forked shell wait until it can connect to the tcp opened by
 # roscore, and then exit, preventing conflicts with dependant services
-ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roscore.sh
+ExecStart=/usr/local/bin/roscore.sh
 
 Restart=always
-RestartSec=300
-StartLimitBurst=30
+RestartSec=5
 
 KillSignal=SIGINT
-TimeoutStopSec=10
-FinalKillSignal=SIGKILL
 
 [Install]
 WantedBy=multi-user.target

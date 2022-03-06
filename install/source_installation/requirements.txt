@@ -1,0 +1,5 @@
+pydub
+pyaudio
+scipy
+pynetworktables
+pynmcli

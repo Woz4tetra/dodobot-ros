@@ -1,9 +1,39 @@
 import os
-import time
 import rospy
-import psutil
+import rostopic
 import signal
-from subprocess import Popen, PIPE, TimeoutExpired
+from subprocess import Popen, TimeoutExpired
+
+
+class TopicListener:
+    def __init__(self, topic: str, min_rate: float, queue_size=15):
+        self.topic = topic
+        self.min_rate = min_rate
+        self.rate = rostopic.ROSTopicHz(queue_size)
+        self.subscriber = rospy.Subscriber(self.topic, rospy.AnyMsg, self.rate.callback_hz, callback_args=self.topic)
+    
+    def topic_exists(self):
+        for topic, msg_type in rospy.get_published_topics():
+            if self.topic in topic:
+                return True
+        return False
+
+    def is_active(self):
+        if not self.topic_exists():
+            return False
+        if self.min_rate is None:
+            return True
+        else:
+            return self.get_rate() > self.min_rate
+
+    def get_rate(self, delay=1.0):
+        if delay > 0.0:
+            rospy.sleep(delay)
+        result = self.rate.get_hz(self.topic)
+        if result is None:
+            return 0.0
+        else:
+            return result[0]
 
 
 class LaunchManager:

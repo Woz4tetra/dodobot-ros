@@ -1,21 +1,22 @@
 [Unit]
-# Requires=roscore.service
-# PartOf=roscore.service
-After=NetworkManager.service time-sync.target # roscore.service
-Description=roslaunch
+Wants=roscore.service
+After=NetworkManager.service time-sync.target
+Description=dodobot roslaunch
 
 [Service]
-Type=simple
+Type=forking
 User=ben
 Group=ben
-ExecStart=/home/ben/.local/dodobot/dodobot-ros/bin/roslaunch.sh
-
-Restart=on-failure
-RestartSec=5s
-StartLimitBurst=3
-
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/roslaunch.sh
+ExecStop=/usr/local/bin/stop_roslaunch.sh
+KillMode=none
+TimeoutStopSec=3
 KillSignal=SIGINT
-TimeoutStopSec=10
+
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+

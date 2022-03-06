@@ -1,0 +1,13 @@
+main:
+  A: 0
+  B: 1
+  X: 3
+  Y: 4
+triggers:
+  L1: 6
+  R1: 7
+menu:
+  Start: 11
+sticks:
+  L: 13
+  R: 14

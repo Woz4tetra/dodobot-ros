@@ -1,0 +1,33 @@
+From a3e835796f203dc2536b0cabd7eaa613b70c3066 Mon Sep 17 00:00:00 2001
+From: Woz4tetra <woz4tetra@gmail.com>
+Date: Tue, 30 Nov 2021 01:34:40 -0500
+Subject: [PATCH] adding flags to disable rtabmapviz build
+
+---
+ CMakeLists.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9d53ce06..2f373393 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -22,11 +22,16 @@ find_package(catkin REQUIRED COMPONENTS
+              genmsg stereo_msgs move_base_msgs image_geometry pluginlib
+ )
+ 
++option(RTABMAP_GUI "Build with GUI" OFF)
++MESSAGE(STATUS "RTABMAP_GUI  = ${RTABMAP_GUI}")
++
+ # Optional components
+ find_package(costmap_2d)
+ find_package(octomap_msgs)
+ find_package(apriltag_ros)
++IF(RTABMAP_GUI)
+ find_package(rviz)
++ENDIF()
+ find_package(find_object_2d)
+ 
+ ## System dependencies are found with CMake's conventions
+-- 
+2.17.1
+

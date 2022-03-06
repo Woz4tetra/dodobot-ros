@@ -1,0 +1,24 @@
+From e1a03d8a15bcd0cd669639f978d1130b3395a9d8 Mon Sep 17 00:00:00 2001
+From: Woz4tetra <woz4tetra@gmail.com>
+Date: Mon, 11 Oct 2021 00:24:36 -0400
+Subject: [PATCH] fix pthread related bug
+
+---
+ src/main/native/include/support/priority_mutex.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/main/native/include/support/priority_mutex.h b/src/main/native/include/support/priority_mutex.h
+index 800c550..dc6a306 100644
+--- a/src/main/native/include/support/priority_mutex.h
++++ b/src/main/native/include/support/priority_mutex.h
+@@ -13,6 +13,7 @@
+ #endif
+ 
+ #include <mutex>
++# define __PTHREAD_SPINS         0, 0
+ 
+ namespace wpi {
+ 
+-- 
+2.25.1
+

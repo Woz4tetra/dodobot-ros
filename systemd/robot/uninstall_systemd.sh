@@ -1,24 +1,42 @@
 #!/usr/bin/env bash
+if [ "$EUID" -ne 0 ]
+    then echo "Please run as root"
+    exit
+fi
 
-echo "Running dodobot-ros systemd service uninstall script"
+echo "Running dodobot systemd service uninstall script"
 
 BASE_DIR=$(realpath "$(dirname $0)")
 
 if [ "${BASE_INSTALL_DIR}" = "" ]; then
-  BASE_INSTALL_DIR=~/.local/dodobot/dodobot-ros
+  BASE_INSTALL_DIR=/usr/local
 fi
 
-SERVICE_NAME=dodobot_ros.service
+SERVICE_NAME=roscore.service
 LAUNCH_SERVICE_NAME=roslaunch.service
 
-rm -r ~/.config/systemd/user/${SERVICE_NAME}
-rm -r ~/.config/systemd/user/${LAUNCH_SERVICE_NAME}
+SCRIPT_NAME=roscore.sh
+ENV_SCRIPT_NAME=env.sh
+SERVICE_NAME=roscore.service
+
+BIN_INSTALL_DIR=${BASE_INSTALL_DIR}/bin
+
+SERVICE_ROOT_DIR=/etc/systemd/system/
+
+rm ${SERVICE_ROOT_DIR}/${SERVICE_NAME}
+rm ${SERVICE_ROOT_DIR}/${LAUNCH_SERVICE_NAME}
+
+rm ${BIN_INSTALL_DIR}/${SCRIPT_NAME}
+rm ${BIN_INSTALL_DIR}/${ENV_SCRIPT_NAME}
+rm ${BIN_INSTALL_DIR}/${LAUNCH_SCRIPT_NAME}
+
 
 echo "Disabling systemd services"
-systemctl --user daemon-reload
-systemctl --user stop ${SERVICE_NAME}
-systemctl --user stop ${LAUNCH_SERVICE_NAME}
-loginctl enable-linger $USER
-systemctl --user disable ${SERVICE_NAME}
-systemctl --user disable ${LAUNCH_SERVICE_NAME}
-echo "dodobot-ros systemd service uninstallation complete"
+systemctl daemon-reload
+systemctl stop ${SERVICE_NAME}
+systemctl stop ${LAUNCH_SERVICE_NAME}
+
+systemctl disable ${SERVICE_NAME}
+systemctl disable ${LAUNCH_SERVICE_NAME}
+
+echo "dodobot systemd service uninstallation complete"

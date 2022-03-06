@@ -1,0 +1,15 @@
+main:
+  A: 0
+  B: 1
+  X: 2
+  Y: 3
+triggers:
+  L1: 4
+  R1: 5
+menu:
+  Select: 6
+  Start: 7
+  Home: 8
+sticks:
+  L: 9
+  R: 10
