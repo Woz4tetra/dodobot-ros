@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<launch>
-    <node pkg="rosbag" type="record" name="rosbag_record_objects"
-       args="record -o $(find db_config)/bags/objects
-            /dodobot/odom
-            /dodobot/detections
-            " />
-</launch>

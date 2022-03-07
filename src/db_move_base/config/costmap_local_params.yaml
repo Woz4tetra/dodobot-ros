@@ -1,0 +1,24 @@
+global_frame: odom
+robot_base_frame: base_link
+update_frequency: 10.0
+publish_frequency: 2.0
+width: 6.0
+height: 6.0
+# origin_x: -1.5
+# origin_y: -1.5
+resolution: 0.075
+# static_map: false  # unnecessary with plugins
+rolling_window: true
+
+footprint_padding: 0.0
+
+inflation:
+    enabled: false
+    cost_scaling_factor: 3.0
+    inflation_radius: 0.35
+
+plugins:
+    - {name: static,                    type: "costmap_2d::StaticLayer"}
+    # - {name: obstacle_layer,            type: "costmap_2d::VoxelLayer"}
+    - {name: obstacle_layer,            type: "costmap_2d::ObstacleLayer"}
+    - {name: inflation,                 type: "costmap_2d::InflationLayer"}

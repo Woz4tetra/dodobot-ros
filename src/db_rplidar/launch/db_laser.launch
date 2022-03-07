@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+    <group ns="laser">
+        <include file="$(find db_rplidar)/launch/rplidar_a3.launch">
+            <arg name="serial_port" value="/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"/>
+            <arg name="lidar_node_name" value="rplidar"/>
+            <arg name="laser_frame_id" value="laser"/>
+        </include>
+
+        <node pkg="laser_filters" type="scan_to_scan_filter_chain" name="laser_filter">
+            <rosparam command="load" file="$(find db_rplidar)/config/laser_filter.yaml" />
+        </node>
+    </group>
+</launch>

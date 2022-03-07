@@ -1,0 +1,234 @@
+TicCurrentUnits	KEYWORD2
+TicInputNull	KEYWORD2
+
+TicProduct	KEYWORD1
+T825	KEYWORD2
+T834	KEYWORD2
+T500	KEYWORD2
+T249	KEYWORD2
+Tic36v4	KEYWORD2
+
+TicError	KEYWORD1
+IntentionallyDeenergized	KEYWORD2
+MotorDriverError	KEYWORD2
+LowVin	KEYWORD2
+KillSwitch	KEYWORD2
+RequiredInputInvalid	KEYWORD2
+SerialError	KEYWORD2
+CommandTimeout	KEYWORD2
+SafeStartViolation	KEYWORD2
+ErrLineHigh	KEYWORD2
+SerialFraming	KEYWORD2
+RxOverrun	KEYWORD2
+Format	KEYWORD2
+Crc	KEYWORD2
+EncoderSkip	KEYWORD2
+
+TicCommand	KEYWORD1
+SetTargetPosition	KEYWORD2
+SetTargetVelocity	KEYWORD2
+HaltAndSetPosition	KEYWORD2
+HaltAndHold	KEYWORD2
+ResetCommandTimeout	KEYWORD2
+Deenergize	KEYWORD2
+Energize	KEYWORD2
+ExitSafeStart	KEYWORD2
+EnterSafeStart	KEYWORD2
+Reset	KEYWORD2
+ClearDriverError	KEYWORD2
+SetSpeedMax	KEYWORD2
+SetStartingSpeed	KEYWORD2
+SetAccelMax	KEYWORD2
+SetDecelMax	KEYWORD2
+SetStepMode	KEYWORD2
+SetCurrentLimit	KEYWORD2
+SetCurrentLimitExpanded	KEYWORD2
+SetDecayMode	KEYWORD2
+GetVariable	KEYWORD2
+GetVariableAndClearErrorsOccurred	KEYWORD2
+GetSetting	KEYWORD2
+
+TicOperationState	KEYWORD1
+Reset	KEYWORD2
+Deenergized	KEYWORD2
+SoftError	KEYWORD2
+WaitingForErrLine	KEYWORD2
+StartingUp	KEYWORD2
+Normal	KEYWORD2
+
+TicPlanningMode	KEYWORD1
+Off	KEYWORD2
+TargetPosition	KEYWORD2
+TargetVelocity	KEYWORD2
+
+TicReset	KEYWORD1
+PowerUp	KEYWORD2
+Brownout	KEYWORD2
+ResetLine	KEYWORD2
+Watchdog	KEYWORD2
+Software	KEYWORD2
+StackOverflow	KEYWORD2
+StackUnderflow	KEYWORD2
+
+TicDecayMode	KEYWORD1
+Mixed	KEYWORD2
+Slow	KEYWORD2
+Fast	KEYWORD2
+Mixed50	KEYWORD2
+Mixed25	KEYWORD2
+Mixed75	KEYWORD2
+
+TicStepMode	KEYWORD1
+Full	KEYWORD2
+Half	KEYWORD2
+Microstep1	KEYWORD2
+Microstep2	KEYWORD2
+Microstep4	KEYWORD2
+Microstep8	KEYWORD2
+Microstep16	KEYWORD2
+Microstep32	KEYWORD2
+Microstep2_100p	KEYWORD2
+Microstep64	KEYWORD2
+Microstep128	KEYWORD2
+Microstep256	KEYWORD2
+
+TicAgcMode	KEYWORD1
+Off	KEYWORD2
+On	KEYWORD2
+ActiveOff	KEYWORD2
+
+TicAgcBottomCurrentLimit
+P45	KEYWORD2
+P50	KEYWORD2
+P55	KEYWORD2
+P60	KEYWORD2
+P65	KEYWORD2
+P70	KEYWORD2
+P75	KEYWORD2
+P80	KEYWORD2
+
+TicAgcCurrentBoostSteps
+S5	KEYWORD2
+S7	KEYWORD2
+S9	KEYWORD2
+S11	KEYWORD2
+
+TicAgcFrequencyLimit
+Off	KEYWORD2
+F255Hz	KEYWORD2
+F450Hz	KEYWORD2
+F675Hz	KEYWORD2
+
+TicPin	KEYWORD1
+SCL	KEYWORD2
+SDA	KEYWORD2
+TX	KEYWORD2
+RX	KEYWORD2
+RC	KEYWORD2
+
+TicPinState	KEYWORD1
+HighImpedance	KEYWORD2
+InputPullUp	KEYWORD2
+OutputLow	KEYWORD2
+OutputHigh	KEYWORD2
+
+TicInputState	KEYWORD1
+NotReady	KEYWORD2
+Invalid	KEYWORD2
+Halt	KEYWORD2
+Position	KEYWORD2
+Velocity	KEYWORD2
+
+TicMiscFlags1	KEYWORD1
+Energized	KEYWORD2
+PositionUncertain	KEYWORD2
+ForwardLimitActive	KEYWORD2
+ReverseLimitActive	KEYWORD2
+HomingActive	KEYWORD2
+
+TicMotorDriverError	KEYWORD1
+None	KEYWORD2
+OverCurrent	KEYWORD2
+OverTemperature	KEYWORD2
+
+TicHpDriverError	KEYWORD1
+OverTemperature	KEYWORD2
+OverCurrentA	KEYWORD2
+OverCurrentB	KEYWORD2
+PreDriverFaultA	KEYWORD2
+PreDriverFaultB	KEYWORD2
+UnderVoltage	KEYWORD2
+Verify	KEYWORD2
+
+TicBase	KEYWORD1
+setTargetPosition	KEYWORD2
+setTargetVelocity	KEYWORD2
+haltAndSetPosition	KEYWORD2
+haltAndHold	KEYWORD2
+goHomeReverse	KEYWORD2
+goHomeForward	KEYWORD2
+resetCommandTimeout	KEYWORD2
+deenergize	KEYWORD2
+energize	KEYWORD2
+exitSafeStart	KEYWORD2
+enterSafeStart	KEYWORD2
+reset	KEYWORD2
+clearDriverError	KEYWORD2
+setMaxSpeed	KEYWORD2
+setStartingSpeed	KEYWORD2
+setMaxAccel	KEYWORD2
+setMaxDecel	KEYWORD2
+setStepMode	KEYWORD2
+setCurrentLimit	KEYWORD2
+setDecayMode	KEYWORD2
+setAgcMode	KEYWORD2
+setAgcBottomCurrentLimit	KEYWORD2
+setAgcCurrentBoostSteps	KEYWORD2
+setAgcFrequencyLimit	KEYWORD2
+getOperationState	KEYWORD2
+getEnergized	KEYWORD2
+getPositionUncertain	KEYWORD2
+getForwardLimitActive	KEYWORD2
+getReverseLimitActive	KEYWORD2
+getHomingActive	KEYWORD2
+getErrorStatus	KEYWORD2
+getErrorsOccurred	KEYWORD2
+getPlanningMode	KEYWORD2
+getTargetPosition	KEYWORD2
+getTargetVelocity	KEYWORD2
+getMaxSpeed	KEYWORD2
+getStartingSpeed	KEYWORD2
+getMaxAccel	KEYWORD2
+getMaxDecel	KEYWORD2
+getCurrentPosition	KEYWORD2
+getCurrentVelocity	KEYWORD2
+getActingTargetPosition	KEYWORD2
+getTimeSinceLastStep	KEYWORD2
+getDeviceReset	KEYWORD2
+getVinVoltage	KEYWORD2
+getUpTime	KEYWORD2
+getEncoderPosition	KEYWORD2
+getRCPulseWidth	KEYWORD2
+getAnalogReading	KEYWORD2
+getDigitalReading	KEYWORD2
+getPinState	KEYWORD2
+getStepMode	KEYWORD2
+getCurrentLimit	KEYWORD2
+getDecayMode	KEYWORD2
+getInputState	KEYWORD2
+getInputAfterAveraging	KEYWORD2
+getInputAfterHysteresis	KEYWORD2
+getInputAfterScaling	KEYWORD2
+getAgcMode	KEYWORD2
+getAgcBottomCurrentLimit	KEYWORD2
+getAgcCurrentBoostSteps	KEYWORD2
+getAgcFrequencyLimit	KEYWORD2
+getLastHpDriverErrors	KEYWORD2
+getSetting	KEYWORD2
+getLastError	KEYWORD2
+
+TicSerial	KEYWORD1
+getDeviceNumber	KEYWORD2
+
+TicI2C	KEYWORD1
+getAddress	KEYWORD2

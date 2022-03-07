@@ -16,7 +16,7 @@ cd ${DEPENDENCIES_WS}
 
 rosdep install --from-paths src --ignore-src --rosdistro=noetic -y -r
 
-catkin_make -j5
+catkin_make -j4
 success=$?
 if [[ $success -eq 0 ]];
 then

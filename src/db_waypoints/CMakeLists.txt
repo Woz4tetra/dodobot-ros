@@ -31,10 +31,15 @@ add_service_files(
     DeleteWaypoint.srv
 )
 
+add_message_files(
+    FILES
+    Waypoint.msg
+    WaypointArray.msg
+)
+
 generate_messages(
     DEPENDENCIES
     std_msgs
-    geometry_msgs
     geometry_msgs
     actionlib_msgs
 )

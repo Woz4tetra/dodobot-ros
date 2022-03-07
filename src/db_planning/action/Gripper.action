@@ -1,6 +1,0 @@
-float32 grip_distance
-float32 force_threshold
----
-bool success
----
-float32 current_dist

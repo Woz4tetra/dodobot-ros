@@ -1,0 +1,9 @@
+<launch>
+    <group ns="db">
+        <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" clear_params="true">
+            <rosparam command="load" file="$(find db_ekf)/config/ekf.yaml" />
+            <remap from="odometry/filtered" to="odom/filtered"/>
+            <remap from="accel/filtered" to="accel/filtered"/>
+        </node>
+    </group>
+</launch>

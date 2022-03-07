@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <param name="use_sim_time" value="true"/>
+    <arg name="map_name" default="map-{date}"/>
+    <arg name="bag_name" default=""/>
+    <arg name="mode" default="mapping"/> <!-- "mapping", "localize", or "idle" -->
+    <node if="$(eval len(bag_name) > 0)" pkg="rosbag" type="play" name="player" output="screen" args="--pause --clock $(find db_laser_slam)/bags/$(arg bag_name)"/>
+
+    <node pkg="db_laser_slam" type="odom_bag_publisher.py" name="odom_bag_publisher" output="screen">
+        <remap from="odom" to="/dodobot/odom"/>
+    </node>
+    <include file="$(find db_rplidar)/launch/laser_filter.launch"/>
+    <!-- <include file="$(find db_description)/launch/basic_transforms.launch"/> -->
+    <include file="$(find db_description)/launch/db_description_diffyjr.launch"/>
+
+    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
+        <arg name="mode" value="$(arg mode)"/>
+        <arg name="map_name" value="$(arg map_name)"/>
+    </include>
+    
+</launch>

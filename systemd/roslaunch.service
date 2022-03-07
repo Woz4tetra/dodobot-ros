@@ -1,0 +1,22 @@
+[Unit]
+Wants=roscore.service
+After=NetworkManager.service time-sync.target
+Description=Dodobot roslaunch
+
+[Service]
+Type=forking
+User=ben
+Group=ben
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/roslaunch.sh
+ExecStop=/usr/local/bin/stop_roslaunch.sh
+KillMode=none
+TimeoutStopSec=3
+KillSignal=SIGINT
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <include file="$(find tj2_rplidar)/launch/tj2_rplidar.launch"/>
+    <!-- <arg name="lidar" default="false"/>
+    <include if="$(arg lidar)" file="$(find db_rplidar)/launch/db_rplidar.launch"/> -->
     <node pkg="rosbag" type="record" name="rosbag_record_laser"
-       args="record -o $(find db_laser_slam)/bags/laser
-            /tj2/odom
-            /tj2/odom/filtered
+       args="record -o /media/storage/bags/laser            
+            /dodobot/odom
+
             /laser/scan
-            /tj2/swerve_modules/0
-            /tj2/swerve_modules/1
-            /tj2/swerve_modules/2
-            /tj2/swerve_modules/3
-            /tj2/wheel_joint_state
-            /tj2/imu
-            /tj2/cmd_vel
-            /joint_states
+            /dodobot/imu
+
+            /dodobot/swerve_modules/0
+            /dodobot/swerve_modules/1
+            /dodobot/swerve_modules/2
+            /dodobot/swerve_modules/3
+
+            /dodobot/ping
+            /dodobot/robot_status
+            /dodobot/cmd_vel
+            /dodobot/ping
             " />
 </launch>

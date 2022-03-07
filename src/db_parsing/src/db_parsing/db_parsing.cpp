@@ -109,7 +109,6 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
     image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
 
-    keyboard_sub = nh.subscribe<keyboard_listener::KeyEvent>("keys", 50, &DodobotParsing::keyboardCallback, this);
     robot_functions_sub = nh.subscribe<db_parsing::DodobotFunctionsListing>("functions", 50, &DodobotParsing::robotFunctionsCallback, this);
     notification_sub = nh.subscribe<db_parsing::DodobotNotify>("notify", 50, &DodobotParsing::notifyCallback, this);
 
@@ -1194,11 +1193,6 @@ void DodobotParsing::resendPidKsTimed() {
         pid_resend_timer.setPeriod(ros::Duration(1.0));
         pid_resend_timer.start();
     }
-}
-
-void DodobotParsing::keyboardCallback(const keyboard_listener::KeyEvent::ConstPtr& msg)
-{
-    writeSerial("key", "sd", msg->data.c_str(), msg->event_type);
 }
 
 void DodobotParsing::logPacketErrorCode(int error_code, uint32_t packet_num, string message) {

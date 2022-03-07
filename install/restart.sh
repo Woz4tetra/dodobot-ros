@@ -12,7 +12,7 @@ if [ -z ${REMOTE_KEY} ]; then
     exit
 fi
 
-SSH_COMMAND="ssh -i ${REMOTE_KEY} -p 5810 tj2@${DESTINATION_NAME}"
+SSH_COMMAND="ssh -i ${REMOTE_KEY} ben@${DESTINATION_NAME}"
 
 # restart systemd
 if [ -z $RESTART_ROSLAUNCH ]; then

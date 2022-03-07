@@ -1,0 +1,61 @@
+# RTAB-Map's parameters: do "rosrun rtabmap rtabmap (double-dash)params" to see the list of available parameters.
+
+Rtabmap/DetectionRate: 2.0   # 1  Detection rate (Hz). RTAB-Map will filter input images to satisfy this rate.
+Rtabmap/TimeThr: 0   # 0  Maximum time allowed for map update (ms) (0 means infinity). When map update time exceeds this fixed time threshold, some nodes in Working Memory (WM) are transferred to Long-Term Memory to limit the size of the WM and decrease the update time.
+Rtabmap/LoopThr: 0.09  # 0.11, Loop closing threshold
+
+RGBD/OptimizeFromGraphEnd: false   # false  Optimize graph from the newest node. If false, the graph is optimized from the oldest node of the current graph (this adds an overhead computation to detect to oldest node of the current graph, but it can be useful to preserve the map referential from the oldest node). Warning when set to false: when some nodes are transferred, the first referential of the local map may change, resulting in momentary changes in robot/map position (which are annoying in teleoperation).
+RGBD/LinearUpdate: 0.1   # 0.1  Minimum linear displacement (m) to update the map. Rehearsal is done prior to this, so weights are still updated.
+RGBD/AngularUpdate: 0.01   # 0.01  Minimum angular displacement (rad) to update the map. Rehearsal is done prior to this, so weights are still updated.
+RGBD/ProximityPathMaxNeighbors: 0   # 0  Maximum neighbor nodes compared on each path. Set to 0 to disable merging the laser scans.
+RGBD/OptimizeMaxError: 5.0  # 3.0, Reject loop closures if optimization error ratio is greater than this value (0=disabled). Ratio is computed as absolute error over standard deviation of each link. This will help to detect when a wrong loop closure is added to the graph. Not compatible with "Optimizer/Robust" if enabled.
+RGBD/MaxLoopClosureDistance: 0.0  # 0.0  Reject loop closures/localizations if the distance from the map is over this distance (0=disabled).
+RGBD/ProximityAngle: 90.0  # 45, Maximum angle (degrees) for one-to-one proximity detection.
+RGBD/ProximityGlobalScanMap: true  # false, Create a global assembled map from laser scans for one-to-many proximity detection, replacing the original one-to-many proximity detection (i.e., detection against local paths). Only used in localization mode (Mem/IncrementalMemory=false), otherwise original one-to-many proximity detection is done. Note also that if graph is modified (i.e., memory management is enabled or robot jumps from one disjoint session to another in same database), the global scan map is cleared and one-to-many proximity detection is reverted to original approach.
+
+Kp/MaxDepth: 0   # 0  Filter extracted keypoints by depth (0=inf).
+Kp/DetectorStrategy: 6   # 6  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
+Kp/MaxFeatures: 1000   # 500   Maximum features extracted from the images (0 means not bounded, <0 means no extraction).
+
+GFTT/BlockSize: 3  # 3
+GFTT/K: 0.04  # 0.04
+GFTT/MinDistance: 4  # 4
+GFTT/QualityLevel: 0.001  # 0.001
+GFTT/UseHarrisDetector: false  # false
+
+ORB/EdgeThreshold: 31  # 31  This is size of the border where the features are not detected. It should roughly match the patchSize parameter.
+ORB/Gpu: true  # false  GPU-ORB: Use GPU version of ORB. This option is enabled only if OpenCV is built with CUDA and GPUs are detected.
+ORB/NLevels: 8  # 8  The number of pyramid levels. The smallest level will have linear size equal to input_image_linear_size/pow(scaleFactor, nlevels).
+ORB/PatchSize: 31  # 31  size of the patch used by the oriented BRIEF descriptor. Of course, on smaller pyramid layers the perceived image area covered by a feature will be larger.
+ORB/ScaleFactor: 1.2  # 1.2  Pyramid decimation ratio, greater than 1. scaleFactor==2 means the classical pyramid, where each next level has 4x less pixels than the previous, but such a big scale factor will degrade feature matching scores dramatically. On the other hand, too close to 1 scale factor will mean that to cover certain scale range you will need more pyramid levels and so the speed will suffer.
+ORB/ScoreType: 0  # 0  The default HARRIS_SCORE=0 means that Harris algorithm is used to rank features (the score is written to KeyPoint::score and is used to retain best nfeatures features); FAST_SCORE=1 is alternative value of the parameter that produces slightly less stable keypoints, but it is a little faster to compute.
+ORB/WTA_K: 2  # 2  The number of points that produce each element of the oriented BRIEF descriptor. The default value 2 means the BRIEF where we take a random point pair and compare their brightnesses, so we get 0/1 response. Other possible values are 3 and 4. For example, 3 means that we take 3 random points (of course, those point coordinates are random, but they are generated from the pre-defined seed, so each element of BRIEF descriptor is computed deterministically from the pixel rectangle), find point of maximum brightness and output index of the winner (0, 1 or 2). Such output will occupy 2 bits, and therefore it will need a special variant of Hamming distance, denoted as NORM_HAMMING2 (2 bits per bin). When WTA_K=4, we take 4 random points to compute each bin (that will also occupy 2 bits with possible values 0, 1, 2 or 3).
+
+
+Vis/EstimationType: 1   # 1  Motion estimation approach: 0:3D->3D, 1:3D->2D (PnP), 2:2D->2D (Epipolar Geometry)
+Vis/FeatureType: 6   # 6  0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint Torch.
+Vis/MaxDepth: 0   # Max depth of the features (0 means no limit).
+Vis/MinInliers: 20   # 20  Minimum feature correspondences to compute/accept the transformation.
+Vis/InlierDistance: 0.1   # Maximum distance for feature correspondences. Used by 3D->3D estimation approach.
+
+Mem/RehearsalSimilarity: 0.6   # Rehearsal similarity.
+
+# Reg/Strategy: 0   # 0=Vis, 1=Icp, 2=VisIcp, Icp is for laser scans
+Reg/Force3DoF: true   # Force 3 degrees-of-freedom transform (3Dof: x,y and yaw). Parameters z, roll and pitch will be set to 0.
+
+GridGlobal/MinSize:  20.0   # Minimum map size (m).
+
+Grid/CellSize:  0.075   # Resolution of the occupancy grid.
+Grid/RangeMin:  0.02   # Minimum range from sensor.
+Grid/RangeMax:  12.0   # Maximum range from sensor. 0=inf.
+Grid/3D: false   # A 3D occupancy grid is required if you want an OctoMap (3D ray tracing). Set to false if you want only a 2D map, the cloud will be projected on xy plane. A 2D map can be still generated if checked, but it requires more memory and time to generate it. Ignored if laser scan is 2D and /"%s/" is false.
+Grid/MaxGroundHeight:  0.0   # Maximum ground height (0=disabled). Should be set if "Grid/NormalsSegmentation" is false.
+Grid/MinGroundHeight: 0.0  # Minimum ground height (0=disabled).
+Grid/RayTracing: true   # Ray tracing is done for each occupied cell, filling unknown space between the sensor and occupied cells. If %s=true, RTAB-Map should be built with OctoMap support, otherwise 3D ray tracing is ignored.
+Grid/MaxObstacleHeight:  0.0   # Maximum obstacles height (0=disabled).
+Grid/Scan2dUnknownSpaceFilled: false  # false, # Unknown space filled. Only used with 2D laser scans. Use Grid/RangeMax to set maximum range if laser scan max range is to set.
+
+Icp/VoxelSize: 0.05  # Uniform sampling voxel size (0=disabled).
+Icp/MaxCorrespondenceDistance: 0.1  # Max distance for point correspondences.
+Icp/RangeMin: 0.02   # 0  Minimum range filtering (0=disabled).
+Icp/RangeMax: 12.0   # 0  Maximum range filtering (0=disabled).

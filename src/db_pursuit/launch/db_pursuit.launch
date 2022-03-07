@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <group ns="db" >
+        <node pkg="db_pursuit" type="db_pursuit_node.py" respawn="false" name="db_pursuit" output="screen">
+            <param name="class_names_path" value="$(find db_yolo)/models/dodobot_objects.names"/>
+            <remap from="cmd_vel" to="cmd_vel_follow"/>
+            <param name="distance_offset" value="-0.0"/>
+            <param name="distance_threshold" value="0.05"/>
+            <param name="send_rate" value="3.0"/>
+        </node>
+    </group>
+</launch>

@@ -19,7 +19,6 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     image_transport
     cv_bridge
-    keyboard_listener
 )
 roslaunch_add_file_check(launch)
 
@@ -128,7 +127,7 @@ generate_messages(
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES db_parsing
-    CATKIN_DEPENDS geometry_msgs roscpp roslaunch sensor_msgs serial message_runtime keyboard_listener
+    CATKIN_DEPENDS geometry_msgs roscpp roslaunch sensor_msgs serial message_runtime
     # DEPENDS system_lib
 )
 

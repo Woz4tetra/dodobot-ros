@@ -43,13 +43,13 @@ from message_filters import Subscriber
 
 from cv_bridge import CvBridge, CvBridgeError
 
-from dodobot_tools.transforms import lookup_transform
-from dodobot_tools.yolo.detector import YoloDetector
+from db_tools.transforms import lookup_transform
+from db_tools.yolo.detector import YoloDetector
 
 
-class Tj2Yolo:
+class DodobotYolo:
     def __init__(self):
-        self.name = "tj2_yolo"
+        self.name = "db_yolo"
         rospy.init_node(
             self.name
         )
@@ -436,7 +436,7 @@ class Tj2Yolo:
 
 
 def main():
-    node = Tj2Yolo()
+    node = DodobotYolo()
     try:
         node.run()
     except rospy.ROSInterruptException:

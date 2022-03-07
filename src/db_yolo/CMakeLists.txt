@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(tj2_yolo)
+project(db_yolo)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -252,7 +252,7 @@ install(TARGETS ${PROJECT_NAME}
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_tj2_yolo.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_db_yolo.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

@@ -1,22 +1,16 @@
-april_tags:
-  package: "db_config"
-  path: "apriltag.launch"
+joystick:
+  package: "db_debug_joystick"
+  path: "db_debug_joystick.launch"
   topics:
-    /tag_detections: None
-  on_start: false
-move_base:
-  package: "db_config"
-  path: "move_base.launch"
+    /joy: None
   on_start: true
+move_base:
+  package: "db_move_base"
+  path: "db_move_base.launch"
+  on_start: false
   topics:
     /move_base: None
-db_planning:
-  package: "db_planning"
-  path: "db_planning.launch"
+yolo:
+  package: "db_yolo"
+  path: "db_yolo.launch"
   on_start: true
-rplidar:
-  package: "db_config"
-  path: "rplidar.launch"
-  on_start: false
-  topics:
-    /laser/scan_filtered: 2.0

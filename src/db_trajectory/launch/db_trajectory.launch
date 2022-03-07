@@ -1,7 +1,0 @@
-<launch>
-    <group ns="dodobot" >
-        <node name="db_trajectory" pkg="db_trajectory" type="db_trajectory_node.py" output="log" required="true">
-            
-        </node>
-    </group>
-</launch>

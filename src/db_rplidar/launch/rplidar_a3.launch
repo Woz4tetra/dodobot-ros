@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="serial_port" default="/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"/>
+    <arg name="lidar_node_name" default="rplidarNode"/>
+    <arg name="laser_frame_id" default="laser"/>
+
+    <node name="$(arg lidar_node_name)"   pkg="rplidar_ros"  type="rplidarNode" output="screen">
+        <param name="serial_port"         type="string" value="$(arg serial_port)"/> 
+        <param name="serial_baudrate"     type="int"    value="256000"/><!--A3 -->
+        <param name="frame_id"            type="string" value="$(arg laser_frame_id)"/>
+        <param name="inverted"            type="bool"   value="false"/>
+        <param name="angle_compensate"    type="bool"   value="true"/>
+        <!-- <param name="max_distance"        type="int"    value="18"/> -->
+        
+        <!-- <param name="scan_mode"           type="string" value="Standard"/> -->
+        <param name="scan_mode"           type="string" value="Express"/>
+        <!-- <param name="scan_mode"           type="string" value="Boost"/> -->
+        <!-- <param name="scan_mode"           type="string" value="Stability"/> -->
+        <!-- Standard: max_distance: 12.0 m, Point number: 2.0K -->
+        <!-- Express: max_distance: 12.0 m, Point number: 4.0K -->
+        <!-- Boost: max_distance: 12.0 m, Point number: 8.0K -->
+        <!-- Stability: max_distance: 12.0 m, Point number: 4.0K -->
+
+        <param name="max_distance"        type="int"    value="25"/>
+    </node>
+</launch>

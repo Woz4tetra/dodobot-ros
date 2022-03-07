@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<launch>
-    <node name="exploration" pkg="explore_lite" type="explore" output="log">
-        <rosparam file="$(find db_config)/config/move_base/exploration.yaml" command="load"/>
-    </node>
-</launch>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+        <remap from="/cmd_vel" to="/dodobot/cmd_vel_nav"/>
+        <remap from="/odom" to="/dodobot/odom"/>
+        <rosparam file="$(find db_move_base)/config/move_base_global_params.yaml" command="load"/>
+
+        <rosparam file="$(find db_move_base)/config/dwaplanner_params.yaml" command="load" ns="DWAPlannerROS"/>
+        <rosparam file="$(find db_move_base)/config/trajectory_planner_params.yaml" command="load" ns="TrajectoryPlannerROS"/>
+        <rosparam file="$(find db_move_base)/config/teb_planner_params.yaml" command="load" ns="TebLocalPlannerROS"/>
+        <rosparam file="$(find db_move_base)/config/global_planner_params.yaml" command="load" ns="GlobalPlanner"/>
+
+        <rosparam file="$(find db_move_base)/config/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+        <rosparam file="$(find db_move_base)/config/costmap_local_params.yaml" command="load" ns="local_costmap"/>
+
+        <rosparam file="$(find db_move_base)/config/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+        <rosparam file="$(find db_move_base)/config/costmap_global_params.yaml" command="load" ns="global_costmap"/>
+    </node>
+</launch>

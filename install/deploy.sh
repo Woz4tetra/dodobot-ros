@@ -5,8 +5,8 @@ REMOTE_KEY=$2
 RESTART_ROSLAUNCH=$3
 
 LOCAL_PATH=${PARENT_DIR}
-DESTINATION_PATH=/home/ben
-CATKIN_WS_PATH=/home/ben/ros_ws
+DESTINATION_PATH=$HOME
+CATKIN_WS_PATH=$HOME/ros_ws
 
 if [ -z ${DESTINATION_NAME} ]; then
     echo "Please set a destination IP or hostname"
@@ -30,8 +30,8 @@ SSH_COMMAND="ssh -i ${REMOTE_KEY} ben@${DESTINATION_NAME}"
 echo "Stopping roslaunch"
 ${SSH_COMMAND} -t "sudo systemctl stop roslaunch.service"
 
-# build tj2_tools
-${SSH_COMMAND} "cd ${DEST_FULL_PATH}/src/dodobot_tools && python3 setup.py -q install --user"
+# build db_tools
+${SSH_COMMAND} "cd ${DEST_FULL_PATH}/db_tools && python3 setup.py -q install --user"
 
 # build catkin ws
 ${SSH_COMMAND} -t "cd ${CATKIN_WS_PATH} && source ${CATKIN_WS_PATH}/devel/setup.bash && catkin_make"

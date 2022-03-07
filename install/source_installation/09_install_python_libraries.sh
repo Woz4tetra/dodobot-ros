@@ -1,2 +1,2 @@
-cd ../../src/dodobot_tools
+cd ../../src/db_tools
 python3 setup.py install --user

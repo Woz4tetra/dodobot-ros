@@ -43,8 +43,6 @@
 #include "db_parsing/DodobotSetState.h"
 #include "db_parsing/DodobotGetState.h"
 
-#include "keyboard_listener/KeyEvent.h"
-
 
 using namespace std;
 
@@ -204,9 +202,6 @@ private:
     ros::Publisher bumper_pub;
     db_parsing::DodobotBumper bumper_msg;
     void parseBumper();
-
-    ros::Subscriber keyboard_sub;
-    void keyboardCallback(const keyboard_listener::KeyEvent::ConstPtr& msg);
 
     ros::Subscriber robot_functions_sub;
     void robotFunctionsCallback(const db_parsing::DodobotFunctionsListing::ConstPtr& msg);

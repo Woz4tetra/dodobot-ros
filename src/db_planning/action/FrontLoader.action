@@ -1,7 +1,0 @@
-float32 goal_z
-float32 z_speed
-float32 z_accel
----
-bool success
----
-float32 current_z

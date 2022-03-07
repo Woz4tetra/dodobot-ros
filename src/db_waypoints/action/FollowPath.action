@@ -1,4 +1,5 @@
-string[] waypoints
+db_waypoints/WaypointArray waypoints
+float64 intermediate_tolerance
 ---
 bool success
 ---

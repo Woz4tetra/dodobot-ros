@@ -1,5 +1,5 @@
 <launch>
-    <group ns="dodobot" >
+    <group ns="db" >
         <node name="db_yolo" pkg="db_yolo" type="db_yolo_node.py" output="screen" required="false">
             <param name="model_path" value="$(find db_yolo)/models/cargo_2022-01-28.pt"/>
             <param name="confidence_threshold" value="0.75"/>
@@ -19,7 +19,7 @@
             <remap from="color/camera_info" to="/camera/color/camera_info"/>
             <remap from="overlay" to="cargo/overlay"/>
 
-            <rosparam param="z_depth_estimations" file="$(find db_yolo)/config/depth_estimations.yaml" command="load"/>
+            <rosparam param="z_depth_estimations" file="$(find db_yolo)/config/cargo_depth_estimations.yaml" command="load"/>
         </node>
         <node name="overlay_compressed_image" pkg="image_transport" type="republish" output="screen" required="false" args="
             raw

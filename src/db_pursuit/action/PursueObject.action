@@ -1,0 +1,6 @@
+string object_name
+duration timeout
+float64 xy_tolerance
+---
+bool success
+---

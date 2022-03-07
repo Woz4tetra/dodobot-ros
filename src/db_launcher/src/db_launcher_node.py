@@ -2,42 +2,13 @@
 import os
 import rospy
 import rospkg
-import rostopic
 
 from db_launcher.srv import SetLaunch, SetLaunchResponse
 from db_launcher.srv import GetLaunch, GetLaunchResponse
 
-from dodobot_tools.launch_manager import LaunchManager
+from db_tools.launch_manager import LaunchManager
+from db_tools.launch_manager import TopicListener
 
-
-class TopicListener:
-    def __init__(self, topic: str, min_rate: float):
-        self.topic = topic
-        self.min_rate = min_rate
-        self.rate = rostopic.ROSTopicHz(15)
-        self.subscriber = rospy.Subscriber(self.topic, rospy.AnyMsg, self.rate.callback_hz, callback_args=self.topic)
-    
-    def topic_exists(self):
-        for topic, msg_type in rospy.get_published_topics():
-            if self.topic in topic:
-                return True
-        return False
-
-    def is_active(self):
-        if not self.topic_exists():
-            return False
-        if self.min_rate is None:
-            return True
-        else:
-            return self.get_rate() > self.min_rate
-
-    def get_rate(self):
-        rospy.sleep(1.0)
-        result = self.rate.get_hz(self.topic)
-        if result is None:
-            return 0.0
-        else:
-            return result[0]
 
 class DodobotLauncher:
     def __init__(self):
@@ -71,7 +42,8 @@ class DodobotLauncher:
 
             if not package:
                 if not os.path.isfile(path):
-                    raise ValueError("Package is not provided for %s and path is not valid: %s" % (name, path))
+                    rospy.logerr("Package is not provided for %s and path is not valid: %s. Skipping launch" % (name, path))
+                    continue
                 else:
                     launch_path = path
             else:

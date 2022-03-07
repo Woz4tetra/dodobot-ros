@@ -11,7 +11,7 @@ from db_laser_slam.srv import GetSlamMode, GetSlamModeResponse
 
 from std_srvs.srv import Trigger, TriggerResponse
 
-from dodobot_tools.launch_manager import LaunchManager
+from db_tools.launch_manager import LaunchManager
 
 
 class DodobotLaserSlam:
@@ -39,7 +39,7 @@ class DodobotLaserSlam:
         self.default_maps_dir = self.package_dir + "/maps"
         self.default_launches_dir = self.package_dir + "/launch/sublaunch"
 
-        self.service_ns_name = rospy.get_param("~service_ns_name", "/dodobot")
+        self.service_ns_name = rospy.get_param("~service_ns_name", "/db")
         self.start_mode = rospy.get_param("~mode", "mapping")
         self.min_localize_rate_threshold = rospy.get_param("~min_localize_rate_threshold", 1.0)
         self.min_mapping_rate_threshold = rospy.get_param("~min_mapping_rate_threshold", 1.0)
@@ -48,7 +48,7 @@ class DodobotLaserSlam:
         self.map_dir = rospy.get_param("~map_dir", self.default_maps_dir)
         self.map_name = rospy.get_param("~map_name", "map-{date}")
         self.date_format = rospy.get_param("~date_format", "%Y-%m-%dT%H-%M-%S--%f")
-        self.map_saver_wait_time = rospy.get_param("~map_saver_wait_time", 5.0)
+        self.map_saver_wait_time = rospy.get_param("~map_saver_wait_time", 14.0)
 
         self.set_map_paths()
 

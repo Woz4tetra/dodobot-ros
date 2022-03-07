@@ -1,0 +1,13 @@
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-MUSHR.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-RAINC.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-STACH.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-YOSHI.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-RAINB.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-SUN.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-T.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-DEF.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-LADD.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-SUPER.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-BW.txt
+# /Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-COMET.txt
+/Users/Woz4tetra/Documents/Code/dodobot/dodobot_py/dodobot_py/config/breakout/BR-X.txt

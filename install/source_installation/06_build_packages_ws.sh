@@ -109,7 +109,7 @@ if [ ! -z ${APPLY_PATCHES} ]; then
 fi
 
 cd ${DEPENDENCIES_WS}
-catkin_make -j5
+catkin_make -j4
 success=$?
 if [[ $success -eq 0 ]];
 then

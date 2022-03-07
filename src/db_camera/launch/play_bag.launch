@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="bag_name" default=""/>
+    <!-- <param name="use_sim_time" value="true"/> -->
+    <node name="camera_bag" pkg="rosbag" type="play" output="screen" args="$(find db_camera)/bags/$(arg bag_name) --clock --pause"/>
+    
+</launch>
