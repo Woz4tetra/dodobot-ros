@@ -5,7 +5,7 @@ REMOTE_KEY=$2
 RESTART_ROSLAUNCH=$3
 
 LOCAL_PATH=${PARENT_DIR}
-DESTINATION_PATH=$HOME
+DESTINATION_PATH=/home/ben
 
 if [ -z ${DESTINATION_NAME} ]; then
     echo "Please set a destination IP or hostname"

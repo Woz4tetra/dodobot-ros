@@ -37,7 +37,7 @@ Change permissions of these files to 600: `chmod 600 ${ROBOT_NAME}*`
 
 Test the log in: `ssh -i ~/.ssh/${ROBOT_NAME} ${USER}@${ROBOT_NAME}.local`
 
-# Disable password login
+# Disable password login (optional)
 `sudo nano /etc/ssh/sshd_config`
 
 Search for `#PasswordAuthentication yes`
