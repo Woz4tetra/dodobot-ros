@@ -1,0 +1,7 @@
+pyserial
+Cython
+numpy
+evdev
+PyYAML
+pydub
+simpleaudio

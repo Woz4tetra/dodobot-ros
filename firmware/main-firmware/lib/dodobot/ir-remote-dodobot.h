@@ -1,6 +1,8 @@
 #ifndef __DODOBOT_IR_REMOTE_H__
 #define __DODOBOT_IR_REMOTE_H__
 
+#define SUPPRESS_ERROR_MESSAGE_FOR_BEGIN
+
 #include <Arduino.h>
 #include <IRremote.h>
 
@@ -10,7 +12,7 @@
 
 namespace dodobot_ir_remote
 {
-    IRrecv irrecv(IR_RECEIVER_PIN);
+    IRrecv irrecv;
     decode_results irresults;
     uint8_t ir_type = 0;
     uint16_t ir_value = 0;
@@ -21,6 +23,7 @@ namespace dodobot_ir_remote
 
     void setup_IR()
     {
+        irrecv.begin(IR_RECEIVER_PIN);
         irrecv.enableIRIn();
         irrecv.blink13(false);
         dodobot_serial::println_info("IR ready");

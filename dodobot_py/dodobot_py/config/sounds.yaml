@@ -1,0 +1,17 @@
+audio_sink: alsa_output.usb-Generic_USB2.0_Device_20130100ph0-00.analog-stereo
+volume: 0.25
+volume_raw_max: 65536
+volume_raw_min: 63119
+sounds:
+    startup: "~/Music/sound_effects/ding.wav"
+    breakout_brick: "~/Music/sound_effects/kirby_footstep.wav"
+    breakout_win: "~/Music/sound_effects/Kirby Dance (Short) - Kirby Super Star.mp3"
+    breakout_out_of_bounds: "~/Music/sound_effects/thud.wav"
+    breakout_paddle: "~/Music/sound_effects/kirby_footstep.wav"
+    volume_change: "~/Music/sound_effects/click.wav"
+    numpad: "~/Music/sound_effects/click.wav"
+    # bumper_sound: "~/Music/sound_effects/minecraft_oof.mp3"
+    # bumper_sound: "~/Music/sound_effects/doh.mp3"
+    # bumper_sound: "~/Music/sound_effects/exclamation.wav"
+    # bumper_sound: "~/Music/sound_effects/thud.wav"
+    bumper_sound: "~/Music/sound_effects/pokemon_bumpintowall.mp3"

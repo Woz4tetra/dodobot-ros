@@ -1,0 +1,6 @@
+name: dodobot
+# level: 10
+level: 20
+file_name: dodobot
+suffix: "%Y-%m-%d.log"
+format: "%(levelname)s\t%(asctime)s\t[%(name)s, %(filename)s:%(lineno)d]\t%(message)s"

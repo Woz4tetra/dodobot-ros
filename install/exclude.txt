@@ -8,3 +8,4 @@ db_camera/bags/
 db_tools/build/
 db_tools/dist/
 db_tools/db_tools.egg-info/
+playground/particle_filter/data

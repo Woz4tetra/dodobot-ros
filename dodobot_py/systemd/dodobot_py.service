@@ -1,0 +1,14 @@
+[Unit]
+# dodobot systemd service file
+Description=dodobot device client
+
+[Install]
+WantedBy=default.target
+
+[Service]
+ExecStart=/home/ben/.local/dodobot/dodobot_py/bin/dodobot_py
+Restart=no
+KillSignal=SIGINT
+TimeoutStopSec=3
+FinalKillSignal=SIGKILL
+

@@ -1,0 +1,59 @@
+pid_ks:
+    kp_A: 0.05
+    kp_B: 0.05
+    kd_A: 0.001
+    kd_B: 0.001
+    ki_A: 0.0
+    ki_B: 0.0
+    speed_kA: 0.9
+    speed_kB: 0.9
+    # kp_A: 0.1
+    # kp_B: 0.1
+    # kd_A: 0.001
+    # kd_B: 0.001
+    # ki_A: 0.0
+    # ki_B: 0.0
+    # speed_kA: 0.9
+    # speed_kB: 0.9
+
+check_ready_timeout: 5.0
+write_timeout: 1.0
+packet_read_timeout: 0.05
+
+drive_command_timeout: 30.0
+drive_command_update_rate: 15.0
+drive_command_repeat_timeout: 0.25
+max_tilt_speed: 10.0
+max_grab_speed: 10.0
+force_threshold: 750
+
+joystick_deadzone: 0.1
+max_joy_val: 1.0
+
+shutdown_time_limit: 3.0
+
+write_date_delay: 0.5
+
+stepper_max_speed: 250000000
+stepper_max_accel: 10000000
+
+drive_max_speed: 6800.0
+drive_min_speed: 2500.0
+
+gripper_open: 50
+gripper_closed: 180
+
+breakout_level_config: |
+    ########
+    oooooooo
+    ########
+    ##oooo##
+    ########
+
+startup_image_name: DBSPLASH.JPG
+startup_image_path: dodobot-py.jpg
+startup_image_size: [160, 108]
+startup_image_quality: 100
+
+wifi_name: "wlan0"
+hotspot_name: "dodobot-host"

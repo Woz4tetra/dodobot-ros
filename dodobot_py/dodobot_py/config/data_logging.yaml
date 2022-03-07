@@ -1,0 +1,8 @@
+name: dodobot_data
+# level: 10
+level: 20
+file_name: data
+suffix: "%Y-%m-%d.log"
+format: "%(asctime)s:\t%(message)s"
+log_freq_hz: 0.05
+enabled: true

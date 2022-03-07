@@ -1,0 +1,4 @@
+#!/bin/sh
+
+/sbin/iptables-restore < /etc/iptables.ipv4.nat
+

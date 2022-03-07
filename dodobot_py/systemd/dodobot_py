@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+/usr/bin/python3 $HOME/.local/dodobot/dodobot_py/dodobot_py/main.py $HOME/.local/dodobot/dodobot_py --log_only > /dev/null 2>&1
