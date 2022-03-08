@@ -317,6 +317,7 @@ This is to fix an issue with the RTABmap build. Fix -lCUDA_cublas_device_LIBRARY
 - Install CMake version 3.12.2 or higher
 <br>
 <br>
+
 - `sudo apt remove --purge cmake`
 - `sudo snap install cmake --classic`
 - `echo "export PATH=${PATH}:/snap/bin" >> ~/.bashrc`
@@ -332,11 +333,24 @@ This is to fix an issue with the RTABmap build. Fix -lCUDA_cublas_device_LIBRARY
 
 ### Install yolov5 dependencies
 
+#### Install pytorch
+
 - `cd ~/build_ws`
-- `wget -O torch-1.10.0-cp36-cp36m-linux_aarch64.whl https://nvidia.box.com/shared/static/fjtbno0vpo676a25cgvuqc1wty0fkkg6.whl`
 - `pip3 install "seaborn>=0.11.0" "pandas>=1.1.4" "thop" "scipy>=1.4.1" "matplotlib>=3.2.2" "tqdm"`
-- `sudo -H pip3 install torch-1.10.0-cp36-cp36m-linux_aarch64.whl`
 - `sudo apt-get install libjpeg-dev`
+- `git clone --recursive https://github.com/pytorch/pytorch`
+- `cd pytorch`
+- `git checkout v1.10.2`
+- `git submodule update`
+- `mkdir build && cd build`
+- `export MAX_JOBS=2`
+  - cmake pulls this value into build commands run by make
+- `cmake -DGLIBCXX_USE_CXX11_ABI=1 -DBUILD_SHARED_LIBS:BOOL=ON -DCMAKE_BUILD_TYPE:STRING=Release -DPYTHON_EXECUTABLE:PATH=`\`which python3\` `..`
+    - If you get this error: “No CMAKE_CUDA_COMPILER could be found.” add nvcc to your path:
+    - `echo "export CUDACXX=/usr/local/cuda/bin/nvcc" >> ~/.bashrc`
+- `make -j2 && sudo make -j2 install`
+
+#### Install pytorch vision
 - `cd ~/build_ws`
 - `git clone https://github.com/pytorch/vision`
 - `cd vision`
@@ -344,11 +358,12 @@ This is to fix an issue with the RTABmap build. Fix -lCUDA_cublas_device_LIBRARY
     - if an error like this appears during the build: <br>`‘cached_cast’ is not a member of ‘at::autocast’` <br> checkout v0.7.0 instead
 - `export MAKEFLAGS="-j2"`
 - `sudo python3 setup.py install`
-- `echo "export CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:{$HOME}/.local/lib/python3.6/site-packages/torch/share/cmake/Torch/" >> ~/.bashrc`
+- `echo "export CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:${HOME}/.local/lib/python3.6/site-packages/torch/share/cmake/Torch" >> ~/.bashrc`
+- `sudo apt-get install python3-dev`
 
 ### yolov5 installation for x86 linux systems
 
-This is for training off the robot. Run all these commands on your local machine.
+This is optional. Use this for training off the robot. Run all these commands on your local machine.
 
 #### Install CUDA if you haven’t already:
 - https://developer.nvidia.com/cuda-downloads
@@ -377,6 +392,7 @@ This is for training off the robot. Run all these commands on your local machine
 - So we need to build from source with this option enabled
 <br>
 <br>
+
 - `cd ~/build_ws`
 - `git clone --recursive https://github.com/pytorch/pytorch`
 - `mkdir build`
