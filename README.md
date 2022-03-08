@@ -292,16 +292,16 @@ Tip: list all CMake options: `cmake -LA | awk '{if(f)print} /-- Cache values/{f=
 - `cd ~/build_ws`
 - `git clone https://github.com/RainerKuemmerle/g2o.git`
 - `cd g2o`
-- `git checkout has_use_cmake_fixes`
+- `git checkout tags/20200410_git`
 - `mkdir build && cd build`
-- `cmake -DBUILD_WITH_MARCH_NATIVE=OFF -DG2O_BUILD_APPS=OFF -DG2O_BUILD_EXAMPLES=OFF -DG2O_USE_OPENGL=OFF -DBUILD_CSPARSE=ON ..`
+- `cmake -DBUILD_WITH_MARCH_NATIVE=OFF -DG2O_BUILD_APPS=OFF -DG2O_BUILD_EXAMPLES=OFF -DG2O_USE_OPENGL=OFF ..`
 - `make -j3`
 - `sudo make install`
 
 #### gtsam
 - `sudo add-apt-repository ppa:borglab/gtsam-develop`
 - `sudo apt update`
-- `sudo apt install libgtsam-dev libgtsam-unstable-dev`
+- `sudo apt install libgtsam-dev libgtsam-unstable-dev -y`
 
 #### Octomap
 - `cd ~/build_ws`
@@ -400,11 +400,13 @@ This is for training off the robot. Run all these commands on your local machine
 - `cd ~/dodobot-ros/install/source_installation`
 - `./00_ros_setup.sh`
 - `./01_noetic_ws_prep.sh`
-- `./02_noetic_ws_rosdep.sh`  Note: this one attempts to open its own tmux session
+- `./02_noetic_ws_rosdep.sh` This may take a while
 - `./03_noetic_ws_patch.sh`
-- `./04_noetic_ws_install.sh`  Note: this one attempts to open its own tmux session. This will take a few hours
+- `./04_noetic_ws_install.sh` This will take a few hours
 - `./05_append_env.sh`
-- `./06_build_packages_ws.sh`
+- Close and reopen terminal
+- `./06_build_packages_ws.sh y` y indicates we want to apply the patches. This will take a few hours
+- Close and reopen terminal
 - `./07_prep_ros_ws.sh`
 - `./08_build_ros_ws.sh`
 - `./09_install_python_libraries.sh`

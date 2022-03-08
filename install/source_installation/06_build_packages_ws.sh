@@ -45,13 +45,12 @@ packages=(
     https://github.com/ros-drivers/usb_cam.git
     https://github.com/ros-perception/image_transport_plugins
     https://github.com/ros/rosbag_snapshot.git
-    https://github.com/stereolabs/zed-ros-wrapper
-    https://github.com/stereolabs/zed-ros-examples
     https://github.com/alireza-hosseini/ipcamera_driver
     https://github.com/ros-teleop/twist_mux.git
     https://github.com/ros-teleop/twist_mux_msgs.git
     https://github.com/iralabdisco/ira_laser_tools.git
     https://github.com/ros-perception/pointcloud_to_laserscan.git
+    https://github.com/UbiquityRobotics/fiducials.git
 )
 
 branches=(
@@ -86,13 +85,12 @@ branches=(
     develop     # https://github.com/ros-drivers/usb_cam.git
     noetic-devel    # https://github.com/ros-perception/image_transport_plugins
     main  # https://github.com/ros/rosbag_snapshot.git
-    master  # https://github.com/stereolabs/zed-ros-wrapper
-    master  # https://github.com/stereolabs/zed-ros-examples
     master  # https://github.com/alireza-hosseini/ipcamera_driver
     melodic-devel  # https://github.com/ros-teleop/twist_mux.git
     melodic-devel  # https://github.com/ros-teleop/twist_mux_msgs.git
     ros1-master  # https://github.com/iralabdisco/ira_laser_tools.git
     lunar-devel  # https://github.com/ros-perception/pointcloud_to_laserscan.git
+    noetic-devel  # https://github.com/UbiquityRobotics/fiducials.git
 )
 
 len=${#packages[@]}
@@ -109,7 +107,7 @@ if [ ! -z ${APPLY_PATCHES} ]; then
 fi
 
 cd ${DEPENDENCIES_WS}
-catkin_make -j4
+catkin_make -j2
 success=$?
 if [[ $success -eq 0 ]];
 then
