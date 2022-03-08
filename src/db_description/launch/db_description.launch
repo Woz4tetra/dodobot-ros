@@ -19,7 +19,8 @@
         </node>
     </group>
 
-    <node pkg="tf" type="static_transform_publisher" name="base_footprint_to_laser" args="-0.0553 0.116 0.253 0 0 1 0 base_footprint laser 20" />
-    <node pkg="tf" type="static_transform_publisher" name="base_footprint_to_camera" args="0.2032 0.0 0.254 0 0 0 1 base_footprint camera_link 20" />
-    <node pkg="tf" type="static_transform_publisher" name="base_footprint_to_imu" args="0.0634 0.0012 0.2039 0 0 0 1 base_footprint imu 33" />
+    <node pkg="tf" type="static_transform_publisher" name="camera_to_rotate" args="0.029824 0.0175 0.0155 0 0 0 1 camera_rotate_link camera_link 33" />
+    <node pkg="tf" type="static_transform_publisher" name="base_link_to_footprint" args="0 0 0.0312 0 0 0 1 base_link wheel_center_link 33" />
+    <node pkg="tf" type="static_transform_publisher" name="linear_to_gripper" args="0.144 0 0.0017 0 0 0 1 linear_link gripper_link 33" />
+    <node pkg="tf" type="static_transform_publisher" name="wheel_center_to_laser" args="0.005 -0.080 0.1697 0 0 1 0 wheel_center_link laser 33" />
 </launch>

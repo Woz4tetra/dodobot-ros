@@ -2,25 +2,10 @@ scan_filter_chain:
 - name: range_filter
   type: laser_filters/LaserScanRangeFilter
   params:
-    lower_threshold: 0.185
-    upper_threshold: .inf
-- name: camera_obstruction
+    lower_threshold: 0.15
+    upper_threshold: 10.0
+- name: angle
   type: laser_filters/LaserScanAngularBoundsFilterInPlace
   params:
-    lower_angle: 2.4
-    upper_angle: 2.9
-- name: shield_left
-  type: laser_filters/LaserScanAngularBoundsFilterInPlace
-  params:
-    lower_angle: 1.36
-    upper_angle: 1.78
-- name: shield_rear
-  type: laser_filters/LaserScanAngularBoundsFilterInPlace
-  params:
-    lower_angle: -0.21
-    upper_angle: 0.21
-- name: shield_right
-  type: laser_filters/LaserScanAngularBoundsFilterInPlace
-  params:
-    lower_angle: -1.78
-    upper_angle: -1.36
+    lower_angle: -2.35619
+    upper_angle: -1.57079

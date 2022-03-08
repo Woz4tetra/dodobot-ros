@@ -1,11 +1,10 @@
 .git
 .vscode/
 __pycache__
-dataset_builder/
-db_laser_slam/maps
 db_laser_slam/bags/
 db_camera/bags/
 db_tools/build/
 db_tools/dist/
 db_tools/db_tools.egg-info/
 playground/particle_filter/data
+training/

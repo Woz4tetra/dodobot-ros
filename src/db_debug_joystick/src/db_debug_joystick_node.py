@@ -72,9 +72,6 @@ class DodobotDebugJoystick:
         self.take_picture = False
         self.command_with_topic = False
 
-        NetworkTables.initialize(server=self.nt_host)
-        self.nt = NetworkTables.getTable("")
-
         self.joystick = Joystick(self.button_mapping, self.axis_mapping)
 
         # services
