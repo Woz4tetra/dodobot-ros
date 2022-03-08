@@ -4,6 +4,9 @@ project(db_yolo)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -28,29 +31,10 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(OpenCV REQUIRED)
-find_package(CUDA REQUIRED)
-
-if (EXISTS /etc/nv_tegra_release)
-  message(STATUS "Detecting jetson device. Using python torch path")
-  execute_process(COMMAND python3 -c "import os
-import torch
-print(os.path.join(os.path.dirname(torch.__file__), \"share/cmake/Torch/\"))"
-  OUTPUT_VARIABLE TORCH_CMAKE_DIR
-  )
-  message(STATUS "Found python torch: ${TORCH_CMAKE_DIR}")
-  string(REPLACE ":" ";" CMAKE_PREFIX_PATH "$ENV{CMAKE_PREFIX_PATH}")
-  list(APPEND CMAKE_PREFIX_PATH "${TORCH_CMAKE_DIR}")
-  message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
-endif()
-
 find_package(Torch REQUIRED)
-if (Torch_FOUND)
-    message(STATUS "Torch library found!")
-    message(STATUS "    include path: ${TORCH_INCLUDE_DIRS}" \n)
-else ()
-    message(FATAL_ERROR "Could not locate Torch" \n)
-endif()
+find_package(CUDA REQUIRED)
+find_package(OpenCV REQUIRED)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -163,8 +147,11 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
     ${TORCH_INCLUDE_DIRS}
+    ${CUDA_INCLUDE_DIRS}
 )
-link_directories(${catkin_LIBRARY_DIRS})
+link_directories(
+    ${catkin_LIBRARY_DIRS}
+)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -197,6 +184,7 @@ target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
     ${TORCH_LIBRARIES}
+    ${CUDA_LIBRARIES}
 )
 
 ## Add cmake target dependencies of the library

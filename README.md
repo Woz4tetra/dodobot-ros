@@ -333,11 +333,23 @@ This is to fix an issue with the RTABmap build. Fix -lCUDA_cublas_device_LIBRARY
 
 ### Install yolov5 dependencies
 
-#### Install pytorch
+#### Install pytorch dependencies
 
 - `cd ~/build_ws`
 - `pip3 install "seaborn>=0.11.0" "pandas>=1.1.4" "thop" "scipy>=1.4.1" "matplotlib>=3.2.2" "tqdm"`
-- `sudo apt-get install libjpeg-dev`
+- `sudo apt-get install python3-pip libjpeg-dev libopenblas-dev libopenmpi-dev libomp-dev -y`
+- `sudo -H pip3 install future`
+- `sudo pip3 install -U --user wheel mock pillow`
+- `sudo -H pip3 install testresources`
+- `sudo -H pip3 install setuptools==58.3.0`
+- `sudo -H pip3 install Cython`
+
+#### Install pytorch from wheel
+- `wget -O torch-1.10.0-cp36-cp36m-linux_aarch64.whl https://nvidia.box.com/shared/static/fjtbno0vpo676a25cgvuqc1wty0fkkg6.whl`
+- `sudo -H pip3 install torch-1.10.0-cp36-cp36m-linux_aarch64.whl`
+
+#### Install pytorch from source
+
 - `git clone --recursive https://github.com/pytorch/pytorch`
 - `cd pytorch`
 - `git checkout v1.10.2`
