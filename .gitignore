@@ -1,19 +1,8 @@
 # specific files/directories
-tj2_limelight/models
-tj2_detectnet/models
-tj2_detectnet/scripts/video_dataset/output 
-tj2_classify/models
-tj2_laser_slam/maps
-tj2_yolo/models
-dataset_builder/limelight_targets/resources
-dataset_builder/limelight_targets/outputs
-dataset_builder/powercells_2021/resources
-dataset_builder/powercells_2021/outputs
-dataset_builder/cargo_2022/outputs
-dataset_builder/cargo_2022/resources
-dataset_builder/cargo_2022/wandb/
-playground/particle_filter/data
-playground/bounce_trajectories/data
+src/db_yolo/models
+training/resources
+training/outputs
+playground/particle_filter/data/
 
 .idea/
 .vscode/
