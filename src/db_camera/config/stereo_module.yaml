@@ -1,0 +1,12 @@
+exposure: 8500
+gain: 16
+frames_queue_size: 16
+inter_cam_sync_mode: 0
+laser_power: 150
+enable_auto_exposure: true
+error_polling_enabled: true
+output_trigger_enabled: false
+emitter_on_off: false
+global_time_enabled: true
+emitter_always_on: false
+hdr_enabled: false

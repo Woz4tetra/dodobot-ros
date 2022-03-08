@@ -1,4 +1,2 @@
-- base_link_to_wheel_0_joint
-- base_link_to_wheel_1_joint
-- base_link_to_wheel_2_joint
-- base_link_to_wheel_3_joint
+- tilt_base_to_camera_rotate_joint
+- linear_to_linear_base_link

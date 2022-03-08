@@ -221,9 +221,9 @@ private:
     void loop();
     void stop();
 
-    // Joint states
-    sensor_msgs::JointState linear_joint;
-    sensor_msgs::JointState tilter_joint;
+    // Joint messages
+    std_msgs::Float64 linear_joint;
+    std_msgs::Float64 tilter_joint;
     void publish_joint_states();
 
     // Data handling/conversion

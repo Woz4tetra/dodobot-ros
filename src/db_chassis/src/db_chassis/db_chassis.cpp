@@ -154,15 +154,6 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     linear_speed_cmd = 0.0;
     angular_speed_cmd = 0.0;
 
-    // JointState messages
-    linear_joint.header.frame_id = "base_link";
-    linear_joint.name.push_back("linear_to_linear_base_link");
-    linear_joint.position.push_back(0.0);
-
-    tilter_joint.header.frame_id = "base_link";
-    tilter_joint.name.push_back("tilt_base_to_camera_rotate_joint");
-    tilter_joint.position.push_back(0.0);
-
     // Publishers
     odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 50);
     drive_pub = nh.advertise<db_parsing::DodobotDrive>(drive_pub_name, 50);
@@ -171,8 +162,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     parallel_gripper_pub = nh.advertise<db_parsing::DodobotParallelGripper>("parallel_gripper", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear_cmd", 50);
     linear_pos_pub = nh.advertise<db_chassis::LinearPosition>("linear_pos", 50);
-    linear_joint_pub = nh.advertise<sensor_msgs::JointState>("linear_joint_state", 10);
-    tilter_joint_pub = nh.advertise<sensor_msgs::JointState>("tilter_joint_state", 10);
+    linear_joint_pub = nh.advertise<std_msgs::Float64>("tilt_base_to_camera_rotate_joint", 10);
+    tilter_joint_pub = nh.advertise<std_msgs::Float64>("linear_to_linear_base_link", 10);
 
     // Subscribers
     twist_sub = nh.subscribe<geometry_msgs::Twist>("cmd_vel", 50, &DodobotChassis::twist_callback, this);
@@ -341,7 +332,7 @@ void DodobotChassis::drive_callback(db_parsing::DodobotDrive msg) {
 void DodobotChassis::tilter_callback(db_parsing::DodobotTilter msg)
 {
     camera_tilt_angle = tilt_command_to_angle_rad(msg.position);
-    tilter_joint.position[0] = -camera_tilt_angle;
+    tilter_joint.data = -camera_tilt_angle;
 }
 
 void DodobotChassis::tilter_orientation_callback(geometry_msgs::Quaternion msg)
@@ -364,8 +355,7 @@ void DodobotChassis::linear_callback(db_parsing::DodobotLinear msg)
 
     ros::Time now = ros::Time::now();
 
-    linear_joint.position[0] = stepper_z_pos;
-    linear_joint.header.stamp = now;
+    linear_joint.data = stepper_z_pos;
 
     db_chassis::LinearPosition linear_msg;
     linear_msg.position = stepper_z_pos;

@@ -6,7 +6,7 @@
     <arg name="db_chassis_use_sensor_msg_time" default="false"/>
     <arg name="db_chassis_odom_frame" default="odom"/>
 
-    <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_config)/config/db_chassis.yaml" />
+    <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_chassis)/config/db_chassis.yaml" />
 
     <group ns="dodobot">
         <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="log" required="true">

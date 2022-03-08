@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <node pkg="db_camera" type="db_camera_watcher_node.py" name="db_camera_watcher" output="screen">
-        <param name="expected_camera_rate" value="30" />
+        <param name="expected_camera_rate" value="60" />
         <param name="expected_depth_rate" value="30" />
-        <rosparam param="l500_depth_config" file="$(find db_camera)/config/l500_depth_sensor.yaml" command="load"/>
-        <rosparam param="motion_module_config" file="$(find db_camera)/config/motion_module.yaml" command="load"/>
+        <rosparam param="stereo_module_config" file="$(find db_camera)/config/stereo_module.yaml" command="load"/>
         <rosparam param="rgb_camera_config" file="$(find db_camera)/config/rgb_camera.yaml" command="load"/>
         <remap from="/camera/depth/image_raw" to="/camera/aligned_depth_to_color/image_raw" />
     </node>

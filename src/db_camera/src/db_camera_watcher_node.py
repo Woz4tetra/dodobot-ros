@@ -23,8 +23,7 @@ class DodobotCameraWatcher:
         self.color_max_rate_threshold = max(0.0, self.expected_camera_rate + self.min_rate_offset)
         self.depth_min_rate_threshold = max(0.0, self.expected_depth_rate - self.min_rate_offset)
         self.depth_max_rate_threshold = max(0.0, self.expected_depth_rate + self.min_rate_offset)
-        self.l500_depth_config = rospy.get_param("~l500_depth_config", None)
-        self.motion_module_config = rospy.get_param("~motion_module_config", None)
+        self.stereo_module_config = rospy.get_param("~stereo_module_config", None)
         self.rgb_camera_config = rospy.get_param("~rgb_camera_config", None)
 
         self.camera_rate = rostopic.ROSTopicHz(15)
@@ -35,20 +34,16 @@ class DodobotCameraWatcher:
         self.depth_topic = self.camera_ns + "/depth/camera_info"
         rospy.Subscriber(self.depth_topic, rospy.AnyMsg, self.depth_rate.callback_hz, callback_args=self.depth_topic, queue_size=1)
 
-        self.l500_depth_client = None
-        self.motion_module_client = None
+        self.stereo_module_client = None
         self.rgb_camera_client = None
-        self.l500_depth_dyn_topic = self.camera_ns + "/l500_depth_sensor"
-        self.motion_module_dyn_topic = self.camera_ns + "/motion_module"
+        self.stereo_module_dyn_topic = self.camera_ns + "/stereo_module"
         self.rgb_camera_dyn_topic = self.camera_ns + "/rgb_camera"
 
         rospy.loginfo("%s init complete" % self.node_name)
 
     def init_dynamic_clients(self):
-        if self.l500_depth_client is None:
-            self.l500_depth_client = DynamicClient(self.l500_depth_dyn_topic)
-        if self.motion_module_client is None:
-            self.motion_module_client = DynamicClient(self.motion_module_dyn_topic)
+        if self.stereo_module_client is None:
+            self.stereo_module_client = DynamicClient(self.stereo_module_dyn_topic)
         if self.rgb_camera_client is None:
             self.rgb_camera_client = DynamicClient(self.rgb_camera_dyn_topic)
 
@@ -61,18 +56,13 @@ class DodobotCameraWatcher:
 
     def set_camera_parameters(self):
         self.init_dynamic_clients()
-        if self.l500_depth_config is not None:
-            rospy.loginfo("Updating l500_depth parameters: %s" % str(self.l500_depth_config))
-            rospy.wait_for_service(self.l500_depth_dyn_topic + "/set_parameters", 30.0)
-            self.l500_depth_client.update_configuration(self.l500_depth_config)
+        if self.stereo_module_config is not None:
+            rospy.loginfo("Updating stereo_module parameters: %s" % str(self.stereo_module_config))
+            rospy.wait_for_service(self.stereo_module_dyn_topic + "/set_parameters", 30.0)
+            self.stereo_module_client.update_configuration(self.stereo_module_config)
         else:
-            rospy.loginfo("l500_depth parameters are not set. Skipping dynamic reconfigure")
-        if self.motion_module_config is not None:
-            rospy.loginfo("Updating motion_module parameters: %s" % str(self.motion_module_config))
-            rospy.wait_for_service(self.motion_module_dyn_topic + "/set_parameters", 30.0)
-            self.motion_module_client.update_configuration(self.motion_module_config)
-        else:
-            rospy.loginfo("motion_module parameters are not set. Skipping dynamic reconfigure")
+            rospy.loginfo("stereo_module parameters are not set. Skipping dynamic reconfigure")
+
         if self.rgb_camera_config is not None:
             rospy.loginfo("Updating rgb_camera parameters: %s" % str(self.rgb_camera_config))
             rospy.wait_for_service(self.rgb_camera_dyn_topic + "/set_parameters", 30.0)

@@ -1,5 +1,5 @@
 <launch>
-    <group ns="db" >
+    <group ns="dodobot" >
         <node name="db_yolo" pkg="db_yolo" type="db_yolo" output="screen" required="false">
             <param name="model_path" value="$(find db_yolo)/models/dodobot_objects.torchscript"/>
             <param name="classes_path" value="$(find db_yolo)/models/dodobot_objects.names"/>

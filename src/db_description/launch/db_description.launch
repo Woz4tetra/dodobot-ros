@@ -1,5 +1,5 @@
 <launch>
-    <arg name="model" default="$(find db_description)/urdf/diffyjr.urdf.xml"/>
+    <arg name="model" default="$(find db_description)/urdf/dodobot.urdf.xml"/>
     <arg name="gui" default="false" />
 
     <param name="robot_description" command="$(find xacro)/xacro $(arg model)" />
@@ -13,7 +13,7 @@
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
-    <group ns="db" >
+    <group ns="dodobot" >
         <node name="db_description" pkg="db_description" type="db_description_node" output="screen">
             <rosparam param="joint_names" file="$(find db_description)/config/dodobot_joints.yaml" command="load"/>
         </node>

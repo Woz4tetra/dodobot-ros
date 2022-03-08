@@ -1,0 +1,7 @@
+image: rapid-react-2022-02-19T07-55-53--407688-edited.pgm
+resolution: 0.050000
+origin: [-26.200000, -15.000000, 0.000000]
+negate: 0
+occupied_thresh: 0.9
+free_thresh: 0.1
+

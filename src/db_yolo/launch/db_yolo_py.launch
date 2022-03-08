@@ -1,5 +1,5 @@
 <launch>
-    <group ns="db" >
+    <group ns="dodobot" >
         <node name="db_yolo" pkg="db_yolo" type="db_yolo_node.py" output="screen" required="false">
             <param name="model_path" value="$(find db_yolo)/models/cargo_2022-01-28.pt"/>
             <param name="confidence_threshold" value="0.75"/>

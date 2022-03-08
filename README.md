@@ -438,6 +438,7 @@ This is optional. Use this for training off the robot. Run all these commands on
 - `./07_prep_ros_ws.sh`
 - `./08_build_ros_ws.sh`
 - `./09_install_python_libraries.sh`
+- `./10_add_to_dialout.sh`
 
 ## dodobot-ros systemd install
 - `cd ~/dodobot-ros/systemd`
