@@ -7,22 +7,22 @@
 ## Robot Configuration Parameters ##
 
 # Maximum translational acceleration of the robot in meters/sec^2
-acc_lim_x: 10.0 # 0.5
+acc_lim_x: 1.0 # 0.5
 
 # Maximum angular acceleration of the robot in radians/sec^2
-acc_lim_theta: 1.0 # 0.5
+acc_lim_theta: 1.5 # 0.5
 
 # Maximum translational velocity of the robot in meters/sec
-max_vel_x: 2.0 # max speed 4.48 m/s
+max_vel_x: 0.4 # max speed 0.69 m/s
 
 # Maximum absolute translational velocity of the robot while driving
 # backwards in meters/sec. See optimization parameter
 # weight_kinematics_forward_drive
-max_vel_x_backwards: 2.0 # 0.2
+max_vel_x_backwards: 0.3  # 0.69
 
 # Maximum angular velocity of the robot in radians/secThe following
 # parameters are relevant only for carlike robots:
-max_vel_theta: 31.4
+max_vel_theta: 6.0  # 6.0
 
 ## The following parameters are relevant only for holonomic robots:
 
@@ -49,10 +49,10 @@ cmd_angle_instead_rotvel: false # false
 
 # Maximum strafing velocity of the robot (should be zero for non-
 # holonomic robots!)
-max_vel_y: 2.0 # 0.0
+max_vel_y: 0.0 # 0.0
 
 # Maximum strafing acceleration of the robot
-acc_lim_y: 10.0 # 0.5
+acc_lim_y: 0.0 # 0.5
 
 
 ## The following parameters are relevant for the footprint model used for
@@ -101,7 +101,7 @@ footprint_model/rear_radius: 0.2 # 0.2
 # This parameter is only relevant for type "polygon". It contains the
 # list of polygon vertices (2d coordinates each). The polygon is always
 # closed: do not repeat the first vertex at the end.
-footprint_model/vertices: [[-0.313, -0.313], [-0.313, 0.313], [0.313, 0.313], [0.313, -0.313]]
+footprint_model/vertices: [[-0.1556, -0.12], [-0.1556, 0.12], [0.1894, 0.12], [0.1894, -0.12]] # [ [0.25,-0.05], [...], ...]
 
 # If true, updates the footprint before checking trajectory feasibility
 is_footprint_dynamic: false # false
@@ -113,7 +113,7 @@ is_footprint_dynamic: false # false
 xy_goal_tolerance: 0.1 # 0.2
 
 # Allowed final orientation error in radians
-yaw_goal_tolerance: 0.05 # 0.2
+yaw_goal_tolerance: 0.07 # 0.2
 
 # Remove the goal velocity constraint such that the robot can arrive at
 # the goal with maximum speed
@@ -191,7 +191,7 @@ exact_arc_length: false # false
 shrink_horizon_min_duration: 10.0 # 10.0
 
 # Minimum desired separation from obstacles in meters
-min_obstacle_dist: 0.05 # 0.5
+min_obstacle_dist: 0.005 # 0.5
 
 # Specify if obstacles of the local costmap should be taken into
 # account. Each cell that is marked as obstacle is considered as a
@@ -216,7 +216,7 @@ obstacle_poses_affected: 30 # 30
 # Buffer zone around obstacles with non-zero penalty costs (should be
 # larger than min_obstacle_dist in order to take effect). Also refer to
 # the weight weight_inflation.
-inflation_dist: 0.15 # 0.6
+inflation_dist: 0.02 # 0.6
 
 # If this parameter is set to true, the motion of obstacles with non-
 # zero velocity (provided via user-supplied obstacles on topic
@@ -413,7 +413,7 @@ switching_blocking_period: 0.0 # 0.0
 
 # Topic name of the odometry message, provided by the robot driver or
 # simulator.
-odom_topic: "/dodobot/odom" # "odom"
+odom_topic: "odom" # "odom"
 
 # Global planning frame (in case of a static map, this parameter must be
 # usually changed to "/map".

@@ -39,7 +39,7 @@ class DodobotLaserSlam:
         self.default_maps_dir = self.package_dir + "/maps"
         self.default_launches_dir = self.package_dir + "/launch/sublaunch"
 
-        self.service_ns_name = rospy.get_param("~service_ns_name", "/db")
+        self.service_ns_name = rospy.get_param("~service_ns_name", "/dodobot")
         self.start_mode = rospy.get_param("~mode", "mapping")
         self.min_localize_rate_threshold = rospy.get_param("~min_localize_rate_threshold", 1.0)
         self.min_mapping_rate_threshold = rospy.get_param("~min_mapping_rate_threshold", 1.0)

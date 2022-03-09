@@ -5,14 +5,15 @@
             <param name="classes_path" value="$(find db_yolo)/models/dodobot_objects.names"/>
             <rosparam param="yolo_z_depth_estimations" file="$(find db_yolo)/config/depth_estimations.yaml" command="load"/>
 
-            <param name="confidence_threshold" value="0.2"/>
-            <param name="nms_iou_threshold" value="0.2"/>
+            <param name="confidence_threshold" value="0.8"/>
+            <param name="nms_iou_threshold" value="0.4"/>
 
             <param name="publish_overlay" value="true"/>
             <param name="report_loop_times" value="false"/>
             <param name="marker_persistance" value="0.25"/>
             <param name="circle_mask_border_offset_px" value="0"/>
             <param name="circle_mask_border_divisor" value="2"/>
+            <param name="throttle_frame_rate" value="0.0" />
 
             <remap from="color/image_raw" to="/camera/color/image_raw"/>
             <remap from="depth/image_raw" to="/camera/aligned_depth_to_color/image_raw"/>

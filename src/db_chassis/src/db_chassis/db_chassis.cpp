@@ -162,8 +162,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
     parallel_gripper_pub = nh.advertise<db_parsing::DodobotParallelGripper>("parallel_gripper", 50);
     linear_pub = nh.advertise<db_parsing::DodobotLinear>("linear_cmd", 50);
     linear_pos_pub = nh.advertise<db_chassis::LinearPosition>("linear_pos", 50);
-    linear_joint_pub = nh.advertise<std_msgs::Float64>("tilt_base_to_camera_rotate_joint", 10);
-    tilter_joint_pub = nh.advertise<std_msgs::Float64>("linear_to_linear_base_link", 10);
+    linear_joint_pub = nh.advertise<std_msgs::Float64>("linear_to_linear_base_link", 10);
+    tilter_joint_pub = nh.advertise<std_msgs::Float64>("tilt_base_to_camera_rotate_joint", 10);
 
     // Subscribers
     twist_sub = nh.subscribe<geometry_msgs::Twist>("cmd_vel", 50, &DodobotChassis::twist_callback, this);
@@ -198,7 +198,8 @@ DodobotChassis::DodobotChassis(ros::NodeHandle* nodehandle):nh(*nodehandle)
 
 void DodobotChassis::setup()
 {
-    set_pid(kP_A_default, kI_A_default, kD_A_default, kP_B_default, kI_B_default, kD_B_default, kA_speed_default, kB_speed_default);
+    ROS_INFO("Setting pid from setup");
+    set_pid(kP_A_default, kP_B_default, kI_A_default, kI_B_default, kD_A_default, kD_B_default, kA_speed_default, kB_speed_default);
 }
 
 void DodobotChassis::loop()
@@ -247,15 +248,26 @@ void DodobotChassis::dynamic_callback(db_chassis::DodobotChassisConfig &config, 
         ROS_WARN("Services for this node aren't enabled!");
         return;
     }
-    // if (!first_time_pid_setup) {
-    //     first_time_pid_setup = true;
-    //     return;
-    // }
-    set_pid(config.kp_A, config.ki_A, config.kd_A, config.kp_B, config.ki_B, config.kd_B, config.speed_kA, config.speed_kB);
+    if (!first_time_pid_setup) {
+        first_time_pid_setup = true;
+        return;
+    }
+    ROS_INFO("Setting pid from dynamic reconfigure");
+    set_pid(config.kp_A, config.kp_B, config.ki_A, config.ki_B, config.kd_A, config.kd_B, config.speed_kA, config.speed_kB);
 }
 
 void DodobotChassis::set_pid(double kP_A, double kP_B, double kI_A, double kI_B, double kD_A, double kD_B, double speed_kA, double speed_kB)
 {
+    ROS_INFO("Setting pid from chassis node: kp_A=%f, ki_A=%f, kd_A=%f, kp_B=%f, ki_B=%f, kd_B=%f, speed_kA=%f, speed_kB=%f",
+        kP_A,
+        kI_A,
+        kD_A,
+        kP_B,
+        kI_B,
+        kD_B,
+        speed_kA,
+        speed_kB
+    );
     db_parsing::DodobotPidSrv srv;
     srv.request.kp_A = kP_A;
     srv.request.ki_A = kI_A;

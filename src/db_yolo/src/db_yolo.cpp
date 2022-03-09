@@ -10,6 +10,14 @@ DodobotYolo::DodobotYolo(ros::NodeHandle* nodehandle) :
     ros::param::param<std::string>("~model_path", _model_path, "best.pt");
     ros::param::param<float>("~confidence_threshold", _conf_threshold, 0.25);
     ros::param::param<float>("~nms_iou_threshold", _iou_threshold, 0.45);
+    ros::param::param<double>("~throttle_frame_rate", _throttle_frame_rate, 0.0);
+    if (abs(_throttle_frame_rate) > 0.05) {
+        _prev_frame_delay = ros::Duration(1.0 / _throttle_frame_rate);
+    }
+    else {
+        _prev_frame_delay = ros::Duration(0.0);
+    }
+    _prev_frame_time = ros::Time(0.0);
 
     ros::param::param<std::string>("~image_width_param", _image_width_param, "/camera/realsense2_camera/color_width");
     ros::param::param<std::string>("~image_height_param", _image_height_param, "/camera/realsense2_camera/color_height");
@@ -103,6 +111,10 @@ void DodobotYolo::camera_info_callback(const sensor_msgs::CameraInfoConstPtr& ca
 void DodobotYolo::rgbd_callback(const sensor_msgs::ImageConstPtr& color_image, const sensor_msgs::ImageConstPtr& depth_image)
 {
     ros::Time now = ros::Time::now();
+    if (_prev_frame_delay > ros::Duration(0.0) && now - _prev_frame_time < _prev_frame_delay) {
+        return;
+    }
+    _prev_frame_time = ros::Time::now();
     ros::Duration color_transport_delay = now - color_image->header.stamp;
     double color_transport_delay_ms = color_transport_delay.toSec() * 1000.0;
     ros::Duration depth_transport_delay = now - depth_image->header.stamp;

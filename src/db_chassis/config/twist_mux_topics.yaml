@@ -1,0 +1,23 @@
+# Input topics handled/muxed.
+# For each topic:
+# - name    : name identifier to select the topic
+# - topic   : input topic of geometry_msgs::Twist type
+# - timeout : timeout in seconds to start discarding old messages, and use 0.0 speed instead
+# - priority: priority in the range [0, 255]; the higher the more priority over other topics
+
+topics:
+-
+  name    : follow_object
+  topic   : /dodobot/cmd_vel_follow
+  timeout : 1.0
+  priority: 20
+-
+  name    : navigation
+  topic   : /dodobot/cmd_vel_nav
+  timeout : 1.0
+  priority: 50
+-
+  name    : joystick
+  topic   : /dodobot/cmd_vel_teleop
+  timeout : 0.5
+  priority: 100

@@ -6,8 +6,8 @@ max_vel_x: 1.0  # max speed 4.48 m/s
 min_vel_x: 0.2
 
 # for recovery behaviors
-max_vel_theta: 2.0  # 61.4
-min_vel_theta: 2.0  # -61.4
+max_vel_theta: 2.0
+min_vel_theta: 2.0
 min_in_place_vel_theta: 2.0
 
 holonomic_robot: false

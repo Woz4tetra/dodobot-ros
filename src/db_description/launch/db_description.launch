@@ -6,7 +6,7 @@
     <param name="use_gui" value="$(arg gui)"/>
     <rosparam param="source_list" subst_value="True">
     [
-        "/db/joint_states",
+        "/dodobot/joint_states",
     ]
     </rosparam>
 

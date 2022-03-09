@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <arg name="joystick_linear_x_axis"   default="left/Y" />
-    <arg name="joystick_linear_y_axis"   default="left/X" />
-    <arg name="joystick_angular_axis"   default="right/X" />
     <arg name="deadzone_val"   default="0.1" />
     <arg name="device"   default="/dev/input/js0" />
     <arg name="topic_name" default="joy_default" />
@@ -19,20 +16,17 @@
     </node>
     <node name="$(anon joy_throttle)" pkg="topic_tools" type="throttle" required="false" args="messages /$(arg topic_name) 20 /$(arg topic_name)_throttled" />
 
-    <group ns="db" >
+    <group ns="dodobot" >
+        <!-- <rosparam file="/home/ben/.local/dodobot/dodobot_py/config/joystick.yaml" command="load" ns="joystick"/> -->
         <node name="$(anon db_debug_joystick)" pkg="db_debug_joystick" type="db_debug_joystick_node.py" output="screen" required="false">
             <param name="deadzone_joy_val" value="$(arg deadzone_val)" />
             <param name="joystick_topic" value="/$(arg topic_name)_throttled" />
-            <param name="linear_x_scale" value="4.48" />
-            <param name="linear_y_scale" value="4.48" />
-            <param name="angular_scale" value="20.5" />
+            <param name="linear_scale" value="0.69" />
+            <param name="angular_scale" value="6.0" />
+            <param name="gripper_max_dist" value="0.112" />
 
             <rosparam param="button_mapping" file="$(find db_debug_joystick)/config/$(arg button_map_name)" command="load"/>
             <rosparam param="axis_mapping" file="$(find db_debug_joystick)/config/$(arg axis_map_name)" command="load"/>
-
-            <param name="linear_x_axis" value="$(arg joystick_linear_x_axis)" />
-            <param name="linear_y_axis" value="$(arg joystick_linear_y_axis)" />
-            <param name="angular_axis" value="$(arg joystick_angular_axis)" />
 
             <remap from="cmd_vel" to="cmd_vel_teleop"/>
         </node>

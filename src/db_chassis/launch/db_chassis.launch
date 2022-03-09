@@ -6,10 +6,21 @@
     <arg name="db_chassis_use_sensor_msg_time" default="false"/>
     <arg name="db_chassis_odom_frame" default="odom"/>
 
-    <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_chassis)/config/db_chassis.yaml" />
+    <!-- <node name="dynamic_reconfigure_load" pkg="dynamic_reconfigure" type="dynparam" args="load /dodobot/db_chassis $(find db_chassis)/config/db_chassis.yaml" /> -->
+
+    <include file="$(find db_chassis)/launch/twist_mux.launch"/>
 
     <group ns="dodobot">
         <node name="db_chassis" pkg="db_chassis" type="db_chassis_node" output="log" required="true">
+            <param name="kP_A" value="0.2"/>
+            <param name="kP_B" value="0.2"/>
+            <param name="kI_A" value="0.0"/>
+            <param name="kI_B" value="0.0"/>
+            <param name="kD_A" value="0.0"/>
+            <param name="kD_B" value="0.0"/>
+            <param name="kA_speed" value="0.9"/>
+            <param name="kB_speed" value="0.9"/>
+            
             <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
 
             <param name="ticks_per_rotation" value="1496.88"/>
@@ -38,13 +49,6 @@
             <param name="hinge_pin_to_pad_plane" value="0.00893542"/>
             <param name="pad_extension_offset" value="0.00406250"/>
             <param name="central_axis_dist" value="0.015"/>
-
-            <param name="kP_A" value="0.25"/>
-            <param name="kP_B" value="0.25"/>
-            <param name="kD_A" value="0.0"/>
-            <param name="kD_B" value="0.0"/>
-            <param name="kI_A" value="0.0"/>
-            <param name="kI_B" value="0.0"/>
 
             <param name="services_enabled" value="$(arg db_chassis_services_enabled)"/>
             <!-- <param name="odom_estimate_method" value="runge-kutta"/> -->

@@ -12,8 +12,8 @@
         <param name="angle_compensate"    type="bool"   value="true"/>
         <!-- <param name="max_distance"        type="int"    value="18"/> -->
         
-        <!-- <param name="scan_mode"           type="string" value="Standard"/> -->
-        <param name="scan_mode"           type="string" value="Express"/>
+        <param name="scan_mode"           type="string" value="Standard"/>
+        <!-- <param name="scan_mode"           type="string" value="Express"/> -->
         <!-- <param name="scan_mode"           type="string" value="Boost"/> -->
         <!-- <param name="scan_mode"           type="string" value="Stability"/> -->
         <!-- Standard: max_distance: 12.0 m, Point number: 2.0K -->

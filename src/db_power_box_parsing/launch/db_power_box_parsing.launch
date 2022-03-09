@@ -1,6 +1,6 @@
 <launch>
     <group ns="dodobot">
-        <node type="db_power_box_parsing_node" name="db_power_box_parsing" pkg="db_power_box_parsing" required="true" output="log">
+        <node type="db_power_box_parsing_node" name="db_power_box_parsing" pkg="db_power_box_parsing" respawn="true" output="screen">
             <param name="device_address" type="string" value="/dev/serial/by-id/usb-Silicon_Labs_CP2104_USB_to_UART_Bridge_Controller_018D432A-if00-port0"/>
             <param name="device_baud" type="int" value="38400"/>
         </node>

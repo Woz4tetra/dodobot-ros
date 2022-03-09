@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
+import time
 import rospy
+import random
 
 from sensor_msgs.msg import Joy
 
 from geometry_msgs.msg import Twist
 
-from std_msgs.msg import Bool
-from std_msgs.msg import Int32
+from std_msgs.msg import ColorRGBA
+
+from db_parsing.msg import DodobotLinear
+from db_parsing.msg import DodobotState
+from db_parsing.msg import DodobotParallelGripper
+from db_parsing.msg import DodobotTilter
+
+from db_chassis.msg import LinearVelocity, LinearPosition
+
+from db_parsing.srv import DodobotSetState
+
+from db_audio.srv import PlayAudio
+from db_audio.srv import StopAudio
 
 from db_tools.joystick import Joystick
 
 
 class DodobotDebugJoystick:
-    SEND_AUTO_PLAN = 1
-    RESET_IMU = 2
-
     def __init__(self):
         rospy.init_node(
             "db_debug_joystick",
@@ -28,7 +38,6 @@ class DodobotDebugJoystick:
         self.twist_command.angular.z = 0.0
 
         self.cmd_vel_timer = rospy.Time.now()
-        self.disable_timer = rospy.Time.now()
 
         self.cmd_vel_timeout = rospy.Duration(0.5)
         self.send_timeout = rospy.Duration(self.cmd_vel_timeout.to_sec() + 1.0)
@@ -37,21 +46,18 @@ class DodobotDebugJoystick:
         assert self.send_timeout.to_sec() > self.cmd_vel_timeout.to_sec()
 
         # parameters from launch file
-        self.nt_host = rospy.get_param("~nt_host", "10.0.88.2")
+        self.linear_axis = rospy.get_param("~linear_axis", "left/Y").split("/")
+        self.angular_axis = rospy.get_param("~angular_axis", "left/X").split("/")
+        self.stepper_axis = rospy.get_param("~stepper_axis", "right/Y").split("/")
+        self.tilter_axis = rospy.get_param("~tilter_axis", "right/Y").split("/")
 
-        self.linear_x_axis = rospy.get_param("~linear_x_axis", "left/X").split("/")
-        self.linear_y_axis = rospy.get_param("~linear_y_axis", "left/Y").split("/")
-        self.angular_axis = rospy.get_param("~angular_axis", "right/X").split("/")
-        self.idle_axis = rospy.get_param("~idle_axis", "brake/L").split("/")
-        self.speed_selector_axis = rospy.get_param("~speed_selector_axis", "dpad/vertical").split("/")
-        self.toggle_nt_axis = rospy.get_param("~toggle_nt_axis", "brake/R").split("/")
+        self.stepper_max_speed = rospy.get_param("~stepper_max_speed", 0.04424059137543106)
+        self.gripper_max_dist = rospy.get_param("~gripper_max_dist", 0.08)
 
-        self.linear_x_scale_max = float(rospy.get_param("~linear_x_scale", 1.0))
-        self.linear_y_scale_max = float(rospy.get_param("~linear_y_scale", 1.0))
-        self.angular_scale_max = float(rospy.get_param("~angular_scale", 1.0))
-        self.linear_x_scale = self.linear_x_scale_max
-        self.linear_y_scale = self.linear_y_scale_max
-        self.angular_scale = self.angular_scale_max
+        self.max_tilt_speed = rospy.get_param("~max_tilt_speed", 6.0)
+
+        self.linear_scale = float(rospy.get_param("~linear_scale", 1.0))
+        self.angular_scale = float(rospy.get_param("~angular_scale", 1.0))
 
         self.deadzone_joy_val = float(rospy.get_param("~deadzone_joy_val", 0.05))
         self.joystick_topic = rospy.get_param("~joystick_topic", "/joy")
@@ -61,30 +67,183 @@ class DodobotDebugJoystick:
         self.axis_mapping = rospy.get_param("~axis_mapping", None)
         assert self.axis_mapping is not None
 
-        self.global_frame = rospy.get_param("~global_frame", "map")
+        self.gripper_dist = self.gripper_max_dist
+        self.parallel_gripper_msg = DodobotParallelGripper()
 
-        self.speed_mode = 0
-        self.speed_multipliers = [0.1, 0.25, 0.5, 0.9, 1.0]
-        self.set_speed_mode(0)
+        self.enable_tilt_axis = False
+        self.tilt_position = 180
 
-        self.is_field_relative = False
-        self.limelight_led_mode = False  # False == on, True == off
-        self.take_picture = False
-        self.command_with_topic = False
+        self.linear_vel_command = 0.0
+        self.prev_linear_vel_command = 0.0
+
+        self.led_pattern_index = 0
+        self.led_colors = [
+            ColorRGBA(0.0, 0.0, 0.0, 0.0),
+            ColorRGBA(1.0, 1.0, 1.0, 1.0),
+            ColorRGBA(1.0, 0.0, 0.0, 0.0),
+            ColorRGBA(0.0, 1.0, 0.0, 0.0),
+            ColorRGBA(0.0, 0.0, 1.0, 0.0),
+        ]
 
         self.joystick = Joystick(self.button_mapping, self.axis_mapping)
 
-        # services
-        self.set_robot_mode = rospy.ServiceProxy("robot_mode", SetRobotMode)
-        self.last_set_mode_time = rospy.Time.now()
-
         # publishing topics
-        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=100)
+        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=10)
+        self.linear_pub = rospy.Publisher("linear_cmd", DodobotLinear, queue_size=5)
+        self.linear_vel_pub = rospy.Publisher("linear_vel_cmd", LinearVelocity, queue_size=10)
+        self.linear_pos_pub = rospy.Publisher("linear_pos_cmd", LinearPosition, queue_size=10)
+        self.parallel_gripper_pub = rospy.Publisher("parallel_gripper_cmd", DodobotParallelGripper, queue_size=10)
+        self.tilter_pub = rospy.Publisher("tilter_cmd", DodobotTilter, queue_size=10)
+        self.led_pub = rospy.Publisher("ring_light", ColorRGBA, queue_size=5)
+
+        self.motors_active = False
+        self.play_audio_srv = None
+        self.stop_audio_srv = None
+
+        # https://play.pokemonshowdown.com/audio/cries/
+        self.soundboard_down = [
+            # "regirock-sound-1",
+            # "regirock-sound-2",
+            "chansey",
+            "porygon",
+            "porygon2",
+            "porygonz",
+        ]
+        self.soundboard_up = [
+            "Bastion_-_15227",
+            "Bastion_-_15303",
+            "Bastion_-_4543",
+            "Bastion_-_Beeple",
+            "Bastion_-_Boo_boo_doo_de_doo",
+            "Bastion_-_Bweeeeeeeeeee",
+            "Bastion_-_Chirr_chirr_chirr",
+            "Bastion_-_Dah-dah_weeeee",
+            "Bastion_-_Doo-woo",
+            "Bastion_-_Dun_dun_boop_boop",
+            "Bastion_-_Dweet_dweet_dweet",
+            "Bastion_-_Hee_hoo_hoo",
+            "Bastion_-_Sh-sh-sh_dwee!",
+            "Bastion_-_Zwee",
+        ]
+        
+        # self.soundboard_up = [
+        #     "got thing",
+        #     "trident",
+        #     "summon"
+        #     "PuzzleDone",
+        # ]
+        # self.soundboard_down = ["ring"]
 
         # subscription topics
         self.joy_sub = rospy.Subscriber(self.joystick_topic, Joy, self.joystick_msg_callback, queue_size=5)
+        self.parallel_gripper_sub = rospy.Subscriber("parallel_gripper", DodobotParallelGripper, self.parallel_gripper_callback, queue_size=100)
+        self.robot_state_sub = rospy.Subscriber("state", DodobotState, self.robot_state_callback, queue_size=100)
+        self.tilter_sub = rospy.Subscriber("tilter", DodobotTilter, self.tilter_callback, queue_size=50)
+
+        # Services
+        self.set_robot_state = self.make_service_client("set_state", DodobotSetState)
+        self.play_audio_srv = self.make_service_client("play_audio", PlayAudio, wait=False)
+        self.stop_audio_srv = self.make_service_client("stop_audio", StopAudio, wait=False)
+        # time.sleep(3.0)  # give a chance for the audio node to come up
+        # self.play_audio("chansey")
 
         rospy.loginfo("Debug joystick is ready!")
+
+    def play_audio(self, name):
+        try:
+            if self.play_audio_srv is not None:
+                self.play_audio_srv(name)
+        except rospy.ServiceException as e:
+            rospy.logwarn("Failed to play audio: %s: %s" % (name, e))
+    
+    def stop_audio(self, name):
+        try:
+            if self.stop_audio_srv is not None:
+                self.stop_audio_srv(name)
+        except rospy.ServiceException as e:
+            rospy.logwarn("Failed to play audio: %s: %s" % (name, e))
+    
+    def play_random_audio(self, names):
+        self.play_audio(random.choice(names))
+
+    def select_led_pattern(self, index):
+        self.led_pattern_index = index % len(self.led_colors)
+        self.led_pub.publish(self.led_colors[self.led_pattern_index])
+
+    def make_service_client(self, name, srv_type, timeout=None, wait=True):
+        self.__dict__[name + "_service_name"] = name
+        rospy.loginfo("Connecting to %s service" % name)
+        srv_obj = rospy.ServiceProxy(name, srv_type)
+
+        if wait:
+            rospy.loginfo("Waiting for service %s" % name)
+            rospy.wait_for_service(name, timeout=timeout)
+            rospy.loginfo("%s service is ready" % name)
+        return srv_obj
+
+    def robot_state_callback(self, msg):
+        # battery_ok
+        # motors_active
+        # loop_rate
+        # is_ready
+        # robot_name
+        self.motors_active = msg.motors_active
+
+    def set_motors_active(self, new_state):
+        rospy.loginfo("Setting active to %s" % new_state)
+        self.set_robot_state(True, new_state)
+        if new_state:
+            self.play_audio("ding")
+
+    def tilter_callback(self, msg):
+        self.tilt_position = msg.position
+
+    def set_tilter(self, position):
+        msg = DodobotTilter()
+        msg.command = 3
+        msg.position = position
+        self.tilter_pub.publish(msg)
+
+    def toggle_tilter(self):
+        msg = DodobotTilter()
+        msg.command = 2
+        self.tilter_pub.publish(msg)
+
+    def set_linear(self, value):
+        self.linear_vel_command = self.stepper_max_speed * value
+        if self.linear_vel_command != self.prev_linear_vel_command:
+            self.prev_linear_vel_command = self.linear_vel_command
+            msg = LinearVelocity()
+
+            msg.velocity = self.linear_vel_command
+            msg.acceleration = float("nan")
+
+            self.linear_vel_pub.publish(msg)
+
+    def home_linear(self):
+        msg = DodobotLinear()
+        msg.command_type = 4  # home stepper command
+        msg.max_speed = -1
+        msg.acceleration = -1
+        self.linear_pub.publish(msg)
+
+        # set stepper velocity and acceleration profiles
+        msg = LinearPosition()
+        msg.position = float("nan")
+        msg.max_speed = self.stepper_max_speed
+        msg.acceleration = float("nan")
+        self.linear_pos_pub.publish(msg)
+
+    def parallel_gripper_callback(self, gripper_msg):
+        self.gripper_dist = gripper_msg.distance
+
+    def toggle_gripper(self):
+        if abs(self.gripper_max_dist - self.gripper_dist) < 0.005:
+            self.parallel_gripper_msg.distance = 0.0
+        else:
+            self.parallel_gripper_msg.distance = self.gripper_max_dist
+
+        self.parallel_gripper_pub.publish(self.parallel_gripper_msg)
 
     def joystick_msg_callback(self, msg):
         """
@@ -100,85 +259,58 @@ class DodobotDebugJoystick:
 
         self.joystick.update(msg)
         
-        if all(self.joystick.check_list(self.joystick.is_button_down, ("triggers", "L1"), ("menu", "Start"))):
-            self.set_mode(RobotStatus.TELEOP)
-        elif all(self.joystick.check_list(self.joystick.is_button_down, ("menu", "Select"), ("menu", "Start"))):
-            self.set_mode(RobotStatus.AUTONOMOUS)
-        elif any(self.joystick.check_list(self.joystick.did_button_down, ("triggers", "L1"), ("triggers", "R1"))):
-            self.set_mode(RobotStatus.DISABLED)
-        # elif self.joystick.did_button_down(("main", "B")):
-        #     self.set_field_relative(not self.is_field_relative)
-        # elif self.joystick.did_button_down(("main", "A")):
-        #     self.limelight_led_mode = not self.limelight_led_mode
-        #     rospy.loginfo("Setting limelight led mode to %s" % self.limelight_led_mode)
-        #     self.limelight_led_pub.publish(self.limelight_led_mode)
+        if self.joystick.did_button_down(("main", "B")):
+            self.toggle_gripper()
+        elif self.joystick.did_button_down(("main", "A")):
+            self.home_linear()
+        elif self.joystick.did_button_down(("main", "X")):
+            self.toggle_tilter()
+        elif self.joystick.did_button_down(("main", "Y")):
+            self.set_motors_active(not self.motors_active)
+        
+        if self.joystick.is_button_down(("triggers", "L1")):
+            self.tilt_speed = 0
+            self.enable_tilt_axis = True
+        else:
+            self.set_linear(0.0)
+            self.enable_tilt_axis = False
 
-        if any(self.joystick.check_list(self.joystick.did_axis_change, self.linear_x_axis, self.linear_y_axis, self.angular_axis)):
-            self.disable_timer = rospy.Time.now()
-            linear_x_val = self.joystick.deadband_axis(self.linear_x_axis, self.deadzone_joy_val, self.linear_x_scale)
-            linear_y_val = self.joystick.deadband_axis(self.linear_y_axis, self.deadzone_joy_val, self.linear_y_scale)
+        if self.enable_tilt_axis:
+            self.tilt_speed = int(self.max_tilt_speed * self.joystick.get_axis(self.tilter_axis))
+
+            if self.tilt_speed != 0:
+                self.set_tilter(self.tilt_position + self.tilt_speed)
+        else:
+            stepper_val = self.joystick.deadband_axis(self.stepper_axis, self.deadzone_joy_val, 1.0)
+            self.set_linear(stepper_val)
+
+        if any(self.joystick.check_list(self.joystick.did_axis_change, self.linear_axis, self.angular_axis)):
+            self.cmd_vel_timer = rospy.Time.now()
+            linear_val = self.joystick.deadband_axis(self.linear_axis, self.deadzone_joy_val, self.linear_scale)
             angular_val = self.joystick.deadband_axis(self.angular_axis, self.deadzone_joy_val, self.angular_scale)
 
-            self.set_twist(linear_x_val, linear_y_val, angular_val)
+            self.set_twist(linear_val, angular_val)
         
-        if (self.joystick.did_axis_change(self.idle_axis) or
-                self.twist_command.linear.x != 0.0 or 
-                self.twist_command.linear.y != 0.0 or 
-                self.twist_command.angular.z != 0.0):
-            self.cmd_vel_timer = rospy.Time.now()
-        
-        if self.joystick.did_axis_change(self.speed_selector_axis):
-            axis_value = self.joystick.get_axis(self.speed_selector_axis)
-            if axis_value > 0:
-                self.set_speed_mode(self.speed_mode + 1)
-            elif axis_value < 0:
-                self.set_speed_mode(self.speed_mode - 1)
-        
-        axis_value = self.joystick.get_axis(self.toggle_nt_axis)
-        if axis_value >= 0.0:  # trigger released
-            self.command_with_topic = False
-        else:  # trigger pressed
-            self.command_with_topic = True
+        if self.joystick.did_axis_change(("dpad", "vertical")):
+            if self.joystick.get_axis(("dpad", "vertical")) > 0.0:
+                self.play_random_audio(self.soundboard_up)
+            elif self.joystick.get_axis(("dpad", "vertical")) < 0.0:
+                self.play_random_audio(self.soundboard_down)
+        if self.joystick.did_axis_change(("dpad", "horizontal")):
+            if self.joystick.get_axis(("dpad", "horizontal")) > 0.0:
+                self.select_led_pattern(self.led_pattern_index - 1)
+            elif self.joystick.get_axis(("dpad", "horizontal")) < 0.0:
+                self.select_led_pattern(self.led_pattern_index + 1)
 
-    def set_mode(self, mode):
-        now = rospy.Time.now()
-        if now - self.last_set_mode_time < rospy.Duration(1.0):
-            return
-        self.last_set_mode_time = now
-        self.set_twist_zero()
-        rospy.loginfo("Set robot mode to %s. %s" % (mode, self.set_robot_mode(mode)))
-
-    def set_speed_mode(self, value):
-        self.speed_mode = value
-        if self.speed_mode < 0:
-            self.speed_mode = 0
-        elif self.speed_mode >= len(self.speed_multipliers):
-            self.speed_mode = len(self.speed_multipliers) - 1
-        rospy.loginfo("Set speed mode to %s" % self.speed_mode)
-        multiplier = self.speed_multipliers[self.speed_mode]
-        self.linear_x_scale = multiplier * self.linear_x_scale_max
-        self.linear_y_scale = multiplier * self.linear_y_scale_max
-        self.angular_scale = multiplier * self.angular_scale_max
-
-    def set_twist(self, linear_x_val, linear_y_val, angular_val):
-        if (self.twist_command.linear.x != linear_x_val or 
-                self.twist_command.linear.y != linear_y_val or 
+    def set_twist(self, linear_val, angular_val):
+        if (self.twist_command.linear.x != linear_val or 
                 self.twist_command.angular.z != angular_val):
-            self.twist_command.linear.x = linear_x_val
-            self.twist_command.linear.y = linear_y_val
+            self.twist_command.linear.x = linear_val
             self.twist_command.angular.z = angular_val
     
     def set_twist_zero(self):
         self.twist_command.linear.x = 0.0
-        self.twist_command.linear.y = 0.0
         self.twist_command.angular.z = 0.0
-
-    def set_field_relative(self, is_field_relative):
-        msg = Bool()
-        msg.data = is_field_relative
-        self.is_field_relative = is_field_relative
-        rospy.loginfo("Setting field relative to %s" % is_field_relative)
-        self.set_field_relative_pub.publish(msg)
 
     def run(self):
         clock_rate = rospy.Rate(20.0)
@@ -186,7 +318,7 @@ class DodobotDebugJoystick:
             dt = rospy.Time.now() - self.cmd_vel_timer
             if dt > self.cmd_vel_timeout:
                 self.set_twist_zero()
-            if dt < self.send_timeout and self.command_with_topic:
+            if dt < self.send_timeout:
                 self.cmd_vel_pub.publish(self.twist_command)
             clock_rate.sleep()
 

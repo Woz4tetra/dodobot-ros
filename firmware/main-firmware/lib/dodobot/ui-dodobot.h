@@ -1848,6 +1848,15 @@ namespace dodobot_ui
             tft.setCursor(border_offset_w, y_offset); tft.println("m A: " + String((int)dodobot_chassis::enc_speedA) + "       ");
             tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("B: " + String((int)dodobot_chassis::enc_speedB) + "       "); y_offset += row_size;
 
+            tft.setCursor(border_offset_w, y_offset); tft.println("Kp A: " + String(dodobot_speed_pid::motorA_pid.Kp) + "       ");
+            tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("B: " + String(dodobot_speed_pid::motorB_pid.Kp) + "       "); y_offset += row_size;
+            tft.setCursor(border_offset_w, y_offset); tft.println("Ki A: " + String(dodobot_speed_pid::motorA_pid.Ki) + "       ");
+            tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("B: " + String(dodobot_speed_pid::motorB_pid.Ki) + "       "); y_offset += row_size;
+            tft.setCursor(border_offset_w, y_offset); tft.println("Kd A: " + String(dodobot_speed_pid::motorA_pid.Kd) + "       ");
+            tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("B: " + String(dodobot_speed_pid::motorB_pid.Kd) + "       "); y_offset += row_size;
+            tft.setCursor(border_offset_w, y_offset); tft.println("Ks A: " + String(dodobot_chassis::speed_smooth_kA) + "       ");
+            tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("B: " + String(dodobot_chassis::speed_smooth_kB) + "       "); y_offset += row_size;
+
             tft.setCursor(border_offset_w, y_offset); tft.println("L: " + String(dodobot_chassis::is_bump2_active()) + "       ");
             tft.setCursor(border_offset_w + drive_column_offset, y_offset); tft.println("R: " + String(dodobot_chassis::is_bump1_active()) + "       "); y_offset += row_size;
         }

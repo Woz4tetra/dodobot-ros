@@ -70,6 +70,7 @@ private:
     std::string _target_frame;
     double _marker_persistance_s;
     std::map<std::string, double> _z_depth_estimations;
+    double _throttle_frame_rate;
 
     // Members
     Detector* _detector;
@@ -78,6 +79,8 @@ private:
     std::vector<int> _obj_count;
     ros::Duration _marker_persistance;
     sensor_msgs::CameraInfo _camera_info;
+    ros::Time _prev_frame_time;
+    ros::Duration _prev_frame_delay;
 
     // Subscribers
     ros::Subscriber _color_info_sub;

@@ -11,7 +11,7 @@
         <node type="throttle" name="motor_topic_throttle" pkg="topic_tools" required="true" output="log"
             args="messages drive_cmd $(arg motor_topic_throttle_rate) $(arg drive_cmd_topic)"/>
 
-        <node type="db_parsing_node" name="db_parsing_node" pkg="db_parsing" required="true" output="log">
+        <node type="db_parsing_node" name="db_parsing_node" pkg="db_parsing" respawn="true" output="screen">
             <param name="serial_port" type="string" value="/dev/ttyTHS1"/>
             <param name="serial_baud" type="int" value="1000000"/>
             <!-- <param name="serial_baud" type="int" value="115200"/> -->

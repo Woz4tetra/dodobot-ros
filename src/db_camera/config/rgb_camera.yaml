@@ -1,16 +1,16 @@
-auto_exposure_priority: false
-backlight_compensation: 128
 brightness: 0
 contrast: 50
+exposure: 166
+gain: 256
+gamma: 300
+hue: 0
+saturation: 64
+sharpness: 50
+frames_queue_size: 16
+white_balance: 4600.0
+
+backlight_compensation: false
 enable_auto_exposure: true
 enable_auto_white_balance: true
-exposure: 166
-frames_queue_size: 16
-gain: 256
+auto_exposure_priority: false
 global_time_enabled: true
-host_performance: 0
-hue: 0
-power_line_frequency: 1
-saturation: 50
-sharpness: 50
-white_balance: 4600.0
