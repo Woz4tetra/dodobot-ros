@@ -30,7 +30,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -61,38 +61,6 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base_link:
-          Value: true
-        camera_aligned_depth_to_color_frame:
-          Value: false
-        camera_color_frame:
-          Value: false
-        camera_color_optical_frame:
-          Value: false
-        camera_depth_frame:
-          Value: false
-        camera_depth_optical_frame:
-          Value: false
-        camera_link:
-          Value: false
-        camera_rotate_link:
-          Value: true
-        gripper_link:
-          Value: true
-        laser:
-          Value: false
-        linear_base_link:
-          Value: true
-        linear_link:
-          Value: true
-        map:
-          Value: true
-        odom:
-          Value: true
-        tilt_base_link:
-          Value: true
-        wheel_center_link:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 0.5
       Name: TF
@@ -100,27 +68,7 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        map:
-          odom:
-            base_link:
-              wheel_center_link:
-                laser:
-                  {}
-                linear_base_link:
-                  linear_link:
-                    gripper_link:
-                      {}
-                tilt_base_link:
-                  camera_rotate_link:
-                    camera_link:
-                      camera_aligned_depth_to_color_frame:
-                        camera_color_optical_frame:
-                          {}
-                      camera_color_frame:
-                        {}
-                      camera_depth_frame:
-                        camera_depth_optical_frame:
-                          {}
+        {}
       Update Interval: 0
       Value: true
     - Alpha: 0.699999988079071
@@ -317,16 +265,7 @@ Visualization Manager:
       Marker Topic: /dodobot/markers
       Name: Object Markers
       Namespaces:
-        sphere_blue_cut_sphere: true
-        sphere_cosmo_cube: true
-        sphere_red_cube: true
-        sphere_red_cut_sphere: true
-        sphere_red_low_bin: true
-        text_sphere_blue_cut_sphere: true
-        text_sphere_cosmo_cube: true
-        text_sphere_red_cube: true
-        text_sphere_red_cut_sphere: true
-        text_sphere_red_low_bin: true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -582,17 +521,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.474254846572876
-        Y: 0.13928286731243134
-        Z: -0.7219305634498596
+        X: 0.8923624753952026
+        Y: 0.37615078687667847
+        Z: -0.9537887573242188
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0047966241836548
+      Pitch: 0.4797966778278351
       Target Frame: <Fixed Frame>
-      Yaw: 4.333576679229736
+      Yaw: 3.9885740280151367
     Saved: ~
 Window Geometry:
   Displays:

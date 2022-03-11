@@ -8,7 +8,7 @@ LOGPREFIX=${2:-log}
 
 STOP_TIME=$((SECONDS+TIMEOUT))
 PREV_TIME=$((SECONDS))
-INTERFACE_NAME=wlan0
+INTERFACE_NAME=${3:-wlan0}
 
 while true; do
     HOST_MACHINE=`ifconfig $INTERFACE_NAME | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`

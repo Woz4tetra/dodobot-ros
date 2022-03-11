@@ -458,8 +458,23 @@ This is optional. Use this for training off the robot. Run all these commands on
 - `sudo jstest /dev/input/js0`
 
 
-## Hotspot setup
+## Hotspot
 Requires a secondary wifi adapter (USB is ok)
+
+### TP-Link AC1300 Archer T3U setup
+
+[Based on this post](https://www.forecr.io/blogs/connectivity/tp-link-ac600-ac1300-archer-t2u-t3u-driver-installation-for-jetson-modules)
+
+- Check if the device is connected: `lsusb`
+  - An entry should appear and disappear when you plug and unplug it
+- `sudo apt install git dkms`
+- `cd ~/build_ws`
+- `https://github.com/morrownr/88x2bu-20210702.git`
+- `cd 88x2bu-20210702`
+- `./ARM64_RPI.sh`
+- `sudo ./install-driver.sh`
+
+### Hotspot setup
 
 - `sudo apt-get update`
 - `sudo apt-get install hostapd dnsmasq   --assume-yes`
@@ -476,10 +491,14 @@ Copy the following files:
 - `cp sysctl.conf /etc/sysctl.conf`
 - `cp interfaces /etc/network/interfaces`
 - `cp rc.local /etc/rc.local`
+- `chmod +x /etc/rc.local`
 
 Set routing from hotspot to internet connection:
-- `sudo iptables -t nat -A  POSTROUTING -o wlan0 -j MASQUERADE`
-- `sudo sh -c "iptables-save > /etc/iptables.ipv4.nat"`
+- `sudo su`
+- `iptables -A FORWARD -i wlan1 -o wlan0 -j ACCEPT`
+- `iptables -A FORWARD -i wlan0 -o wlan1 -m state --state ESTABLISHED,RELATED -j ACCEPT`
+- `iptables -t nat -A  POSTROUTING -o wlan0 -j MASQUERADE`
+- `sh -c "iptables-save > /etc/iptables.ipv4.nat"`
 
 Stop network manager from controlling hotspot (copy file into place).
 <br>
@@ -504,6 +523,23 @@ wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
 - `sudo nano /etc/NetworkManager/NetworkManager.conf`
 - Replace the x’s in mac:xx:xx:xx:xx:xx:xx with the MAC address of your device
 
-Apply NetworkManager changes and start access point:
-- `cd ~/dodobot-ros/networking`
-- `./restart-wifi.sh wlan1`  assuming your interface name is wlan1
+Apply NetworkManager changes and start access point (do while connected to a display):
+- `sudo rfkill unblock wlan`
+- `sudo systemctl restart NetworkManager.service`
+- `sudo ifconfig wlan0 up`
+- `sudo ifconfig wlan1 up`
+- `sudo service dnsmasq restart`
+- `sudo service hostapd restart`
+- `sudo nmcli radio wifi on`
+
+Set persistent interface names:
+- Get MAC addresses for wlan0 and wlan1: `ifconfig`
+- `sudo nano /etc/udev/rules.d/70-persistent-net.rules`
+- Fill with wlan0 and wlan1:
+```
+# interface with MAC address "XX:XX:XX:XX:XX:XX" will be assigned "wlan0"
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="XX:XX:XX:XX:XX:XX", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="wlan*", NAME="wlan0"
+
+# interface with MAC address "XX:XX:XX:XX:XX:XX" will be assigned "wlan1"
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="XX:XX:XX:XX:XX:XX", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="wlan*", NAME="wlan1"
+```
