@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     sensor_msgs
     roslaunch
-    message_generation
     message_filters
     visualization_msgs
     vision_msgs
