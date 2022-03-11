@@ -5,7 +5,7 @@
 
 # Specifies whether or not to allow the planner to create plans that traverse unknown space.
 # Must be true if using voxel or obstacle layer
-allow_unknown: true
+allow_unknown: false
 
 # A tolerance on the goal point for the planner.
 default_tolerance: 0.1
