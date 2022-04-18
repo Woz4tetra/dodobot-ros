@@ -5,13 +5,13 @@
     <include file="$(find db_chassis)/launch/db_chassis.launch"/>
     <include file="$(find db_bumper)/launch/db_bumper.launch"/>
     <include file="$(find db_description)/launch/db_description.launch"/>
-    <include file="$(find db_camera)/launch/db_camera.launch"/>
-    <include file="$(find db_camera)/launch/camera_watcher.launch"/>
+    <!-- <include file="$(find db_camera)/launch/db_camera.launch"/> -->
+    <!-- <include file="$(find db_camera)/launch/camera_watcher.launch"/> -->
     <!-- <include file="$(find db_move_base)/launch/db_move_base.launch"/> -->
+    <!-- <include file="$(find db_yolo)/launch/db_yolo.launch"/> -->
     <include file="$(find db_rplidar)/launch/db_laser.launch"/>
     <include file="$(find db_audio)/launch/db_audio.launch"/>
 
-    <include file="$(find db_yolo)/launch/db_yolo.launch"/>
     <include file="$(find db_debug_joystick)/launch/db_debug_joystick.launch"/>
 
     <arg name="map_name" default="$(env ROS_MAP_NAME)"/>
