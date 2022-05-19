@@ -5,7 +5,7 @@
     <arg name="topic_name" default="joy_default" />
 
     <arg name="button_map_name"   default="button_mapping_1.yaml" />
-    <arg name="axis_map_name"   default="axis_mapping_2.yaml" />
+    <arg name="axis_map_name"   default="axis_mapping_3.yaml" />
 
     <node name="$(anon joystick)" pkg="joy" type="joy_node" output="screen" required="false">
         <param name="dev" value="$(arg device)" type="str"/>
