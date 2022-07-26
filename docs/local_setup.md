@@ -76,8 +76,8 @@ EOF
 # Connect to Dodobot via SSH
 
 - Obtain the ssh keys `chansey` and `chansey.pub` (ping repo authors)
-- `mv chansey ~./ssh/`
-- `mv chansey.pub ~./ssh/`
+- `mv chansey ~/.ssh/`
+- `mv chansey.pub ~/.ssh/`
 - Connect to the `dodobot` network. See [networking/hostapd.conf](../networking/hostapd.conf) for password
 - Log in: `ssh -i ~/.ssh/chansey ben@192.168.4.1`
   - I recommend mapping this command to an alias under `~/.bashrc`: `alias dodobot="ssh -i ~/.ssh/chansey ben@192.168.4.1"`
