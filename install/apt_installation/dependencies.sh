@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+if [ "$EUID" -ne 0 ]
+    then echo "Please run as root"
+    exit
+fi
+
 BASE_DIR=$(realpath "$(dirname $0)")
 
 packages=(
@@ -43,20 +48,21 @@ for p in "${packages[@]}"; do
     package_list+="ros-noetic-$p "
 done
 
-sudo apt-get install -y $package_list
+apt-get install -y $package_list
 
-# sudo apt install -y python3-pip portaudio19-dev python3-pyaudio
-# sudo pip3 install -r requirements.txt
+apt install -y python3-pip portaudio19-dev python3-pyaudio
+pip3 install -r requirements.txt
 
 
-# DEPENDENCIES_WS=$HOME/packages_ros_ws
-# DEPENDENCIES_WS_SRC=${DEPENDENCIES_WS}/src
+DEPENDENCIES_WS=$HOME/ros_ws
+DEPENDENCIES_WS_SRC=${DEPENDENCIES_WS}/src
 
-# mkdir -p ${DEPENDENCIES_WS_SRC}
-# cd ${DEPENDENCIES_WS_SRC}
-# len=${#repos[@]}
-# for (( i=0; i<$len; i++ )); do
-#     git clone --recursive ${repos[i]} --branch ${branches[i]}
-# done
+mkdir -p ${DEPENDENCIES_WS_SRC}
+cd ${DEPENDENCIES_WS_SRC}
 
-# cd ..
+len=${#repos[@]}
+for (( i=0; i<$len; i++ )); do
+    git clone --recursive ${repos[i]} --branch ${branches[i]}
+done
+
+cd -
