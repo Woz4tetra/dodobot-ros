@@ -50,7 +50,7 @@ done
 
 apt-get install -y $package_list
 
-apt install -y python3-pip portaudio19-dev python3-pyaudio
+apt install -y python3-pip portaudio19-dev python3-pyaudio net-tools
 pip3 install -r requirements.txt
 
 
