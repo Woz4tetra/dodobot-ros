@@ -1,26 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>>
+    <arg name="map_name" default="$(env ROS_MAP_NAME)"/>
     <include file="$(find db_parsing)/launch/db_parsing.launch"/>
     <include file="$(find db_power_box_parsing)/launch/db_power_box_parsing.launch"/>
     <include file="$(find db_chassis)/launch/db_chassis.launch"/>
-    <include file="$(find db_bumper)/launch/db_bumper.launch"/>
     <include file="$(find db_description)/launch/db_description.launch"/>
-    <!-- <include file="$(find db_camera)/launch/db_camera.launch"/> -->
-    <!-- <include file="$(find db_camera)/launch/camera_watcher.launch"/> -->
-    <!-- <include file="$(find db_move_base)/launch/db_move_base.launch"/> -->
-    <!-- <include file="$(find db_yolo)/launch/db_yolo.launch"/> -->
+    <include file="$(find db_camera)/launch/db_camera.launch"/>
+    <include file="$(find db_camera)/launch/camera_watcher.launch"/>
     <include file="$(find db_rplidar)/launch/db_laser.launch"/>
     <include file="$(find db_audio)/launch/db_audio.launch"/>
-
     <include file="$(find db_debug_joystick)/launch/db_debug_joystick.launch"/>
 
-    <arg name="map_name" default="$(env ROS_MAP_NAME)"/>
-    <include file="$(find db_laser_slam)/launch/db_laser_slam.launch">
-        <arg name="mode" value="localize"/>
-        <!-- <arg name="mode" value="idle"/> -->
-        <arg name="map_name" value="$(arg map_name)"/>
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+        <arg name="port" value="9090" />
     </include>
-    <!-- <include file="$(find db_waypoints)/launch/db_waypoints.launch">
-        <arg name="waypoints_path" value="$(find db_waypoints)/waypoints/$(arg map_name)"/>
-    </include> -->
 </launch>
