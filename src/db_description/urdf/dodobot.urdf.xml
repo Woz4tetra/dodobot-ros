@@ -7,38 +7,13 @@
         <color rgba="0 0.369 0.722 1"/>
     </material>
 
-    <gazebo reference="wheel_center_link">
-        <material>Gazebo/Blue</material>
-        <selfCollide>false</selfCollide>
-        <mu1>0.5</mu1>
-        <mu2>0.5</mu2>
-    </gazebo>
+    <link name="base_link"/>
 
-    <gazebo reference="camera_rotate_link">
-        <material>Gazebo/White</material>
-        <selfCollide>false</selfCollide>
-        <mu1>0.5</mu1>
-        <mu2>0.5</mu2>
-    </gazebo>
-
-    <gazebo reference="linear_link">
-        <material>Gazebo/White</material>
-        <selfCollide>false</selfCollide>
-        <mu1>0.5</mu1>
-        <mu2>0.5</mu2>
-    </gazebo>
-
-    <gazebo reference="tilt_base_link">
-        <selfCollide>false</selfCollide>
-        <mu1>0.5</mu1>
-        <mu2>0.5</mu2>
-    </gazebo>
-
-    <gazebo reference="linear_base_link">
-        <selfCollide>false</selfCollide>
-        <mu1>0.5</mu1>
-        <mu2>0.5</mu2>
-    </gazebo>
+    <joint name="base_link_to_wheel_center_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="wheel_center_link"/>
+        <origin xyz="0 0 0.0312" rpy="0 0 0"/>
+    </joint>
 
     <link name="wheel_center_link">
         <visual>
@@ -121,6 +96,15 @@
         </inertial>
     </link>
 
+    <link name="camera_link"/>
+
+    <joint name="camera_rotate_to_camera_link_joint" type="fixed">
+        <parent link="camera_rotate_link"/>
+        <child link="camera_link"/>
+        <origin xyz="0.029824 0.0175 0.0155"/>
+    </joint>
+
+
     <link name="linear_base_link">
         <inertial>
             <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -173,4 +157,20 @@
             </inertia>
         </inertial>
     </link>
+
+    <link name="gripper_link"/>
+
+    <joint name="gripper_link_to_linear_joint" type="fixed">
+        <parent link="linear_link"/>
+        <child link="gripper_link"/>
+        <origin xyz="0.144 0 0.0017"/>
+    </joint>
+
+    <link name="laser"/>
+
+    <joint name="wheel_center_to_laser_joint" type="fixed">
+        <parent link="wheel_center_link"/>
+        <child link="laser"/>
+        <origin xyz="0.005 -0.080 0.1697" rpy="0 0 1"/>
+    </joint>
 </robot>
