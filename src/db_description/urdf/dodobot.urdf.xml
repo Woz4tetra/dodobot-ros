@@ -171,6 +171,6 @@
     <joint name="wheel_center_to_laser_joint" type="fixed">
         <parent link="wheel_center_link"/>
         <child link="laser"/>
-        <origin xyz="0.005 -0.080 0.1697" rpy="0 0 1"/>
+        <origin xyz="0.005 -0.080 0.1697" rpy="0 0 3.141593"/>
     </joint>
 </robot>

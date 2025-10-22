@@ -11,10 +11,10 @@
     <arg name="image_throttle_rate" default="15"/>
 
     <!-- Throttle color and depth images -->
-    <!-- <node type="throttle" name="rgb_topic_throttle" pkg="topic_tools" required="true" output="log"
+    <node type="throttle" name="rgb_topic_throttle" pkg="topic_tools" required="true" output="log"
             args="messages /camera/color/image_raw/compressed $(arg image_throttle_rate) /camera/color/image_raw_throttled/compressed"/>
     <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="log"
-            args="messages /camera/depth/image_rect_raw/compressedDepth $(arg image_throttle_rate) /camera/depth/image_rect_raw_throttled/compressedDepth"/> -->
+            args="messages /camera/depth/image_rect_raw/compressedDepth $(arg image_throttle_rate) /camera/depth/image_rect_raw_throttled/compressedDepth"/>
     
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
         <!-- Basic camera configuration -->
