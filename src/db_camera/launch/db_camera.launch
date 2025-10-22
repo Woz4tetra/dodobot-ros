@@ -34,14 +34,22 @@
         <!-- Depth stream -->
         <arg name="depth_width"              value="$(arg color_width)"/>
         <arg name="depth_height"             value="$(arg color_height)"/>
-        <arg name="enable_depth"             value="$(arg enable_depth)"/>
+        <arg name="enable_depth"             value="false"/>
         <arg name="depth_fps"                value="$(arg color_fps)"/>
+
+        <!-- Infra stream -->
+        <arg name="enable_infra1" value="true"/>
+        <arg name="enable_infra2" value="true"/>
+        <arg name="infra1_width" value="$(arg color_width)"/>
+        <arg name="infra1_height" value="$(arg color_height)"/>
+        <arg name="infra1_fps" value="$(arg color_fps)"/>
+        <arg name="infra2_width" value="$(arg color_width)"/>
+        <arg name="infra2_height" value="$(arg color_height)"/>
+        <arg name="infra2_fps" value="$(arg color_fps)"/>
 
         <!-- DISABLE ALL UNNECESSARY STREAMS for faster startup -->
         <arg name="enable_fisheye" value="false"/>
         <arg name="enable_infra" value="false"/>
-        <arg name="enable_infra1" value="false"/>
-        <arg name="enable_infra2" value="false"/>
         <arg name="enable_gyro" value="false"/>
         <arg name="enable_accel" value="false"/>
         <arg name="enable_confidence" value="false"/>
