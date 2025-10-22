@@ -36,6 +36,7 @@
 #include "db_parsing/DodobotFunctions.h"
 #include "db_parsing/DodobotFunctionsListing.h"
 #include "db_parsing/DodobotNotify.h"
+#include "db_parsing/Ping.h"
 
 #include "db_parsing/DodobotPidSrv.h"
 #include "db_parsing/DodobotUploadFile.h"
@@ -209,6 +210,10 @@ private:
     ros::Publisher robot_functions_pub;
     db_parsing::DodobotFunctionsListing selected_fn_msg;
     void parseSelectedRobotFn();
+
+    ros::Subscriber ping_in_sub;
+    ros::Publisher ping_out_pub;
+    void pingCallback(const db_parsing::Ping::ConstPtr& msg);
 
     ros::Subscriber notification_sub;
     void notifyCallback(const db_parsing::DodobotNotify::ConstPtr& msg);

@@ -6,34 +6,6 @@
     <group ns="camera">
         <node pkg="nodelet" type="nodelet" args="manager" name="$(arg post_processing_manager_name)" output="screen"/>
 
-        <!-- <node pkg="nodelet" type="nodelet" name="register_depth"
-                args="load depth_image_proc/register $(arg post_processing_manager_name)" respawn="false">
-            <remap from="rgb/camera_info"             to="color/camera_info" />
-            <remap from="depth/camera_info"           to="depth/camera_info" />
-            <remap from="depth/image_rect"            to="depth/image_rect_raw" />
-            <remap from="depth_registered/image_rect" to="aligned_depth_to_color/image_raw" />
-        </node> -->
-
-        <node pkg="nodelet" type="nodelet" name="points_xyzrgb_sw_registered"
-                args="load depth_image_proc/point_cloud_xyz $(arg post_processing_manager_name)" respawn="false">
-            <remap from="image_rect" to="depth_filtered/image_raw" />
-            <remap from="camera_info" to="depth_filtered/camera_info" />
-            <remap from="points" to="depth_filtered/points" />
-        </node>
-
-        <node pkg="db_depth_converter" type="db_depth_converter" name="db_depth_converter" output="screen" respawn="false">
-            <param name="rescale" value="1.0" />
-            <param name="erosion_size" value="3" />
-            <param name="connected_components_size_threshold" value="500.0" />
-            <!-- <param name="rescale" value="0.5" /> -->
-            <!-- <param name="erosion_size" value="2" /> -->
-            <!-- <param name="connected_components_size_threshold" value="25.0" /> -->
-            <param name="throttle_frame_rate" value="10.0" />
-            <remap from="depth/image_raw" to="depth/image_rect_raw" />
-            <remap from="depth_filtered" to="depth_filtered/image_raw" />
-            <remap from="camera_info" to="depth_filtered/camera_info" />
-        </node>
-
         <node pkg="nodelet" type="nodelet" name="downsample_rgb"
                 args="load image_proc/crop_decimate $(arg post_processing_manager_name)">
             <param name="decimation_x" value="2"/>
@@ -56,8 +28,8 @@
         <arg name="enable_pointcloud"        value="false"/>
         <arg name="pointcloud_texture_stream" value="RS2_STREAM_COLOR"/>
         <arg name="pointcloud_texture_index"  value="0"/>
-        <arg name="enable_sync"              value="true"/>
-        <arg name="align_depth"              value="true"/>
+        <arg name="enable_sync"              value="false"/>
+        <arg name="align_depth"              value="false"/>
 
         <arg name="fisheye_width"            value="640"/>
         <arg name="fisheye_height"           value="480"/>
@@ -75,7 +47,7 @@
 
         <arg name="infra_width"              value="640"/>
         <arg name="infra_height"             value="480"/>
-        <arg name="enable_infra"            value="true"/>
+        <arg name="enable_infra"            value="false"/>
         <!-- <arg name="enable_infra1"            value="false"/> -->
         <!-- <arg name="enable_infra2"            value="false"/> -->
         <!-- <arg name="infra_fps"                value="30"/> -->

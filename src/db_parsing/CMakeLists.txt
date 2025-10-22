@@ -70,6 +70,7 @@ add_message_files(
     DodobotFunctions.msg
     DodobotFunctionsListing.msg
     DodobotNotify.msg
+    Ping.msg
 )
 
 ## Generate services in the 'srv' folder

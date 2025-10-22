@@ -102,12 +102,14 @@ DodobotParsing::DodobotParsing(ros::NodeHandle* nodehandle):nh(*nodehandle),imag
     fsr_pub = nh.advertise<db_parsing::DodobotFSRs>("fsrs", 50);
     state_pub = nh.advertise<db_parsing::DodobotState>("state", 50);
     robot_functions_pub = nh.advertise<db_parsing::DodobotFunctionsListing>("selected_fn", 10);
+    ping_out_pub = nh.advertise<db_parsing::Ping>("ping_out", 50);
 
     gripper_sub = nh.subscribe<db_parsing::DodobotGripper>("gripper_cmd", 50, &DodobotParsing::gripperCallback, this);
     tilter_sub = nh.subscribe<db_parsing::DodobotTilter>("tilter_cmd", 50, &DodobotParsing::tilterCallback, this);
     linear_sub = nh.subscribe<db_parsing::DodobotLinear>("linear_cmd", 50, &DodobotParsing::linearCallback, this);
     drive_sub = nh.subscribe<db_parsing::DodobotDrive>(drive_cmd_topic_name, 50, &DodobotParsing::driveCallback, this);
     image_sub = image_transport.subscribe(display_img_topic, 1, &DodobotParsing::imgCallback, this);
+    ping_in_sub = nh.subscribe<db_parsing::Ping>("ping_in", 50, &DodobotParsing::pingCallback, this);
 
     robot_functions_sub = nh.subscribe<db_parsing::DodobotFunctionsListing>("functions", 50, &DodobotParsing::robotFunctionsCallback, this);
     notification_sub = nh.subscribe<db_parsing::DodobotNotify>("notify", 50, &DodobotParsing::notifyCallback, this);
@@ -1141,6 +1143,11 @@ void DodobotParsing::imgCallback(const sensor_msgs::ImageConstPtr& msg)
         return;
     }
     writeImage(cv_ptr->image);
+}
+
+void DodobotParsing::pingCallback(const db_parsing::Ping::ConstPtr& msg)
+{
+    ping_out_pub.publish(msg);
 }
 
 void DodobotParsing::isChargingCallback(const std_msgs::BoolConstPtr& msg)

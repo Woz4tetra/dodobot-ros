@@ -20,7 +20,7 @@
             <param name="active_on_start" type="bool" value="false"/>
             <param name="reporting_on_start" type="bool" value="true"/>
 
-            <param name="display_img_topic" type="string" value="display_image"/>
+            <param name="display_img_topic" type="string" value="display_image_noop"/>
             <param name="jpeg_image_quality" type="int" value="100"/>
             <param name="image_resize_width" type="int" value="160"/>
             <param name="image_resize_height" type="int" value="128"/>
