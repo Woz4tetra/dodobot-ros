@@ -1,72 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <arg name="post_processing_manager_name" value="camera_post_processing_manager"/>
-    <arg name="camera_manager_name" value="realsense2_camera_manager"/>
+    <!-- Optimized for minimum time to publish color images -->
     
-    <group ns="camera">
-        <node pkg="nodelet" type="nodelet" args="manager" name="$(arg post_processing_manager_name)" output="screen"/>
+    <!-- Optional arguments for flexibility -->
+    <arg name="camera_name" default="camera"/>
+    <arg name="color_fps" default="60"/>
+    <arg name="color_width" default="640"/>
+    <arg name="color_height" default="480"/>
+    <arg name="enable_depth" default="true"/>
+    <arg name="image_throttle_rate" default="15"/>
 
-        <node pkg="nodelet" type="nodelet" name="downsample_rgb"
-                args="load image_proc/crop_decimate $(arg post_processing_manager_name)">
-            <param name="decimation_x" value="2"/>
-            <param name="decimation_y" value="2"/>
-            <remap from="camera" to="color"/>
-            <remap from="camera_out" to="color_decimate"/>
-        </node>
-    </group>
-
-
+    <!-- Throttle color and depth images -->
+    <!-- <node type="throttle" name="rgb_topic_throttle" pkg="topic_tools" required="true" output="log"
+            args="messages /camera/color/image_raw/compressed $(arg image_throttle_rate) /camera/color/image_raw_throttled/compressed"/>
+    <node type="throttle" name="depth_topic_throttle" pkg="topic_tools" required="true" output="log"
+            args="messages /camera/depth/image_rect_raw/compressedDepth $(arg image_throttle_rate) /camera/depth/image_rect_raw_throttled/compressedDepth"/> -->
+    
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
-        <arg name="tf_prefix"                value="camera"/>
-        <arg name="external_manager"         value="false"/>
-        <arg name="manager"                  value="$(arg camera_manager_name)"/>
-        <arg name="serial_no"                value=""/>
-        <arg name="usb_port_id"              value=""/>
-        <arg name="device_type"              value=""/>
-        <arg name="json_file_path"           value=""/>
+        <!-- Basic camera configuration -->
+        <arg name="tf_prefix" value="$(arg camera_name)"/>
+        <arg name="camera" value="$(arg camera_name)"/>
+        <arg name="serial_no" value=""/>
+        <arg name="usb_port_id" value=""/>
+        <arg name="device_type" value=""/>
+        <arg name="json_file_path" value=""/>
 
-        <arg name="enable_pointcloud"        value="false"/>
-        <arg name="pointcloud_texture_stream" value="RS2_STREAM_COLOR"/>
-        <arg name="pointcloud_texture_index"  value="0"/>
-        <arg name="enable_sync"              value="false"/>
-        <arg name="align_depth"              value="false"/>
+        <!-- Color stream -->
+        <arg name="enable_color" value="true"/>
+        <arg name="color_width" value="$(arg color_width)"/>
+        <arg name="color_height" value="$(arg color_height)"/>
+        <arg name="color_fps" value="$(arg color_fps)"/>
 
-        <arg name="fisheye_width"            value="640"/>
-        <arg name="fisheye_height"           value="480"/>
-        <arg name="enable_fisheye"           value="false"/>
-        <arg name="fisheye_fps"              value="30"/>
+        <!-- Depth stream -->
+        <arg name="depth_width"              value="$(arg color_width)"/>
+        <arg name="depth_height"             value="$(arg color_height)"/>
+        <arg name="enable_depth"             value="$(arg enable_depth)"/>
+        <arg name="depth_fps"                value="$(arg color_fps)"/>
 
-        <arg name="depth_width"              value="640"/>
-        <arg name="depth_height"             value="480"/>
-        <arg name="enable_depth"             value="true"/>
-        <arg name="depth_fps"                value="15"/>
+        <!-- DISABLE ALL UNNECESSARY STREAMS for faster startup -->
+        <arg name="enable_fisheye" value="false"/>
+        <arg name="enable_infra" value="false"/>
+        <arg name="enable_infra1" value="false"/>
+        <arg name="enable_infra2" value="false"/>
+        <arg name="enable_gyro" value="false"/>
+        <arg name="enable_accel" value="false"/>
+        <arg name="enable_confidence" value="false"/>
 
-        <arg name="color_width"              value="640"/>
-        <arg name="color_height"             value="480"/>
-        <arg name="color_fps"                value="15"/>
-
-        <arg name="infra_width"              value="640"/>
-        <arg name="infra_height"             value="480"/>
-        <arg name="enable_infra"            value="false"/>
-        <!-- <arg name="enable_infra1"            value="false"/> -->
-        <!-- <arg name="enable_infra2"            value="false"/> -->
-        <!-- <arg name="infra_fps"                value="30"/> -->
-
-        <arg name="publish_tf"               value="true"/>
-        <!-- <arg name="tf_publish_rate"          value="10"/> -->
-
-        <!-- <arg     if="$(eval compute_pointcloud and pointcloud_use_hw)" name="filters" value="pointcloud,decimation"/> -->
-        <!-- <arg unless="$(arg compute_pointcloud)" name="filters" value="decimation"/> -->
-        <!-- <arg name="filters" value="decimation"/> -->
+        <!-- DISABLE PROCESSING-INTENSIVE FEATURES -->
+        <arg name="enable_pointcloud" value="false"/>
+        <arg name="enable_sync" value="false"/>
+        <arg name="align_depth" value="false"/>
         <arg name="filters" value=""/>
 
-        <arg name="clip_distance"            value="-1"/>
-        <arg name="linear_accel_cov"         value="0.01"/>
-        <arg name="initial_reset"            value="false"/>
-        <arg name="unite_imu_method"         value=""/>
-        <arg name="topic_odom_in"            value="odom_in"/>
-        <arg name="calib_odom_file"          value=""/>
-        <arg name="publish_odom_tf"          value="false"/>
-        <arg name="allow_no_texture_points"  value="false"/>
+        <!-- MINIMAL TF PUBLISHING for reduced overhead -->
+        <arg name="publish_tf" value="true"/>
+        <arg name="tf_publish_rate" value="0"/>  <!-- Static transforms only -->
+        <arg name="publish_odom_tf" value="false"/>
+
+        <!-- OPTIMIZED CAMERA SETTINGS for fast response -->
+        <arg name="initial_reset" value="false"/>
+        <arg name="reconnect_timeout" value="2.0"/>  <!-- Faster reconnect -->
+        <arg name="wait_for_device_timeout" value="3.0"/>  <!-- Shorter wait -->
+        
+        <!-- DISABLE IMU and other sensor fusion -->
+        <arg name="unite_imu_method" value=""/>
+        <arg name="linear_accel_cov" value="0.01"/>
+        <arg name="topic_odom_in" value="odom_in"/>
+        <arg name="calib_odom_file" value=""/>
+        <arg name="allow_no_texture_points" value="false"/>
+        <arg name="clip_distance" value="-1"/>
     </include>
 </launch>
