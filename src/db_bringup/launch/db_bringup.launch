@@ -6,7 +6,6 @@
     <include file="$(find db_chassis)/launch/db_chassis.launch"/>
     <include file="$(find db_description)/launch/db_description.launch"/>
     <include file="$(find db_camera)/launch/db_camera.launch"/>
-    <include file="$(find db_camera)/launch/camera_watcher.launch"/>
     <include file="$(find db_rplidar)/launch/db_laser.launch"/>
     <include file="$(find db_audio)/launch/db_audio.launch"/>
     <include file="$(find db_debug_joystick)/launch/db_debug_joystick.launch"/>

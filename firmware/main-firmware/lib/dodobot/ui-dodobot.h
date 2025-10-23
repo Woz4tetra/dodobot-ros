@@ -2349,7 +2349,7 @@ namespace dodobot_ui
     }
 
     void dim_display() {
-        dodobot_display::set_display_brightness(0);
+        dodobot_display::set_display_brightness(128);
     }
 
     void wake_display() {
